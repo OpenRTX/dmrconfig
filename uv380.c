@@ -440,7 +440,7 @@ static unsigned decode_tones(const unsigned char *source, unsigned offset)
 static void decode_text(const unsigned char *source, unsigned offset, uint16_t *target, unsigned nbytes)
 {
     source += offset;
-    while (nbytes-- > 0) {
+    for (; nbytes>1; nbytes-=2) {
         *target = source[0] | (source[1] << 8);
         source += 2;
         target++;
