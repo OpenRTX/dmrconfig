@@ -1,8 +1,8 @@
 CC		= gcc -m32
 
 VERSION         = 1.0
-CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION)"'
-LDFLAGS		=
+CFLAGS		= -g -O0 -Wall -Werror -DVERSION='"$(VERSION)"'
+LDFLAGS		= -g
 
 OBJS		= main.o util.o radio.o uv380.o
 SRCS		= main.c util.c radio.c uv380.c

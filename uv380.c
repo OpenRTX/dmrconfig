@@ -251,45 +251,114 @@ static void setup_zone(int zone_index, int chan_index)
 
 //
 // Data structure for a channel.
+//                                       Sc Gr
+//          0  1  2  3  4  5  6--7  8  9 10 11 12 13 14 15
+// 040000  62 14 00 c0 24 c0 01 00 04 00 00 00 01 01 00 03  b...$...........
+//         16-------19 20-------23 24-25 26-27 28 29 30-31
+// 040010  00 25 11 43 00 25 11 43 ff ff ff ff 00 00 fc ff  .%.C.%.C........
+//         32---------------------------------------------
+// 040020  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 31 00  C.h.a.n.n.e.l.1.
+//         ---------------------------------------------63
+// 040030  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
 //
+// 040040  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
+// 040050  00 25 22 43 00 25 22 43 ff ff ff ff 00 00 ff ff  .%"C.%"C........
+// 040060  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 32 00  C.h.a.n.n.e.l.2.
+// 040070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+//
+// 040080  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
+// 040090  00 25 33 43 00 25 33 43 ff ff ff ff 00 00 ff ff  .%3C.%3C........
+// 0400a0  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 33 00  C.h.a.n.n.e.l.3.
+// 0400b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+//
+// 0400c0  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
+// 0400d0  00 25 44 43 00 25 44 43 ff ff ff ff 00 00 ff ff  .%DC.%DC........
+// 0400e0  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 34 00  C.h.a.n.n.e.l.4.
+// 0400f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+//
+// 040100  61 14 00 c0 24 c0 00 00 04 00 00 00 00 00 00 03  a...$...........
+// 040110  00 25 55 43 00 25 55 43 25 08 25 08 00 00 ff ff  .%UC.%UC%.%.....
+// 040120  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 35 00  C.h.a.n.n.e.l.5.
+// 040130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+//
+// 040140  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
+// 040150  00 25 11 14 00 25 11 14 ff ff ff ff 00 00 ff ff  .%...%..........
+// 040160  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 36 00  C.h.a.n.n.e.l.6.
+// 040170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+//
+// 040180  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
+// 040190  00 25 22 14 00 25 22 14 ff ff ff ff 00 00 ff ff  .%"..%".........
+// 0401a0  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 37 00  C.h.a.n.n.e.l.7.
+// 0401b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+//
+// 0401c0  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
+// 0401d0  00 25 33 14 00 25 33 14 ff ff ff ff 00 00 ff ff  .%3..%3.........
+// 0401e0  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 38 00  C.h.a.n.n.e.l.8.
+// 0401f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+//
+// 040200  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
+// 040210  00 25 44 14 00 25 44 14 ff ff ff ff 00 00 ff ff  .%D..%D.........
+// 040220  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 39 00  C.h.a.n.n.e.l.9.
+// 040230  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+//
+// 040240  61 14 00 c0 24 c0 00 00 04 00 00 00 00 00 00 03  a...$...........
+// 040250  00 25 55 14 00 25 55 14 25 08 25 08 00 00 ff ff  .%U..%U.%.%.....
+// 040260  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 31 00  C.h.a.n.n.e.l.1.
+// 040270  30 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  0...............
+//
+//                                       Sc Gr
+//          0  1  2  3  4  5  6--7  8  9 10 11 12 13 14 15
+// 040280  61 14 00 e0 24 c0 00 00 04 00 00 00 00 00 00 01  a...$...........
+// 040290  00 00 00 40 00 00 00 40 ff ff ff ff 00 00 ff ff  ...@...@........
+// 0402a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+// 0402b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+
 typedef struct {
-    uint8_t  lone_worker;           // 1 bit
-    uint8_t  squelch;               // 1 bit
-    uint8_t  autoscan;              // 1 bit
-    uint8_t  bandwidth;             // 1 bit
-    uint8_t  channel_mode;          // 2 bits
-    uint8_t  colorcode;             // 4 bits
-    uint8_t  repeater_slot;         // 2 bits
-    uint8_t  rx_only;               // 1 bit
-    uint8_t  allow_talkaround;      // 1 bit - disabled
-    uint8_t  data_call_conf;        // 1 bit
-    uint8_t  private_call_conf;     // 1 bit
-    uint8_t  privacy;               // 2 bits
-    uint8_t  privacy_no;            // 4 bits
-    uint8_t  display_pttid;         // 1 bit
-    uint8_t  compressed_udp_hdr;    // 1 bit
-    uint8_t  emergency_alarm_ack;   // 1 bit
-    uint8_t  rx_ref_frequency;      // 2 bits
-    uint8_t  admit_criteria;        // 2 bits
-    uint8_t  power;                 // 1 bit
-    uint8_t  vox;                   // 1 bit
-    uint8_t  qt_reverse;            // 1 bit
-    uint8_t  reverse_burst;         // 1 bit
-    uint8_t  tx_ref_frequency;      // 2 bits
-    uint16_t contact_name_index;    // 16 bits
-    uint8_t  tot;                   // 6 bits
-    uint8_t  tot_rekey_delay;       // 8 bits
-    uint8_t  emergency_system;      // 6 bits
-    uint8_t  scan_list_index;       // 8 bits
-    uint8_t  group_list_index;      // 8 bits
-    uint8_t  decode_18;             // 8 bits
-    uint32_t rx_frequency;          // 32 bits
-    uint32_t tx_frequency;          // 32 bits
-    uint16_t ctcss_dcs_decode;      // 16 bits
-    uint16_t ctcss_dcs_encode;      // 16 bits
-    uint8_t  tx_signaling_syst;     // 3 bits
-    uint8_t  rx_signaling_syst;     // 3 bits
-    uint16_t name [17];
+    uint8_t  lone_worker;           // [0] 1 bit
+    uint8_t  squelch;               //     1 bit
+    uint8_t  autoscan;              //     1 bit
+    uint8_t  bandwidth;             //     1 bit
+    uint8_t  channel_mode;          //     2 bits
+
+    uint8_t  colorcode;             // [1] 4 bits
+    uint8_t  repeater_slot;         //     2 bits
+    uint8_t  rx_only;               //     1 bit
+    uint8_t  allow_talkaround;      //     1 bit - disabled
+
+    uint8_t  data_call_conf;        // [2] 1 bit
+    uint8_t  private_call_conf;     //     1 bit
+    uint8_t  privacy;               //     2 bits
+    uint8_t  privacy_no;            //     4 bits
+
+    uint8_t  display_pttid;         // [3] 1 bit
+    uint8_t  compressed_udp_hdr;    //     1 bit
+    uint8_t  emergency_alarm_ack;   //     1 bit
+    uint8_t  rx_ref_frequency;      //     2 bits
+
+    uint8_t  admit_criteria;        // [4] 2 bits
+    uint8_t  power;                 //     1 bit
+    uint8_t  vox;                   //     1 bit
+    uint8_t  qt_reverse;            //     1 bit
+    uint8_t  reverse_burst;         //     1 bit
+    uint8_t  tx_ref_frequency;      //     2 bits
+                                    // [5]     unused
+    uint16_t contact_name_index;    // [6-7]   16 bits
+    uint8_t  tot;                   // [8]     6 bits
+    uint8_t  tot_rekey_delay;       // [9]     8 bits
+    uint8_t  emergency_system;      // [10]    6 bits
+    uint8_t  scan_list_index;       // [11]    8 bits
+    uint8_t  group_list_index;      // [12]    8 bits
+                                    // [13]    unused
+    uint8_t  decode_18;             // [14]    8 bits
+                                    // [15]    unused
+    uint32_t rx_frequency;          // [16-19] 32 bits
+    uint32_t tx_frequency;          // [20-23] 32 bits
+    uint16_t ctcss_dcs_decode;      // [24-25] 16 bits
+    uint16_t ctcss_dcs_encode;      // [26-27] 16 bits
+    uint8_t  rx_signaling_syst;     // [28]    3 bits
+    uint8_t  tx_signaling_syst;     // [29]    3 bits
+                                    // [30-31] unused
+    uint16_t name [17];             // [32-63]
 } channel_t;
 
 //
@@ -370,12 +439,13 @@ static unsigned decode_tones(const unsigned char *source, unsigned offset)
 //
 static void decode_text(const unsigned char *source, unsigned offset, uint16_t *target, unsigned nbytes)
 {
-    unsigned i;
-
-    for (i=0; i<nbytes; i++) {
-        target[i] = source[offset] | (source[offset+1] << 8);
-        offset += 2;
+    source += offset;
+    while (nbytes-- > 0) {
+        *target = source[0] | (source[1] << 8);
+        source += 2;
+        target++;
     }
+    *target = 0;
 }
 
 //
@@ -387,9 +457,9 @@ static char *utf8(const uint16_t *text, unsigned nchars)
     static char buf[256];
     unsigned i;
 
-    for (i=0; i<nchars; i++) {
+    for (i=0; i<nchars && *text; i++) {
         //TODO: convert to utf8
-        buf[i] = text[i];
+        buf[i] = *text++;
     }
     buf[i] = 0;
     return buf;
@@ -437,9 +507,9 @@ static void decode_channel(int i, channel_t *ch)
     ch->tx_frequency        = decode_bcd(buf,    160/8, 32/8);
     ch->ctcss_dcs_decode    = decode_tones(buf,  192/8);
     ch->ctcss_dcs_encode    = decode_tones(buf,  208/8);
-    ch->tx_signaling_syst   = decode_bits(buf,   237,   3);
     ch->rx_signaling_syst   = decode_bits(buf,   229,   3);
-    decode_text(buf, 256, ch->name, 256);
+    ch->tx_signaling_syst   = decode_bits(buf,   237,   3);
+    decode_text(buf, 256/8, ch->name, 256/8);
 }
 
 //
@@ -543,20 +613,25 @@ static void uv380_print_config(FILE *out, int verbose)
         fprintf(out, "# 9) Scan mode: +, -, Only\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Channel Name    Receive  Transmit Power Width  Scan\n");
+    fprintf(out, "Channel Name             Receive  Transmit Power Width  Scan\n");
     for (i=0; i<NCHAN; i++) {
         channel_t ch;
 
         decode_channel(i, &ch);
-        if (ch.rx_frequency == 0) {
+        if (ch.name[0] == 0) {
             // Channel is disabled
             continue;
         }
 
-        fprintf(out, "%5d   %-7s %8.4f ", i+1, utf8(ch.name, 16), ch.rx_frequency / 100000.0);
+        fprintf(out, "%5d   %-16s ", i+1, utf8(&ch.name[0], 16));
+        if (ch.rx_frequency % 100 != 0)
+            fprintf(out, "%8.4f ", ch.rx_frequency / 100000.0);
+        else
+            fprintf(out, "%7.3f  ", ch.rx_frequency / 100000.0);
+
         print_offset(out, ch.rx_frequency, ch.tx_frequency);
 
-        fprintf(out, " %-4s  %-6s %d\n", POWER_NAME[ch.power],
+        fprintf(out, " %-4s  %-6s %x\n", POWER_NAME[ch.power],
             ch.bandwidth ? "Wide" : "Normal", ch.scan_list_index);
 #if 0
     ch.lone_worker         1
