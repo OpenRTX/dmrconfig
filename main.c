@@ -62,7 +62,6 @@ void usage()
 int main(int argc, char **argv)
 {
     int write_flag = 0, config_flag = 0;
-    const char *type = 0;
 
     // Set locale and message catalogs.
     setlocale(LC_ALL, "");
@@ -78,11 +77,10 @@ int main(int argc, char **argv)
     copyright = _("Copyright (C) 2018 Serge Vakulenko KK6ABQ");
     serial_verbose = 0;
     for (;;) {
-        switch (getopt(argc, argv, "vcwt:")) {
+        switch (getopt(argc, argv, "vcw")) {
         case 'v': ++serial_verbose; continue;
         case 'w': ++write_flag;     continue;
         case 'c': ++config_flag;    continue;
-        case 't': type = optarg;    continue;
         default:
             usage();
         case EOF:
@@ -101,10 +99,10 @@ int main(int argc, char **argv)
 
     if (write_flag) {
         // Restore image file to device.
-        if (argc != 2 || !type)
+        if (argc != 2)
             usage();
 
-        radio_connect(argv[0], type);
+        radio_connect();
         radio_read_image(argv[1]);
         radio_print_version(stdout);
         radio_upload(0);
@@ -122,11 +120,8 @@ int main(int argc, char **argv)
             radio_save_image("device.img");
 
         } else {
-            if (!type)
-                usage();
-
             // Update device from text config file.
-            radio_connect(argv[0], type);
+            radio_connect();
             radio_download();
             radio_print_version(stdout);
             radio_save_image("backup.img");
@@ -147,11 +142,8 @@ int main(int argc, char **argv)
             radio_print_config(stdout, ! isatty(1));
 
         } else {
-            if (!type)
-                usage();
-
             // Dump device to image file.
-            radio_connect(argv[0], type);
+            radio_connect();
             radio_download();
             radio_print_version(stdout);
             radio_disconnect();

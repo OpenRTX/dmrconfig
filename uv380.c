@@ -35,84 +35,12 @@
 
 #define NCHAN           1000
 #define NZONES          10
-#define NPMS            50
-#define MEMSZ           0x6fc8
 
-#define OFFSET_VFO      0x0048
-#define OFFSET_HOME     0x01c8
-#define OFFSET_CHANNELS 0x0248
-#define OFFSET_PMS      0x40c8
-#define OFFSET_NAMES    0x4708
-#define OFFSET_ZONES    0x69c8
-#define OFFSET_SCAN     0x6ec8
+#define MEMSZ           0xd0000
+#define OFFSET_CHANNELS 0x40000
+#define OFFSET_ZONES    0x149e0
 
-static const char CHARSET[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ !`o$%&'()*+,-./|;/=>?@[~]^__";
-#define NCHARS  65
-#define SPACE   36
-#define OPENBOX 64
-
-static const char *POWER_NAME[] = { "High", "Med", "Low", "??" };
-
-static const char *SCAN_NAME[] = { "+", "-", "Only", "??" };
-
-enum {
-    STEP_5 = 0,
-    STEP_10,
-    STEP_12_5,
-    STEP_15,
-    STEP_20,
-    STEP_25,
-    STEP_50,
-    STEP_100,
-};
-
-//
-// Data structure for a memory channel.
-//
-typedef struct {
-    uint8_t     duplex    : 4,  // Repeater mode
-#define D_SIMPLEX       0
-#define D_NEG_OFFSET    2
-#define D_POS_OFFSET    3
-#define D_CROSS_BAND    4
-                isam      : 1,  // Amplitude modulation
-                isnarrow  : 1,  // Narrow FM modulation
-                _u1       : 1,
-                used      : 1;  // Channel is used
-    uint8_t     rxfreq [3];     // Receive frequency
-    uint8_t     tmode     : 3,  // CTCSS/DCS mode
-#define T_OFF           0
-#define T_TONE          1
-#define T_TSQL          2
-#define T_TSQL_REV      3
-#define T_DTCS          4
-#define T_D             5
-#define T_T_DCS         6
-#define T_D_TSQL        7
-                step      : 3,  // Frequency step
-                _u2       : 2;
-    uint8_t     txfreq [3];     // Transmit frequency when cross-band
-    uint8_t     tone      : 6,  // CTCSS tone select
-#define TONE_DEFAULT    12
-
-                power     : 2;  // Transmit power level
-    uint8_t     dtcs      : 7,  // DCS code select
-                _u3       : 1;
-    uint8_t     _u4 [2];
-    uint8_t     offset;         // TX offset, in 50kHz steps
-    uint8_t     _u5 [3];
-} memory_channel_t;
-
-//
-// Data structure for a channel name.
-//
-typedef struct {
-    uint8_t     name[6];
-    uint8_t     _u1       : 7,
-                used      : 1;
-    uint8_t     _u2       : 7,
-                valid     : 1;
-} memory_name_t;
+static const char *POWER_NAME[] = { "Low", "High" };
 
 //
 // Print a generic information about the device.
@@ -257,37 +185,7 @@ static int uv380_is_compatible()
     return strncmp("AH017$", (char*)&radio_mem[0], 6) == 0;
 }
 
-//
-// Convert a 3-byte frequency value from binary coded decimal
-// to integer format (in Hertz).
-//
-static int freq_to_hz(uint8_t *bcd)
-{
-    int hz;
-
-    hz = (bcd[0]       & 15) * 100000000 +
-        ((bcd[1] >> 4) & 15) * 10000000 +
-         (bcd[1]       & 15) * 1000000 +
-        ((bcd[2] >> 4) & 15) * 100000 +
-         (bcd[2]       & 15) * 10000;
-    hz += (bcd[0] >> 6) * 2500;
-    return hz;
-}
-
-//
-// Convert an integet frequency value (in Hertz)
-// to a 3-byte binary coded decimal format.
-//
-static void hz_to_freq(int hz, uint8_t *bcd)
-{
-    bcd[0] = (hz / 2500      % 4)  << 6 |
-             (hz / 100000000 % 10);
-    bcd[1] = (hz / 10000000  % 10) << 4 |
-             (hz / 1000000   % 10);
-    bcd[2] = (hz / 100000    % 10) << 4 |
-             (hz / 10000     % 10);
-}
-
+#if 0
 //
 // Is this zone non-empty?
 //
@@ -338,6 +236,7 @@ static void print_zone(FILE *out, int i)
         fprintf(out, "-%d", last);
     fprintf(out, "\n");
 }
+#endif
 
 //
 // Set the bitmask of zones for a given channel.
@@ -351,123 +250,196 @@ static void setup_zone(int zone_index, int chan_index)
 }
 
 //
-// Extract channel name.
+// Data structure for a channel.
 //
-static void decode_name(int i, char *name)
+typedef struct {
+    uint8_t  lone_worker;           // 1 bit
+    uint8_t  squelch;               // 1 bit
+    uint8_t  autoscan;              // 1 bit
+    uint8_t  bandwidth;             // 1 bit
+    uint8_t  channel_mode;          // 2 bits
+    uint8_t  colorcode;             // 4 bits
+    uint8_t  repeater_slot;         // 2 bits
+    uint8_t  rx_only;               // 1 bit
+    uint8_t  allow_talkaround;      // 1 bit - disabled
+    uint8_t  data_call_conf;        // 1 bit
+    uint8_t  private_call_conf;     // 1 bit
+    uint8_t  privacy;               // 2 bits
+    uint8_t  privacy_no;            // 4 bits
+    uint8_t  display_pttid;         // 1 bit
+    uint8_t  compressed_udp_hdr;    // 1 bit
+    uint8_t  emergency_alarm_ack;   // 1 bit
+    uint8_t  rx_ref_frequency;      // 2 bits
+    uint8_t  admit_criteria;        // 2 bits
+    uint8_t  power;                 // 1 bit
+    uint8_t  vox;                   // 1 bit
+    uint8_t  qt_reverse;            // 1 bit
+    uint8_t  reverse_burst;         // 1 bit
+    uint8_t  tx_ref_frequency;      // 2 bits
+    uint16_t contact_name_index;    // 16 bits
+    uint8_t  tot;                   // 6 bits
+    uint8_t  tot_rekey_delay;       // 8 bits
+    uint8_t  emergency_system;      // 6 bits
+    uint8_t  scan_list_index;       // 8 bits
+    uint8_t  group_list_index;      // 8 bits
+    uint8_t  decode_18;             // 8 bits
+    uint32_t rx_frequency;          // 32 bits
+    uint32_t tx_frequency;          // 32 bits
+    uint16_t ctcss_dcs_decode;      // 16 bits
+    uint16_t ctcss_dcs_encode;      // 16 bits
+    uint8_t  tx_signaling_syst;     // 3 bits
+    uint8_t  rx_signaling_syst;     // 3 bits
+    uint16_t name [17];
+} channel_t;
+
+//
+// Read nbits from source buffer with given bit offset.
+//
+static unsigned decode_bits(const unsigned char *source, unsigned offset, unsigned nbits)
 {
-    memory_name_t *nm = i + (memory_name_t*) &radio_mem[OFFSET_NAMES];
+    unsigned i, result = 0;
 
-    if (nm->valid && nm->used) {
-        int n, c;
-        for (n=0; n<6; n++) {
-            c = nm->name[n];
-            name[n] = (c < NCHARS) ? CHARSET[c] : ' ';
+    for (i=0; i<nbits; i++) {
+        unsigned mask = 1 << (7 - (offset & 7));
 
-            // Replace spaces by underscore.
-            if (name[n] == ' ')
-                name[n] = '_';
-        }
-        // Strip trailing spaces.
-        for (n=5; n>=0 && name[n]=='_'; n--)
-            name[n] = 0;
-        name[6] = 0;
+        if (source[offset >> 3] & mask)
+            result |= 1 << (nbits - i - 1);
+        offset++;
+    }
+    return result;
+}
+
+//
+// Read nbytes from source buffer with given byte offset.
+//
+static unsigned decode_bytes(const unsigned char *source, unsigned offset, unsigned nbytes)
+{
+    unsigned i, result = 0;
+
+    for (i=nbytes; i>0; i--) {
+        result <<= 8;
+        result |= source[i + offset - 1];
+    }
+    return result;
+}
+
+//
+// Read BCD value of nbytes from source buffer with given byte offset.
+//
+static unsigned decode_bcd(const unsigned char *source, unsigned offset, unsigned nbytes)
+{
+    unsigned i, result = 0;
+
+    for (i=nbytes; i>0; i--) {
+        int b = source[i + offset - 1];
+        int a = b >> 4;
+        b &= 0xf;
+
+        if (a > 9 || b > 9)
+            return 0;
+
+        result *= 100;
+        result += a*10 + b;
+    }
+    return result;
+}
+
+//
+// Decode CTCSS/DCS tones from source buffer with given byte offset.
+//
+static unsigned decode_tones(const unsigned char *source, unsigned offset)
+{
+    unsigned char ch[2];
+    unsigned hi, lo;
+
+    ch[0] = source[offset];
+    ch[1] = source[offset + 1];
+
+    hi = (ch[1] & 0xc0) << 10;
+    ch[1] &= ~0xc0;
+
+    lo = decode_bcd(ch, 0, 16/8);
+    if (lo == 0)
+        return 0;
+
+    return hi | lo;
+}
+
+//
+// Read unicode text.
+//
+static void decode_text(const unsigned char *source, unsigned offset, uint16_t *target, unsigned nbytes)
+{
+    unsigned i;
+
+    for (i=0; i<nbytes; i++) {
+        target[i] = source[offset] | (source[offset+1] << 8);
+        offset += 2;
     }
 }
 
 //
-// Encode a character from ASCII to internal index.
-// Replace underscores by spaces.
-// Make all letters uppercase.
+// Encode utf16 text to utf8.
+// Return a pointer to a static buffer.
 //
-static int encode_char(int c)
+static char *utf8(const uint16_t *text, unsigned nchars)
 {
-    int i;
+    static char buf[256];
+    unsigned i;
 
-    // Replace underscore by space.
-    if (c == '_')
-        c = ' ';
-    if (c >= 'a' && c <= 'z')
-        c += 'A' - 'a';
-    for (i=0; i<NCHARS; i++)
-        if (c == CHARSET[i])
-            return i;
-    return OPENBOX;
-}
-
-//
-// Set a name for the channel.
-//
-static void encode_name(int i, char *name)
-{
-    memory_name_t *nm = i + (memory_name_t*) &radio_mem[OFFSET_NAMES];
-    int n;
-
-    if (name && *name && *name != '-') {
-        // Setup channel name.
-        nm->valid = 1;
-        nm->used = 1;
-        for (n=0; n<6 && name[n]; n++) {
-            nm->name[n] = encode_char(name[n]);
-        }
-        for (; n<6; n++)
-            nm->name[n] = SPACE;
-    } else {
-        // Clear name.
-        nm->valid = 0;
-        nm->used = 0;
-        for (n=0; n<6; n++)
-            nm->name[n] = 0xff;
+    for (i=0; i<nchars; i++) {
+        //TODO: convert to utf8
+        buf[i] = text[i];
     }
+    buf[i] = 0;
+    return buf;
 }
 
 //
 // Get all parameters for a given channel.
-// Seek selects the type of channel:
-//  OFFSET_VFO      - VFO channel, 0..4
-//  OFFSET_HOME     - home channel, 0..4
-//  OFFSET_CHANNELS - memory channel, 0..999
-//  OFFSET_PMS      - programmable memory scan, i=0..99
 //
-static void decode_channel(int i, int seek, char *name,
-    int *rx_hz, int *tx_hz, int *power, int *wide,
-    int *scan, int *isam, int *step)
+static void decode_channel(int i, channel_t *ch)
 {
-    memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[seek];
-    int scan_data = radio_mem[OFFSET_SCAN + i/4];
+    unsigned char *buf = &radio_mem[OFFSET_CHANNELS + i*64];
 
-    *rx_hz = *tx_hz = 0;
-    *power = *wide = *scan = *isam = *step = 0;
-    if (name)
-        *name = 0;
-    if (! ch->used && (seek == OFFSET_CHANNELS || seek == OFFSET_PMS))
-        return;
-
-    // Extract channel name.
-    if (name && seek == OFFSET_CHANNELS)
-        decode_name(i, name);
-
-    // Decode channel frequencies.
-    *rx_hz = freq_to_hz(ch->rxfreq);
-
-    *tx_hz = *rx_hz;
-    switch (ch->duplex) {
-    case D_NEG_OFFSET:
-        *tx_hz -= ch->offset * 50000;
-        break;
-    case D_POS_OFFSET:
-        *tx_hz += ch->offset * 50000;
-        break;
-    case D_CROSS_BAND:
-        *tx_hz = freq_to_hz(ch->txfreq);
-        break;
-    }
-
-    // Other parameters.
-    *power = ch->power;
-    *wide = ! ch->isnarrow;
-    *scan = (scan_data << ((i & 3) * 2) >> 6) & 3;
-    *isam = ch->isam;
-    *step = ch->step;
+    memset(ch, 0, sizeof(*ch));
+    ch->lone_worker         = decode_bits(buf,   0,     1);
+    ch->squelch             = decode_bits(buf,   2,     1);
+    ch->autoscan            = decode_bits(buf,   3,     1);
+    ch->bandwidth           = decode_bits(buf,   4,     1);
+    ch->channel_mode        = decode_bits(buf,   6,     2);
+    ch->colorcode           = decode_bits(buf,   8,     4);
+    ch->repeater_slot       = decode_bits(buf,   12,    2);
+    ch->rx_only             = decode_bits(buf,   14,    1);
+    ch->allow_talkaround    = decode_bits(buf,   15,    1);
+    ch->data_call_conf      = decode_bits(buf,   16,    1);
+    ch->private_call_conf   = decode_bits(buf,   17,    1);
+    ch->privacy             = decode_bits(buf,   18,    2);
+    ch->privacy_no          = decode_bits(buf,   20,    4);
+    ch->display_pttid       = decode_bits(buf,   24,    1);
+    ch->compressed_udp_hdr  = decode_bits(buf,   25,    1);
+    ch->emergency_alarm_ack = decode_bits(buf,   28,    1);
+    ch->rx_ref_frequency    = decode_bits(buf,   30,    2);
+    ch->admit_criteria      = decode_bits(buf,   32,    2);
+    ch->power               = decode_bits(buf,   34,    1);
+    ch->vox                 = decode_bits(buf,   35,    1);
+    ch->qt_reverse          = decode_bits(buf,   36,    1);
+    ch->reverse_burst       = decode_bits(buf,   37,    1);
+    ch->tx_ref_frequency    = decode_bits(buf,   38,    2);
+    ch->contact_name_index  = decode_bytes(buf,  48/8,  16/8);
+    ch->tot                 = decode_bits(buf,   66,    6);
+    ch->tot_rekey_delay     = decode_bits(buf,   72,    8);
+    ch->emergency_system    = decode_bits(buf,   82,    6);
+    ch->scan_list_index     = decode_bits(buf,   88,    8);
+    ch->group_list_index    = decode_bits(buf,   96,    8);
+    ch->decode_18           = decode_bits(buf,   112,   8);
+    ch->rx_frequency        = decode_bcd(buf,    128/8, 32/8);
+    ch->tx_frequency        = decode_bcd(buf,    160/8, 32/8);
+    ch->ctcss_dcs_decode    = decode_tones(buf,  192/8);
+    ch->ctcss_dcs_encode    = decode_tones(buf,  208/8);
+    ch->tx_signaling_syst   = decode_bits(buf,   237,   3);
+    ch->rx_signaling_syst   = decode_bits(buf,   229,   3);
+    decode_text(buf, 256, ch->name, 256);
 }
 
 //
@@ -476,6 +448,7 @@ static void decode_channel(int i, int seek, char *name,
 static void setup_channel(int i, char *name, double rx_mhz, double tx_mhz,
     int tmode, int power, int wide, int scan, int isam)
 {
+#if 0
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[OFFSET_CHANNELS];
 
     hz_to_freq((int) (rx_mhz * 1000000.0), ch->rxfreq);
@@ -515,6 +488,7 @@ static void setup_channel(int i, char *name, double rx_mhz, double tx_mhz,
     *scan_data |= scan << scan_shift;
 
     encode_name(i, name);
+#endif
 }
 
 //
@@ -569,24 +543,56 @@ static void uv380_print_config(FILE *out, int verbose)
         fprintf(out, "# 9) Scan mode: +, -, Only\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Channel Name    Receive  Transmit Power Modulation Scan\n");
+    fprintf(out, "Channel Name    Receive  Transmit Power Width  Scan\n");
     for (i=0; i<NCHAN; i++) {
-        int rx_hz, tx_hz, power, wide, scan, isam, step;
-        char name[17];
+        channel_t ch;
 
-        decode_channel(i, OFFSET_CHANNELS, name, &rx_hz, &tx_hz, &power, &wide, &scan, &isam, &step);
-        if (rx_hz == 0) {
+        decode_channel(i, &ch);
+        if (ch.rx_frequency == 0) {
             // Channel is disabled
             continue;
         }
 
-        fprintf(out, "%5d   %-7s %8.4f ", i+1, name[0] ? name : "-", rx_hz / 1000000.0);
-        print_offset(out, rx_hz, tx_hz);
+        fprintf(out, "%5d   %-7s %8.4f ", i+1, utf8(ch.name, 16), ch.rx_frequency / 100000.0);
+        print_offset(out, ch.rx_frequency, ch.tx_frequency);
 
-        fprintf(out, "   %-4s  %-10s %s\n", POWER_NAME[power],
-            isam ? "AM" : wide ? "Wide" : "Narrow", SCAN_NAME[scan]);
+        fprintf(out, " %-4s  %-6s %d\n", POWER_NAME[ch.power],
+            ch.bandwidth ? "Wide" : "Normal", ch.scan_list_index);
+#if 0
+    ch.lone_worker         1
+    ch.squelch             1
+    ch.autoscan            1
+    ch.channel_mode        2
+    ch.colorcode           4
+    ch.repeater_slot       2
+    ch.rx_only             1
+    ch.allow_talkaround    1
+    ch.data_call_conf      1
+    ch.private_call_conf   1
+    ch.privacy             2
+    ch.privacy_no          4
+    ch.display_pttid       1
+    ch.compressed_udp_hdr  1
+    ch.emergency_alarm_ack 1
+    ch.rx_ref_frequency    2
+    ch.admit_criteria      2
+    ch.vox                 1
+    ch.qt_reverse          1
+    ch.reverse_burst       1
+    ch.tx_ref_frequency    2
+    ch.contact_name_index  16/8
+    ch.tot                 6
+    ch.tot_rekey_delay     8
+    ch.emergency_system    6
+    ch.group_list_index    8
+    ch.decode_18           8
+    ch.ctcss_dcs_decode
+    ch.ctcss_dcs_encode
+    ch.tx_signaling_syst   3
+    ch.rx_signaling_syst   3
+#endif
     }
-
+#if 0
     //
     // Zones.
     //
@@ -602,6 +608,7 @@ static void uv380_print_config(FILE *out, int verbose)
         if (have_zone(i))
             print_zone(out, i);
     }
+#endif
 }
 
 //
@@ -731,7 +738,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         // On first entry, erase the channel table.
         int i;
         for (i=0; i<NCHAN; i++) {
-            setup_channel(i, 0, 0, 0, 0, TONE_DEFAULT, 1, 0, 0);
+            setup_channel(i, 0, 0, 0, 0, 12, 1, 0, 0);
         }
     }
 
