@@ -40,7 +40,8 @@
 #define OFFSET_CHANNELS 0x40000
 #define OFFSET_ZONES    0x149e0
 
-static const char *POWER_NAME[] = { "Low", "High" };
+static const char *POWER_NAME[] = { "Low", "???", "Middle", "High" };
+static const char *BANDWIDTH[] = { "12.5", "20", "25" };
 
 //
 // Print a generic information about the device.
@@ -251,171 +252,158 @@ static void setup_zone(int zone_index, int chan_index)
 
 //
 // Data structure for a channel.
-//                                       Sc Gr
-//          0  1  2  3  4  5  6--7  8  9 10 11 12 13 14 15
-// 040000  62 14 00 c0 24 c0 01 00 04 00 00 00 01 01 00 03  b...$...........
-//         16-------19 20-------23 24-25 26-27 28 29 30-31
-// 040010  00 25 11 43 00 25 11 43 ff ff ff ff 00 00 fc ff  .%.C.%.C........
-//         32---------------------------------------------
-// 040020  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 31 00  C.h.a.n.n.e.l.1.
-//         ---------------------------------------------63
-// 040030  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
 //
-// 040040  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
-// 040050  00 25 22 43 00 25 22 43 ff ff ff ff 00 00 ff ff  .%"C.%"C........
-// 040060  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 32 00  C.h.a.n.n.e.l.2.
-// 040070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-//
-// 040080  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
-// 040090  00 25 33 43 00 25 33 43 ff ff ff ff 00 00 ff ff  .%3C.%3C........
-// 0400a0  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 33 00  C.h.a.n.n.e.l.3.
-// 0400b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-//
-// 0400c0  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
-// 0400d0  00 25 44 43 00 25 44 43 ff ff ff ff 00 00 ff ff  .%DC.%DC........
-// 0400e0  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 34 00  C.h.a.n.n.e.l.4.
-// 0400f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-//
-// 040100  61 14 00 c0 24 c0 00 00 04 00 00 00 00 00 00 03  a...$...........
-// 040110  00 25 55 43 00 25 55 43 25 08 25 08 00 00 ff ff  .%UC.%UC%.%.....
-// 040120  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 35 00  C.h.a.n.n.e.l.5.
-// 040130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-//
-// 040140  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
-// 040150  00 25 11 14 00 25 11 14 ff ff ff ff 00 00 ff ff  .%...%..........
-// 040160  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 36 00  C.h.a.n.n.e.l.6.
-// 040170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-//
-// 040180  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
-// 040190  00 25 22 14 00 25 22 14 ff ff ff ff 00 00 ff ff  .%"..%".........
-// 0401a0  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 37 00  C.h.a.n.n.e.l.7.
-// 0401b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-//
-// 0401c0  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
-// 0401d0  00 25 33 14 00 25 33 14 ff ff ff ff 00 00 ff ff  .%3..%3.........
-// 0401e0  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 38 00  C.h.a.n.n.e.l.8.
-// 0401f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-//
-// 040200  62 14 00 e0 24 c0 01 00 04 00 00 00 01 00 00 03  b...$...........
-// 040210  00 25 44 14 00 25 44 14 ff ff ff ff 00 00 ff ff  .%D..%D.........
-// 040220  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 39 00  C.h.a.n.n.e.l.9.
-// 040230  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-//
-// 040240  61 14 00 c0 24 c0 00 00 04 00 00 00 00 00 00 03  a...$...........
-// 040250  00 25 55 14 00 25 55 14 25 08 25 08 00 00 ff ff  .%U..%U.%.%.....
-// 040260  43 00 68 00 61 00 6e 00 6e 00 65 00 6c 00 31 00  C.h.a.n.n.e.l.1.
-// 040270  30 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  0...............
-//
-//                                       Sc Gr
-//          0  1  2  3  4  5  6--7  8  9 10 11 12 13 14 15
-// 040280  61 14 00 e0 24 c0 00 00 04 00 00 00 00 00 00 01  a...$...........
-// 040290  00 00 00 40 00 00 00 40 ff ff ff ff 00 00 ff ff  ...@...@........
-// 0402a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-// 0402b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-
 typedef struct {
-    uint8_t  lone_worker;           // [0] 1 bit
-    uint8_t  squelch;               //     1 bit
-    uint8_t  autoscan;              //     1 bit
-    uint8_t  bandwidth;             //     1 bit
-    uint8_t  channel_mode;          //     2 bits
+    //
+    // Byte 0
+    //
+    uint8_t channel_mode        : 2,    // Mode: Analog or Digital
+#define MODE_ANALOG     1
+#define MODE_DIGITAL    2
 
-    uint8_t  colorcode;             // [1] 4 bits
-    uint8_t  repeater_slot;         //     2 bits
-    uint8_t  rx_only;               //     1 bit
-    uint8_t  allow_talkaround;      //     1 bit - disabled
+            bandwidth           : 2,    // Bandwidth: 12.5 or 20 or 25 kHz
+#define BW_12_5_KHZ     0
+#define BW_20_KHZ       1
+#define BW_25_KHZ       2
 
-    uint8_t  data_call_conf;        // [2] 1 bit
-    uint8_t  private_call_conf;     //     1 bit
-    uint8_t  privacy;               //     2 bits
-    uint8_t  privacy_no;            //     4 bits
+            autoscan            : 1,    // Autoscan Enable
+            _unused1            : 2,    // 0b11
+            lone_worker         : 1;    // Lone Worker
 
-    uint8_t  display_pttid;         // [3] 1 bit
-    uint8_t  compressed_udp_hdr;    //     1 bit
-    uint8_t  emergency_alarm_ack;   //     1 bit
-    uint8_t  rx_ref_frequency;      //     2 bits
+    //
+    // Byte 1
+    //
+    uint8_t _unused2            : 1,    // 0
+            rx_only             : 1,    // RX Only Enable
+            repeater_slot       : 2,    // Repeater Slot: 1 or 2
+            colorcode           : 4;    // Color Code: 1...15
 
-    uint8_t  admit_criteria;        // [4] 2 bits
-    uint8_t  power;                 //     1 bit
-    uint8_t  vox;                   //     1 bit
-    uint8_t  qt_reverse;            //     1 bit
-    uint8_t  reverse_burst;         //     1 bit
-    uint8_t  tx_ref_frequency;      //     2 bits
-                                    // [5]     unused
-    uint16_t contact_name_index;    // [6-7]   16 bits
-    uint8_t  tot;                   // [8]     6 bits
-    uint8_t  tot_rekey_delay;       // [9]     8 bits
-    uint8_t  emergency_system;      // [10]    6 bits
-    uint8_t  scan_list_index;       // [11]    8 bits
-    uint8_t  group_list_index;      // [12]    8 bits
-                                    // [13]    unused
-    uint8_t  decode_18;             // [14]    8 bits
-                                    // [15]    unused
-    uint32_t rx_frequency;          // [16-19] 32 bits
-    uint32_t tx_frequency;          // [20-23] 32 bits
-    uint16_t ctcss_dcs_decode;      // [24-25] 16 bits
-    uint16_t ctcss_dcs_encode;      // [26-27] 16 bits
-    uint8_t  rx_signaling_syst;     // [28]    3 bits
-    uint8_t  tx_signaling_syst;     // [29]    3 bits
-                                    // [30-31] unused
-    uint16_t name [17];             // [32-63]
+    //
+    // Byte 2
+    //
+    uint8_t privacy_no          : 4,    // Privacy No. (+1): 1...16
+            privacy             : 2,    // Privacy: None, Basic or Enhanced
+#define PRIV_NONE       0
+#define PRIV_BASIC      1
+#define PRIV_ENHANCED   2
+
+            private_call_conf   : 1,    // Private Call Confirmed
+            data_call_conf      : 1;    // Data Call Confirmed
+
+    //
+    // Byte 3
+    //
+    uint8_t rx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
+#define REF_LOW         0
+#define REF_MEDIUM      1
+#define REF_HIGH        2
+
+            _unused3            : 1,    // 0
+            emergency_alarm_ack : 1,    // Emergency Alarm Ack
+            _unused4            : 3,    // 0b110
+            display_pttid_dis   : 1;    // Display PTT ID (inverted)
+
+    //
+    // Byte 4
+    //
+    uint8_t tx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
+            _unused5            : 2,    // 0b01
+            vox                 : 1,    // VOX Enable
+            _unused6            : 1,    // 1
+            admit_criteria      : 2;    // Admit Criteria: Always, Channel Free or Correct CTS/DCS
+#define ADMIT_ALWAYS    0
+#define ADMIT_CH_FREE   1
+#define ADMIT_TONE      2
+
+    //
+    // Byte 5
+    //
+    uint8_t _unused7            : 4,    // 0
+            in_call_criteria    : 2,    // In Call Criteria: Always, Follow Admit Criteria or TX Interrupt
+#define INCALL_ALWAYS   0
+#define INCALL_ADMIT    1
+#define INCALL_TXINT    2
+
+            turn_off_freq       : 2;    // Non-QT/DQT Turn-off Freq.: None, 259.2Hz or 55.2Hz
+#define TURNOFF_NONE    3
+#define TURNOFF_259_2HZ 0
+#define TURNOFF_55_2HZ  1
+
+    //
+    // Bytes 6-7
+    //
+    uint16_t contact_name_index;        // Contact Name: Contact1...
+
+    //
+    // Bytes 8-9
+    //
+    uint8_t tot;                        // TOT x 15sec: 0-Infinite, 1=15s... 37=255s
+    uint8_t tot_rekey_delay;            // TOT Rekey Delay: 0s...255s
+
+    //
+    // Bytes 10-11
+    //
+    uint8_t emergency_system_index;     // Emergency System: None, System1...32
+    uint8_t scan_list_index;            // Scan List: None, ScanList1...250
+
+    //
+    // Bytes 12-13
+    //
+    uint8_t group_list_index;           // Group List: None, GroupList1...250
+    uint8_t _unused8;                   // 0
+
+    //
+    // Bytes 14-15
+    //
+    uint8_t _unused9;                   // 0
+    uint8_t squelch;                    // Squelch: 0...9
+
+    //
+    // Bytes 16-23
+    //
+    uint32_t rx_frequency;              // RX Frequency: 8 digits BCD
+    uint32_t tx_frequency;              // TX Frequency: 8 digits BCD
+
+    //
+    // Bytes 24-27
+    //
+    uint16_t ctcss_dcs_decode;          // CTCSS/DCS Dec: 4 digits BCD
+    uint16_t ctcss_dcs_encode;          // CTCSS/DCS Enc: 4 digits BCD
+
+    //
+    // Bytes 28-29
+    //
+    uint8_t rx_signaling_syst;          // Rx Signaling System: Off, DTMF-1...4
+    uint8_t tx_signaling_syst;          // Tx Signaling System: Off, DTMF-1...4
+
+    //
+    // Byte 30
+    //
+    uint8_t power               : 2,    // Power: Low, Middle, High
+#define POWER_HIGH      3
+#define POWER_LOW       0
+#define POWER_MIDDLE    2
+
+            _unused10           : 6;    // 0b111111
+
+    //
+    // Byte 31
+    //
+    uint8_t dcdm_switch_dis     : 1,    // DCDM switch (inverted)
+            _unused11           : 3,    // 0b111
+            leader_ms           : 1,    // Leader/MS: Leader or MS
+#define DCDM_LEADER     0
+#define DCDM_MS         1
+
+            _unused12           : 3;    // 0b111
+
+    //
+    // Bytes 32-63
+    //
+    uint16_t name[16];                  // Channel Name (Unicode)
 } channel_t;
 
-//
-// Read nbits from source buffer with given bit offset.
-//
-static unsigned decode_bits(const unsigned char *source, unsigned offset, unsigned nbits)
-{
-    unsigned i, result = 0;
-
-    for (i=0; i<nbits; i++) {
-        unsigned mask = 1 << (7 - (offset & 7));
-
-        if (source[offset >> 3] & mask)
-            result |= 1 << (nbits - i - 1);
-        offset++;
-    }
-    return result;
-}
-
-//
-// Read nbytes from source buffer with given byte offset.
-//
-static unsigned decode_bytes(const unsigned char *source, unsigned offset, unsigned nbytes)
-{
-    unsigned i, result = 0;
-
-    for (i=nbytes; i>0; i--) {
-        result <<= 8;
-        result |= source[i + offset - 1];
-    }
-    return result;
-}
-
-//
-// Read BCD value of nbytes from source buffer with given byte offset.
-//
-static unsigned decode_bcd(const unsigned char *source, unsigned offset, unsigned nbytes)
-{
-    unsigned i, result = 0;
-
-    for (i=nbytes; i>0; i--) {
-        int b = source[i + offset - 1];
-        int a = b >> 4;
-        b &= 0xf;
-
-        if (a > 9 || b > 9)
-            return 0;
-
-        result *= 100;
-        result += a*10 + b;
-    }
-    return result;
-}
-
-//
-// Decode CTCSS/DCS tones from source buffer with given byte offset.
-//
+#if 0
 static unsigned decode_tones(const unsigned char *source, unsigned offset)
 {
     unsigned char ch[2];
@@ -433,84 +421,39 @@ static unsigned decode_tones(const unsigned char *source, unsigned offset)
 
     return hi | lo;
 }
+#endif
 
 //
-// Read unicode text.
+// Print utf16 text as utf8.
 //
-static void decode_text(const unsigned char *source, unsigned offset, uint16_t *target, unsigned nbytes)
+static void print_unicode(FILE *out, const uint16_t *text, unsigned nchars)
 {
-    source += offset;
-    for (; nbytes>1; nbytes-=2) {
-        *target = source[0] | (source[1] << 8);
-        source += 2;
-        target++;
-    }
-    *target = 0;
-}
-
-//
-// Encode utf16 text to utf8.
-// Return a pointer to a static buffer.
-//
-static char *utf8(const uint16_t *text, unsigned nchars)
-{
-    static char buf[256];
     unsigned i;
 
     for (i=0; i<nchars && *text; i++) {
         //TODO: convert to utf8
-        buf[i] = *text++;
+        putc(*text++, out);
     }
-    buf[i] = 0;
-    return buf;
+    for (; i<nchars; i++) {
+        putc(' ', out);
+    }
 }
 
 //
-// Get all parameters for a given channel.
+// Print frequency (BCD value).
 //
-static void decode_channel(int i, channel_t *ch)
+static void print_freq(FILE *out, unsigned data)
 {
-    unsigned char *buf = &radio_mem[OFFSET_CHANNELS + i*64];
+    fprintf(out, "%d%d%d.%d%d%d", (data >> 28) & 15, (data >> 24) & 15,
+        (data >> 20) & 15, (data >> 16) & 15,
+        (data >> 12) & 15, (data >> 8) & 15);
 
-    memset(ch, 0, sizeof(*ch));
-    ch->lone_worker         = decode_bits(buf,   0,     1);
-    ch->squelch             = decode_bits(buf,   2,     1);
-    ch->autoscan            = decode_bits(buf,   3,     1);
-    ch->bandwidth           = decode_bits(buf,   4,     1);
-    ch->channel_mode        = decode_bits(buf,   6,     2);
-    ch->colorcode           = decode_bits(buf,   8,     4);
-    ch->repeater_slot       = decode_bits(buf,   12,    2);
-    ch->rx_only             = decode_bits(buf,   14,    1);
-    ch->allow_talkaround    = decode_bits(buf,   15,    1);
-    ch->data_call_conf      = decode_bits(buf,   16,    1);
-    ch->private_call_conf   = decode_bits(buf,   17,    1);
-    ch->privacy             = decode_bits(buf,   18,    2);
-    ch->privacy_no          = decode_bits(buf,   20,    4);
-    ch->display_pttid       = decode_bits(buf,   24,    1);
-    ch->compressed_udp_hdr  = decode_bits(buf,   25,    1);
-    ch->emergency_alarm_ack = decode_bits(buf,   28,    1);
-    ch->rx_ref_frequency    = decode_bits(buf,   30,    2);
-    ch->admit_criteria      = decode_bits(buf,   32,    2);
-    ch->power               = decode_bits(buf,   34,    1);
-    ch->vox                 = decode_bits(buf,   35,    1);
-    ch->qt_reverse          = decode_bits(buf,   36,    1);
-    ch->reverse_burst       = decode_bits(buf,   37,    1);
-    ch->tx_ref_frequency    = decode_bits(buf,   38,    2);
-    ch->contact_name_index  = decode_bytes(buf,  48/8,  16/8);
-    ch->tot                 = decode_bits(buf,   66,    6);
-    ch->tot_rekey_delay     = decode_bits(buf,   72,    8);
-    ch->emergency_system    = decode_bits(buf,   82,    6);
-    ch->scan_list_index     = decode_bits(buf,   88,    8);
-    ch->group_list_index    = decode_bits(buf,   96,    8);
-    ch->decode_18           = decode_bits(buf,   112,   8);
-    ch->rx_frequency        = decode_bcd(buf,    128/8, 32/8);
-    ch->tx_frequency        = decode_bcd(buf,    160/8, 32/8);
-    ch->ctcss_dcs_decode    = decode_tones(buf,  192/8);
-    ch->ctcss_dcs_encode    = decode_tones(buf,  208/8);
-    ch->rx_signaling_syst   = decode_bits(buf,   229,   3);
-    ch->tx_signaling_syst   = decode_bits(buf,   237,   3);
-    decode_text(buf, 256/8, ch->name, 256/8);
+    if ((data & 0xff) == 0)
+        putc(' ', out);
+    else
+        fprintf(out, "%d", (data >> 4) & 15);
 }
+
 
 //
 // Set the parameters for a given memory channel.
@@ -562,10 +505,30 @@ static void setup_channel(int i, char *name, double rx_mhz, double tx_mhz,
 }
 
 //
+// Convert a 4-byte frequency value from binary coded decimal
+// to integer format (in Hertz).
+//
+static int freq_to_hz(uint32_t bcd)
+{
+    int a = (bcd >> 28) & 15;
+    int b = (bcd >> 24) & 15;
+    int c = (bcd >> 20) & 15;
+    int d = (bcd >> 16) & 15;
+    int e = (bcd >> 12) & 15;
+    int f = (bcd >> 8)  & 15;
+    int g = (bcd >> 4)  & 15;
+    int h =  bcd        & 15;
+
+    return (((((((a*10 + b) * 10 + c) * 10 + d) * 10 + e) * 10 + f) * 10 + g) * 10 + h) * 10;
+}
+
+//
 // Print the transmit offset or frequency.
 //
-static void print_offset(FILE *out, int rx_hz, int tx_hz)
+static void print_offset(FILE *out, uint32_t rx_bcd, uint32_t tx_bcd)
 {
+    int rx_hz = freq_to_hz(rx_bcd);
+    int tx_hz = freq_to_hz(tx_bcd);
     int delta = tx_hz - rx_hz;
 
     if (delta == 0) {
@@ -615,58 +578,29 @@ static void uv380_print_config(FILE *out, int verbose)
     }
     fprintf(out, "Channel Name             Receive  Transmit Power Width  Scan\n");
     for (i=0; i<NCHAN; i++) {
-        channel_t ch;
+        channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
 
-        decode_channel(i, &ch);
-        if (ch.name[0] == 0) {
+        if (ch->name[0] == 0) {
             // Channel is disabled
             continue;
         }
 
-        fprintf(out, "%5d   %-16s ", i+1, utf8(&ch.name[0], 16));
-        if (ch.rx_frequency % 100 != 0)
-            fprintf(out, "%8.4f ", ch.rx_frequency / 100000.0);
+        fprintf(out, "%5d   ", i+1);
+        print_unicode(out, ch->name, 16);
+        fprintf(out, " ");
+        print_freq(out, ch->rx_frequency);
+        fprintf(out, " ");
+        print_offset(out, ch->rx_frequency, ch->tx_frequency);
+
+        fprintf(out, " %-4s  %-6s ",
+            POWER_NAME[ch->power], BANDWIDTH[ch->bandwidth]);
+
+        if (ch->scan_list_index == 0)
+            fprintf(out, "-\n");
         else
-            fprintf(out, "%7.3f  ", ch.rx_frequency / 100000.0);
-
-        print_offset(out, ch.rx_frequency, ch.tx_frequency);
-
-        fprintf(out, " %-4s  %-6s %x\n", POWER_NAME[ch.power],
-            ch.bandwidth ? "Wide" : "Normal", ch.scan_list_index);
-#if 0
-    ch.lone_worker         1
-    ch.squelch             1
-    ch.autoscan            1
-    ch.channel_mode        2
-    ch.colorcode           4
-    ch.repeater_slot       2
-    ch.rx_only             1
-    ch.allow_talkaround    1
-    ch.data_call_conf      1
-    ch.private_call_conf   1
-    ch.privacy             2
-    ch.privacy_no          4
-    ch.display_pttid       1
-    ch.compressed_udp_hdr  1
-    ch.emergency_alarm_ack 1
-    ch.rx_ref_frequency    2
-    ch.admit_criteria      2
-    ch.vox                 1
-    ch.qt_reverse          1
-    ch.reverse_burst       1
-    ch.tx_ref_frequency    2
-    ch.contact_name_index  16/8
-    ch.tot                 6
-    ch.tot_rekey_delay     8
-    ch.emergency_system    6
-    ch.group_list_index    8
-    ch.decode_18           8
-    ch.ctcss_dcs_decode
-    ch.ctcss_dcs_encode
-    ch.tx_signaling_syst   3
-    ch.rx_signaling_syst   3
-#endif
+            fprintf(out, "%d\n", ch->scan_list_index);
     }
+
 #if 0
     //
     // Zones.
