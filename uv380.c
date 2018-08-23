@@ -35,14 +35,15 @@
 
 #define NCHAN           3000
 #define NCONTACTS       10000
-#define NZONES          10      // TODO
+#define NZONES          250
 
 #define MEMSZ           0xd0000
 #define OFFSET_ID       0x02084
 #define OFFSET_NAME     0x020b0
+#define OFFSET_ZONES    0x149e0
+#define OFFSET_ZONEXT   0x31000
 #define OFFSET_CHANNELS 0x40000
 #define OFFSET_CONTACTS 0x70000
-#define OFFSET_ZONES    0x149e0
 
 //
 // Channel data.
@@ -223,6 +224,33 @@ typedef struct {
     //
     uint16_t name[16];                  // Contact Name (Unicode)
 } contact_t;
+
+//
+// Zone data.
+//
+typedef struct {
+    //
+    // Bytes 0-15
+    //
+    uint16_t name[16];                  // Zone Name (Unicode)
+
+    //
+    // Bytes 6-31
+    //
+    uint16_t member_a[16];              // Member A: channels 1...16
+} zone_t;
+
+typedef struct {
+    //
+    // Bytes 0-95
+    //
+    uint16_t ext_a[48];                 // Member A: channels 17...64
+
+    //
+    // Bytes 96-223
+    //
+    uint16_t member_b[64];              // Member B: channels 1...64
+} zone_ext_t;
 
 static const char *POWER_NAME[] = { "Low", "???", "Mid", "High" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25" };
@@ -584,6 +612,35 @@ static void print_offset(FILE *out, uint32_t rx_bcd, uint32_t tx_bcd)
     }
 }
 
+static void print_chanlist(FILE *out, uint16_t *data, int nchan)
+{
+    int last  = -1;
+    int range = 0;
+    int n;
+
+    for (n=0; n<=nchan; n++) {
+        int cnum = data[n];
+
+        if (cnum == 0)
+            break;
+
+        if (cnum == last+1) {
+            range = 1;
+        } else {
+            if (range) {
+                fprintf(out, "-%d", last);
+                range = 0;
+            }
+            if (n > 0)
+                fprintf(out, ",");
+            fprintf(out, "%d", cnum);
+        }
+        last = cnum;
+    }
+    if (range)
+        fprintf(out, "-%d", last);
+}
+
 //
 // Print full information about the device configuration.
 //
@@ -638,7 +695,6 @@ static void uv380_print_config(FILE *out, int verbose)
             fprintf(out, "%d\n", ch->scan_list_index);
     }
 
-#if 0
     //
     // Zones.
     //
@@ -646,15 +702,42 @@ static void uv380_print_config(FILE *out, int verbose)
     if (verbose) {
         fprintf(out, "# Table of channel zones.\n");
         fprintf(out, "# 1) Zone number: 1-%d\n", NZONES);
-        fprintf(out, "# 2) List of channels: numbers and ranges (N-M) separated by comma\n");
+        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+        fprintf(out, "# 3) List of channels: numbers and ranges (N-M) separated by comma\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Zone    Channels\n");
+    fprintf(out, "Zone    Name             Channels\n");
     for (i=0; i<NZONES; i++) {
-        if (have_zone(i))
-            print_zone(out, i);
+        zone_t     *z     = (zone_t*) &radio_mem[OFFSET_ZONES + i*64];
+        zone_ext_t *zext  = (zone_ext_t*) &radio_mem[OFFSET_ZONEXT + i*224];
+
+        if (z->name[0] == 0) {
+            // Zone is disabled.
+            continue;
+        }
+
+        fprintf(out, "%4da   ", i + 1);
+        print_unicode(out, z->name, 16, 1);
+        fprintf(out, " ");
+        if (z->member_a[0]) {
+            print_chanlist(out, z->member_a, 16);
+            if (zext->ext_a[0]) {
+                fprintf(out, ",");
+                print_chanlist(out, zext->ext_a, 48);
+            }
+        } else {
+            fprintf(out, "-");
+        }
+        fprintf(out, "\n");
+
+        fprintf(out, "%4db   -                ", i + 1);
+        if (zext->member_b[0]) {
+            print_chanlist(out, zext->member_b, 64);
+        } else {
+            fprintf(out, "-");
+        }
+        fprintf(out, "\n");
     }
-#endif
 
     //
     // Contacts.
