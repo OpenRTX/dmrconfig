@@ -37,6 +37,7 @@
 #define NCONTACTS       10000
 #define NZONES          250
 #define NGLISTS         250
+#define NSCANL          250
 #define NMESSAGES       50
 
 #define MEMSZ           0xd0000
@@ -46,6 +47,7 @@
 #define OFFSET_MSG      0x02180
 #define OFFSET_GLISTS   0x0ec20
 #define OFFSET_ZONES    0x149e0
+#define OFFSET_SCANL    0x18860
 #define OFFSET_ZONEXT   0x31000
 #define OFFSET_CHANNELS 0x40000
 #define OFFSET_CONTACTS 0x70000
@@ -271,6 +273,36 @@ typedef struct {
     //
     uint16_t member[32];                // Contacts
 } grouplist_t;
+
+//
+// Scan list data.
+//
+typedef struct {
+    //
+    // Bytes 0-31
+    //
+    uint16_t name[16];                  // Scan List Name (Unicode)
+
+    //
+    // Bytes 32-37
+    //
+    uint16_t priority_ch1;              // Priority Channel 1 or ffff
+    uint16_t priority_ch2;              // Priority Channel 2 or ffff
+    uint16_t tx_designated_ch;          // Tx Designated Channel or ffff
+
+    //
+    // Bytes 38-41
+    //
+    uint8_t _unused1;                   // 0xf1
+    uint8_t sign_hold_time;             // Signaling Hold Time (x25 = msec)
+    uint8_t prio_sample_time;           // Priority Sample Time (x250 = msec)
+    uint8_t _unused2;                   // 0xff
+
+    //
+    // Bytes 42-103
+    //
+    uint16_t member[31];                // Channels
+} scanlist_t;
 
 static const char *POWER_NAME[] = { "Low", "???", "Mid", "High" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25" };
@@ -665,10 +697,12 @@ static void print_id(FILE *out)
 {
     const unsigned char *data = &radio_mem[OFFSET_VERSION];
 
-    fprintf(out, "Radio: TYT MD-UV380");
+    fprintf(out, "Radio: TYT MD-UV380\n");
+    fprintf(out, "Name: ");
     if (radio_mem[OFFSET_NAME] != 0) {
-        fprintf(out, "\nName: ");
         print_unicode(out, (uint16_t*) &radio_mem[OFFSET_NAME], 16, 0);
+    } else {
+        fprintf(out, "-");
     }
     fprintf(out, "\nID: %d\n", *(uint32_t*) &radio_mem[OFFSET_ID]);
 
@@ -769,6 +803,59 @@ static void uv380_print_config(FILE *out, int verbose)
         fprintf(out, "%4db   -                ", i + 1);
         if (zext->member_b[0]) {
             print_chanlist(out, zext->member_b, 64);
+        } else {
+            fprintf(out, "-");
+        }
+        fprintf(out, "\n");
+    }
+
+    //
+    // Scan lists.
+    //
+    fprintf(out, "\n");
+    if (verbose) {
+        fprintf(out, "# Table of scan lists.\n");
+        fprintf(out, "# 1) Zone number: 1-%d\n", NSCANL);
+        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+        fprintf(out, "# 3) List of channels: numbers and ranges (N-M) separated by comma\n");
+        fprintf(out, "#\n");
+    }
+    fprintf(out, "Scanlist Name             PCh1 PCh2 TxCh Hold Smpl Channels\n");
+    for (i=0; i<NSCANL; i++) {
+        scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + i*104];
+
+        if (sl->name[0] == 0) {
+            // Scan list is disabled.
+            continue;
+        }
+
+        fprintf(out, "%5d    ", i + 1);
+        print_unicode(out, sl->name, 16, 1);
+        if (sl->priority_ch1 == 0xffff) {
+            fprintf(out, " -    ");
+        } else if (sl->priority_ch1 == 0) {
+            fprintf(out, " Sel  ");
+        } else {
+            fprintf(out, " %-4d ", sl->priority_ch1);
+        }
+        if (sl->priority_ch2 == 0xffff) {
+            fprintf(out, "-    ");
+        } else if (sl->priority_ch2 == 0) {
+            fprintf(out, "Sel  ");
+        } else {
+            fprintf(out, "%-4d ", sl->priority_ch2);
+        }
+        if (sl->tx_designated_ch == 0xffff) {
+            fprintf(out, "-    ");
+        } else if (sl->tx_designated_ch == 0) {
+            fprintf(out, "Last ");
+        } else {
+            fprintf(out, "%-4d ", sl->tx_designated_ch);
+        }
+        fprintf(out, "%-4d %-4d ",
+            sl->sign_hold_time * 25, sl->prio_sample_time * 250);
+        if (sl->member[0]) {
+            print_chanlist(out, sl->member, 31);
         } else {
             fprintf(out, "-");
         }
