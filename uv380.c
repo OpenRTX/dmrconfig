@@ -36,6 +36,7 @@
 #define NCHAN           3000
 #define NCONTACTS       10000
 #define NZONES          250
+#define NGLISTS         250
 #define NMESSAGES       50
 
 #define MEMSZ           0xd0000
@@ -43,6 +44,7 @@
 #define OFFSET_ID       0x02084
 #define OFFSET_NAME     0x020b0
 #define OFFSET_MSG      0x02180
+#define OFFSET_GLISTS   0x0ec20
 #define OFFSET_ZONES    0x149e0
 #define OFFSET_ZONEXT   0x31000
 #define OFFSET_CHANNELS 0x40000
@@ -233,12 +235,12 @@ typedef struct {
 //
 typedef struct {
     //
-    // Bytes 0-15
+    // Bytes 0-31
     //
     uint16_t name[16];                  // Zone Name (Unicode)
 
     //
-    // Bytes 6-31
+    // Bytes 32-63
     //
     uint16_t member_a[16];              // Member A: channels 1...16
 } zone_t;
@@ -254,6 +256,21 @@ typedef struct {
     //
     uint16_t member_b[64];              // Member B: channels 1...64
 } zone_ext_t;
+
+//
+// Group list data.
+//
+typedef struct {
+    //
+    // Bytes 0-31
+    //
+    uint16_t name[16];                  // Group List Name (Unicode)
+
+    //
+    // Bytes 32-95
+    //
+    uint16_t member[32];                // Contacts
+} grouplist_t;
 
 static const char *POWER_NAME[] = { "Low", "???", "Mid", "High" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25" };
@@ -784,6 +801,34 @@ static void uv380_print_config(FILE *out, int verbose)
         print_unicode(out, ct->name, 16, 1);
         fprintf(out, " %-7s %-8d %s\n",
             CONTACT_TYPE[ct->type], ct->id, ct->receive_tone ? "Yes" : "-");
+    }
+
+    //
+    // Group lists.
+    //
+    fprintf(out, "\n");
+    if (verbose) {
+        fprintf(out, "# Table of group lists.\n");
+        fprintf(out, "# 1) Group list number: 1-%d\n", NGLISTS);
+        fprintf(out, "# 2) List of contacts: numbers and ranges (N-M) separated by comma\n");
+        fprintf(out, "#\n");
+    }
+    fprintf(out, "Grouplist Contacts\n");
+    for (i=0; i<NGLISTS; i++) {
+        grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS + i*96];
+
+        if (gl->name[0] == 0) {
+            // Group list is disabled.
+            continue;
+        }
+
+        fprintf(out, "%5d     ", i + 1);
+        if (gl->member[0]) {
+            print_chanlist(out, gl->member, 32);
+        } else {
+            fprintf(out, "-");
+        }
+        fprintf(out, "\n");
     }
 
     //
