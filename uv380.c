@@ -39,6 +39,7 @@
 #define NMESSAGES       50
 
 #define MEMSZ           0xd0000
+#define OFFSET_VERSION  0x02001
 #define OFFSET_ID       0x02084
 #define OFFSET_NAME     0x020b0
 #define OFFSET_MSG      0x02180
@@ -643,12 +644,9 @@ static void print_chanlist(FILE *out, uint16_t *data, int nchan)
         fprintf(out, "-%d", last);
 }
 
-//
-// Print full information about the device configuration.
-//
-static void uv380_print_config(FILE *out, int verbose)
+static void print_id(FILE *out)
 {
-    int i;
+    const unsigned char *data = &radio_mem[OFFSET_VERSION];
 
     fprintf(out, "Radio: TYT MD-UV380");
     if (radio_mem[OFFSET_NAME] != 0) {
@@ -656,6 +654,25 @@ static void uv380_print_config(FILE *out, int verbose)
         print_unicode(out, (uint16_t*) &radio_mem[OFFSET_NAME], 16, 0);
     }
     fprintf(out, "\nID: %d\n", *(uint32_t*) &radio_mem[OFFSET_ID]);
+
+    fprintf(out, "Last Programmed Date: %d%d%d%d-%d%d-%d%d",
+        data[0] >> 4, data[0] & 15, data[1] >> 4, data[1] & 15,
+        data[2] >> 4, data[2] & 15, data[3] >> 4, data[3] & 15);
+    fprintf(out, " %d%d:%d%d:%d%d\n",
+        data[4] >> 4, data[4] & 15, data[5] >> 4, data[5] & 15,
+        data[6] >> 4, data[6] & 15);
+    fprintf(out, "CPS Software Version: V%x%x.%x%x\n",
+        data[7], data[8], data[9], data[10]);
+}
+
+//
+// Print full information about the device configuration.
+//
+static void uv380_print_config(FILE *out, int verbose)
+{
+    int i;
+
+    print_id(out);
 
     //
     // Channels.
