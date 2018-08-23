@@ -33,15 +33,200 @@
 #include "radio.h"
 #include "util.h"
 
-#define NCHAN           1000
-#define NZONES          10
+#define NCHAN           3000
+#define NCONTACTS       10000
+#define NZONES          10      // TODO
 
 #define MEMSZ           0xd0000
+#define OFFSET_ID       0x02084
+#define OFFSET_NAME     0x020b0
 #define OFFSET_CHANNELS 0x40000
+#define OFFSET_CONTACTS 0x70000
 #define OFFSET_ZONES    0x149e0
 
-static const char *POWER_NAME[] = { "Low", "???", "Middle", "High" };
+//
+// Channel data.
+//
+typedef struct {
+    //
+    // Byte 0
+    //
+    uint8_t channel_mode        : 2,    // Mode: Analog or Digital
+#define MODE_ANALOG     1
+#define MODE_DIGITAL    2
+
+            bandwidth           : 2,    // Bandwidth: 12.5 or 20 or 25 kHz
+#define BW_12_5_KHZ     0
+#define BW_20_KHZ       1
+#define BW_25_KHZ       2
+
+            autoscan            : 1,    // Autoscan Enable
+            _unused1            : 2,    // 0b11
+            lone_worker         : 1;    // Lone Worker
+
+    //
+    // Byte 1
+    //
+    uint8_t _unused2            : 1,    // 0
+            rx_only             : 1,    // RX Only Enable
+            repeater_slot       : 2,    // Repeater Slot: 1 or 2
+            colorcode           : 4;    // Color Code: 1...15
+
+    //
+    // Byte 2
+    //
+    uint8_t privacy_no          : 4,    // Privacy No. (+1): 1...16
+            privacy             : 2,    // Privacy: None, Basic or Enhanced
+#define PRIV_NONE       0
+#define PRIV_BASIC      1
+#define PRIV_ENHANCED   2
+
+            private_call_conf   : 1,    // Private Call Confirmed
+            data_call_conf      : 1;    // Data Call Confirmed
+
+    //
+    // Byte 3
+    //
+    uint8_t rx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
+#define REF_LOW         0
+#define REF_MEDIUM      1
+#define REF_HIGH        2
+
+            _unused3            : 1,    // 0
+            emergency_alarm_ack : 1,    // Emergency Alarm Ack
+            _unused4            : 3,    // 0b110
+            display_pttid_dis   : 1;    // Display PTT ID (inverted)
+
+    //
+    // Byte 4
+    //
+    uint8_t tx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
+            _unused5            : 2,    // 0b01
+            vox                 : 1,    // VOX Enable
+            _unused6            : 1,    // 1
+            admit_criteria      : 2;    // Admit Criteria: Always, Channel Free or Correct CTS/DCS
+#define ADMIT_ALWAYS    0
+#define ADMIT_CH_FREE   1
+#define ADMIT_TONE      2
+
+    //
+    // Byte 5
+    //
+    uint8_t _unused7            : 4,    // 0
+            in_call_criteria    : 2,    // In Call Criteria: Always, Follow Admit Criteria or TX Interrupt
+#define INCALL_ALWAYS   0
+#define INCALL_ADMIT    1
+#define INCALL_TXINT    2
+
+            turn_off_freq       : 2;    // Non-QT/DQT Turn-off Freq.: None, 259.2Hz or 55.2Hz
+#define TURNOFF_NONE    3
+#define TURNOFF_259_2HZ 0
+#define TURNOFF_55_2HZ  1
+
+    //
+    // Bytes 6-7
+    //
+    uint16_t contact_name_index;        // Contact Name: Contact1...
+
+    //
+    // Bytes 8-9
+    //
+    uint8_t tot;                        // TOT x 15sec: 0-Infinite, 1=15s... 37=255s
+    uint8_t tot_rekey_delay;            // TOT Rekey Delay: 0s...255s
+
+    //
+    // Bytes 10-11
+    //
+    uint8_t emergency_system_index;     // Emergency System: None, System1...32
+    uint8_t scan_list_index;            // Scan List: None, ScanList1...250
+
+    //
+    // Bytes 12-13
+    //
+    uint8_t group_list_index;           // Group List: None, GroupList1...250
+    uint8_t _unused8;                   // 0
+
+    //
+    // Bytes 14-15
+    //
+    uint8_t _unused9;                   // 0
+    uint8_t squelch;                    // Squelch: 0...9
+
+    //
+    // Bytes 16-23
+    //
+    uint32_t rx_frequency;              // RX Frequency: 8 digits BCD
+    uint32_t tx_frequency;              // TX Frequency: 8 digits BCD
+
+    //
+    // Bytes 24-27
+    //
+    uint16_t ctcss_dcs_decode;          // CTCSS/DCS Dec: 4 digits BCD
+    uint16_t ctcss_dcs_encode;          // CTCSS/DCS Enc: 4 digits BCD
+
+    //
+    // Bytes 28-29
+    //
+    uint8_t rx_signaling_syst;          // Rx Signaling System: Off, DTMF-1...4
+    uint8_t tx_signaling_syst;          // Tx Signaling System: Off, DTMF-1...4
+
+    //
+    // Byte 30
+    //
+    uint8_t power               : 2,    // Power: Low, Middle, High
+#define POWER_HIGH      3
+#define POWER_LOW       0
+#define POWER_MIDDLE    2
+
+            _unused10           : 6;    // 0b111111
+
+    //
+    // Byte 31
+    //
+    uint8_t dcdm_switch_dis     : 1,    // DCDM switch (inverted)
+            _unused11           : 3,    // 0b111
+            leader_ms           : 1,    // Leader/MS: Leader or MS
+#define DCDM_LEADER     0
+#define DCDM_MS         1
+
+            _unused12           : 3;    // 0b111
+
+    //
+    // Bytes 32-63
+    //
+    uint16_t name[16];                  // Channel Name (Unicode)
+} channel_t;
+
+//
+// Contact data.
+//
+typedef struct {
+    //
+    // Bytes 0-2
+    //
+    uint32_t id                 : 24;   // Call ID: 1...16777215
+
+    //
+    // Byte 3
+    //
+    uint8_t type                : 2,    // Call Type: Group Call, Private Call or All Call
+#define CALL_GROUP      1
+#define CALL_PRIVATE    2
+#define CALL_ALL        3
+
+            _unused1            : 3,    // 0
+            receive_tone        : 1,    // Call Receive Tone: No or yes
+            _unused2            : 2;    // 0b11
+
+    //
+    // Bytes 4-19
+    //
+    uint16_t name[16];                  // Contact Name (Unicode)
+} contact_t;
+
+static const char *POWER_NAME[] = { "Low", "???", "Mid", "High" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25" };
+static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
 
 //
 // Print a generic information about the device.
@@ -250,159 +435,6 @@ static void setup_zone(int zone_index, int chan_index)
     *data |= 1 << (chan_index & 7);
 }
 
-//
-// Data structure for a channel.
-//
-typedef struct {
-    //
-    // Byte 0
-    //
-    uint8_t channel_mode        : 2,    // Mode: Analog or Digital
-#define MODE_ANALOG     1
-#define MODE_DIGITAL    2
-
-            bandwidth           : 2,    // Bandwidth: 12.5 or 20 or 25 kHz
-#define BW_12_5_KHZ     0
-#define BW_20_KHZ       1
-#define BW_25_KHZ       2
-
-            autoscan            : 1,    // Autoscan Enable
-            _unused1            : 2,    // 0b11
-            lone_worker         : 1;    // Lone Worker
-
-    //
-    // Byte 1
-    //
-    uint8_t _unused2            : 1,    // 0
-            rx_only             : 1,    // RX Only Enable
-            repeater_slot       : 2,    // Repeater Slot: 1 or 2
-            colorcode           : 4;    // Color Code: 1...15
-
-    //
-    // Byte 2
-    //
-    uint8_t privacy_no          : 4,    // Privacy No. (+1): 1...16
-            privacy             : 2,    // Privacy: None, Basic or Enhanced
-#define PRIV_NONE       0
-#define PRIV_BASIC      1
-#define PRIV_ENHANCED   2
-
-            private_call_conf   : 1,    // Private Call Confirmed
-            data_call_conf      : 1;    // Data Call Confirmed
-
-    //
-    // Byte 3
-    //
-    uint8_t rx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
-#define REF_LOW         0
-#define REF_MEDIUM      1
-#define REF_HIGH        2
-
-            _unused3            : 1,    // 0
-            emergency_alarm_ack : 1,    // Emergency Alarm Ack
-            _unused4            : 3,    // 0b110
-            display_pttid_dis   : 1;    // Display PTT ID (inverted)
-
-    //
-    // Byte 4
-    //
-    uint8_t tx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
-            _unused5            : 2,    // 0b01
-            vox                 : 1,    // VOX Enable
-            _unused6            : 1,    // 1
-            admit_criteria      : 2;    // Admit Criteria: Always, Channel Free or Correct CTS/DCS
-#define ADMIT_ALWAYS    0
-#define ADMIT_CH_FREE   1
-#define ADMIT_TONE      2
-
-    //
-    // Byte 5
-    //
-    uint8_t _unused7            : 4,    // 0
-            in_call_criteria    : 2,    // In Call Criteria: Always, Follow Admit Criteria or TX Interrupt
-#define INCALL_ALWAYS   0
-#define INCALL_ADMIT    1
-#define INCALL_TXINT    2
-
-            turn_off_freq       : 2;    // Non-QT/DQT Turn-off Freq.: None, 259.2Hz or 55.2Hz
-#define TURNOFF_NONE    3
-#define TURNOFF_259_2HZ 0
-#define TURNOFF_55_2HZ  1
-
-    //
-    // Bytes 6-7
-    //
-    uint16_t contact_name_index;        // Contact Name: Contact1...
-
-    //
-    // Bytes 8-9
-    //
-    uint8_t tot;                        // TOT x 15sec: 0-Infinite, 1=15s... 37=255s
-    uint8_t tot_rekey_delay;            // TOT Rekey Delay: 0s...255s
-
-    //
-    // Bytes 10-11
-    //
-    uint8_t emergency_system_index;     // Emergency System: None, System1...32
-    uint8_t scan_list_index;            // Scan List: None, ScanList1...250
-
-    //
-    // Bytes 12-13
-    //
-    uint8_t group_list_index;           // Group List: None, GroupList1...250
-    uint8_t _unused8;                   // 0
-
-    //
-    // Bytes 14-15
-    //
-    uint8_t _unused9;                   // 0
-    uint8_t squelch;                    // Squelch: 0...9
-
-    //
-    // Bytes 16-23
-    //
-    uint32_t rx_frequency;              // RX Frequency: 8 digits BCD
-    uint32_t tx_frequency;              // TX Frequency: 8 digits BCD
-
-    //
-    // Bytes 24-27
-    //
-    uint16_t ctcss_dcs_decode;          // CTCSS/DCS Dec: 4 digits BCD
-    uint16_t ctcss_dcs_encode;          // CTCSS/DCS Enc: 4 digits BCD
-
-    //
-    // Bytes 28-29
-    //
-    uint8_t rx_signaling_syst;          // Rx Signaling System: Off, DTMF-1...4
-    uint8_t tx_signaling_syst;          // Tx Signaling System: Off, DTMF-1...4
-
-    //
-    // Byte 30
-    //
-    uint8_t power               : 2,    // Power: Low, Middle, High
-#define POWER_HIGH      3
-#define POWER_LOW       0
-#define POWER_MIDDLE    2
-
-            _unused10           : 6;    // 0b111111
-
-    //
-    // Byte 31
-    //
-    uint8_t dcdm_switch_dis     : 1,    // DCDM switch (inverted)
-            _unused11           : 3,    // 0b111
-            leader_ms           : 1,    // Leader/MS: Leader or MS
-#define DCDM_LEADER     0
-#define DCDM_MS         1
-
-            _unused12           : 3;    // 0b111
-
-    //
-    // Bytes 32-63
-    //
-    uint16_t name[16];                  // Channel Name (Unicode)
-} channel_t;
-
 #if 0
 static unsigned decode_tones(const unsigned char *source, unsigned offset)
 {
@@ -426,7 +458,7 @@ static unsigned decode_tones(const unsigned char *source, unsigned offset)
 //
 // Print utf16 text as utf8.
 //
-static void print_unicode(FILE *out, const uint16_t *text, unsigned nchars)
+static void print_unicode(FILE *out, const uint16_t *text, unsigned nchars, int fill_flag)
 {
     unsigned i;
 
@@ -434,8 +466,10 @@ static void print_unicode(FILE *out, const uint16_t *text, unsigned nchars)
         //TODO: convert to utf8
         putc(*text++, out);
     }
-    for (; i<nchars; i++) {
-        putc(' ', out);
+    if (fill_flag) {
+        for (; i<nchars; i++) {
+            putc(' ', out);
+        }
     }
 }
 
@@ -557,23 +591,26 @@ static void uv380_print_config(FILE *out, int verbose)
 {
     int i;
 
-    fprintf(out, "Radio: TYT MD-UV380\n");
+    fprintf(out, "Radio: TYT MD-UV380");
+    if (radio_mem[OFFSET_NAME] != 0) {
+        fprintf(out, "\nName: ");
+        print_unicode(out, (uint16_t*) &radio_mem[OFFSET_NAME], 16, 0);
+    }
+    fprintf(out, "\nID: %d\n", *(uint32_t*) &radio_mem[OFFSET_ID]);
 
     //
-    // Memory channels.
+    // Channels.
     //
     fprintf(out, "\n");
     if (verbose) {
         fprintf(out, "# Table of preprogrammed channels.\n");
         fprintf(out, "# 1) Channel number: 1-%d\n", NCHAN);
-        fprintf(out, "# 2) Name: up to 6 characters, no spaces\n");
+        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
         fprintf(out, "# 3) Receive frequency in MHz\n");
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
-        fprintf(out, "# 5) Squelch tone for receive, or '-' to disable\n");
-        fprintf(out, "# 6) Squelch tone for transmit, or '-' to disable\n");
-        fprintf(out, "# 7) Transmit power: High, Mid, Low\n");
-        fprintf(out, "# 8) Modulation: Wide, Narrow, AM\n");
-        fprintf(out, "# 9) Scan mode: +, -, Only\n");
+        fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
+        fprintf(out, "# 6) Bandwidth in kHz: 12.5, 20, 25\n");
+        fprintf(out, "# 7) Scan list: - or index\n");
         fprintf(out, "#\n");
     }
     fprintf(out, "Channel Name             Receive  Transmit Power Width  Scan\n");
@@ -586,7 +623,7 @@ static void uv380_print_config(FILE *out, int verbose)
         }
 
         fprintf(out, "%5d   ", i+1);
-        print_unicode(out, ch->name, 16);
+        print_unicode(out, ch->name, 16, 1);
         fprintf(out, " ");
         print_freq(out, ch->rx_frequency);
         fprintf(out, " ");
@@ -618,6 +655,34 @@ static void uv380_print_config(FILE *out, int verbose)
             print_zone(out, i);
     }
 #endif
+
+    //
+    // Contacts.
+    //
+    fprintf(out, "\n");
+    if (verbose) {
+        fprintf(out, "# Table of contacts.\n");
+        fprintf(out, "# 1) Contact number: 1-%d\n", NCONTACTS);
+        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+        fprintf(out, "# 3) Call type: Group, Private, All\n");
+        fprintf(out, "# 4) Call ID: 1...16777215\n");
+        fprintf(out, "# 5) Call receive tone: -, Yes\n");
+        fprintf(out, "#\n");
+    }
+    fprintf(out, "Contact Name             Type    ID       RxTone\n");
+    for (i=0; i<NCONTACTS; i++) {
+        contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS + i*36];
+
+        if (ct->name[0] == 0) {
+            // Channel is disabled
+            continue;
+        }
+
+        fprintf(out, "%5d   ", i+1);
+        print_unicode(out, ct->name, 16, 1);
+        fprintf(out, " %-7s %-8d %s\n",
+            CONTACT_TYPE[ct->type], ct->id, ct->receive_tone ? "Yes" : "-");
+    }
 }
 
 //
