@@ -36,10 +36,12 @@
 #define NCHAN           3000
 #define NCONTACTS       10000
 #define NZONES          250
+#define NMESSAGES       50
 
 #define MEMSZ           0xd0000
 #define OFFSET_ID       0x02084
 #define OFFSET_NAME     0x020b0
+#define OFFSET_MSG      0x02180
 #define OFFSET_ZONES    0x149e0
 #define OFFSET_ZONEXT   0x31000
 #define OFFSET_CHANNELS 0x40000
@@ -757,7 +759,7 @@ static void uv380_print_config(FILE *out, int verbose)
         contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS + i*36];
 
         if (ct->name[0] == 0) {
-            // Channel is disabled
+            // Contact is disabled
             continue;
         }
 
@@ -765,6 +767,30 @@ static void uv380_print_config(FILE *out, int verbose)
         print_unicode(out, ct->name, 16, 1);
         fprintf(out, " %-7s %-8d %s\n",
             CONTACT_TYPE[ct->type], ct->id, ct->receive_tone ? "Yes" : "-");
+    }
+
+    //
+    // Text messages.
+    //
+    fprintf(out, "\n");
+    if (verbose) {
+        fprintf(out, "# Table of text messages.\n");
+        fprintf(out, "# 1) Message number: 1-%d\n", NMESSAGES);
+        fprintf(out, "# 2) Text: up to 144 characters\n");
+        fprintf(out, "#\n");
+    }
+    fprintf(out, "Message Text\n");
+    for (i=0; i<NMESSAGES; i++) {
+        uint16_t *msg = (uint16_t*) &radio_mem[OFFSET_MSG + i*288];
+
+        if (msg[0] == 0) {
+            // Message is disabled
+            continue;
+        }
+
+        fprintf(out, "%5d   ", i+1);
+        print_unicode(out, msg, 144, 0);
+        fprintf(out, "\n");
     }
 }
 
