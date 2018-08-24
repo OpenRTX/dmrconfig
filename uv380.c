@@ -307,6 +307,8 @@ typedef struct {
 static const char *POWER_NAME[] = { "Low", "???", "Mid", "High" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25" };
 static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
+static const char *ADMIT_NAME[] = { "Always", "Free", "Tone" };
+static const char *INCALL_NAME[] = { "Always", "Admit", "TXInt" };
 
 //
 // Print a generic information about the device.
@@ -451,59 +453,6 @@ static int uv380_is_compatible()
     return strncmp("AH017$", (char*)&radio_mem[0], 6) == 0;
 }
 
-#if 0
-//
-// Is this zone non-empty?
-//
-static int have_zone(int b)
-{
-    unsigned char *data = &radio_mem[OFFSET_ZONES + b * 0x80];
-    int c;
-
-    for (c=0; c<NCHAN/8; c++) {
-        if (data[c] != 0)
-            return 1;
-    }
-    return 0;
-}
-
-//
-// Print one line of Zones table.
-//
-static void print_zone(FILE *out, int i)
-{
-    uint8_t *data  = &radio_mem[OFFSET_ZONES + i * 0x80];
-    int      last  = -1;
-    int      range = 0;
-    int      n;
-
-    fprintf(out, "%4d    ", i + 1);
-    for (n=0; n<NCHAN; n++) {
-        int cnum = n + 1;
-        int chan_in_zone = data[n/8] & (1 << (n & 7));
-
-        if (!chan_in_zone)
-            continue;
-
-        if (cnum == last+1) {
-            range = 1;
-        } else {
-            if (range) {
-                fprintf(out, "-%d", last);
-                range = 0;
-            }
-            if (last >= 0)
-                fprintf(out, ",");
-            fprintf(out, "%d", cnum);
-        }
-        last = cnum;
-    }
-    if (range)
-        fprintf(out, "-%d", last);
-    fprintf(out, "\n");
-}
-#endif
-
 //
 // Set the bitmask of zones for a given channel.
 // Return 0 on failure.
@@ -514,26 +463,6 @@ static void setup_zone(int zone_index, int chan_index)
 
     *data |= 1 << (chan_index & 7);
 }
-
-#if 0
-static unsigned decode_tones(const unsigned char *source, unsigned offset)
-{
-    unsigned char ch[2];
-    unsigned hi, lo;
-
-    ch[0] = source[offset];
-    ch[1] = source[offset + 1];
-
-    hi = (ch[1] & 0xc0) << 10;
-    ch[1] &= ~0xc0;
-
-    lo = decode_bcd(ch, 0, 16/8);
-    if (lo == 0)
-        return 0;
-
-    return hi | lo;
-}
-#endif
 
 //
 // Print utf16 text as utf8.
@@ -717,6 +646,216 @@ static void print_id(FILE *out)
 }
 
 //
+// Do we have any channels of given mode?
+//
+static int have_channels(int mode)
+{
+    int i;
+
+    for (i=0; i<NCHAN; i++) {
+        channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
+
+        if (ch->name[0] != 0 && ch->channel_mode == mode)
+            return 1;
+    }
+    return 0;
+}
+
+//
+// Print CTSS or DCS tone.
+//
+static void print_tone(FILE *out, uint16_t data)
+{
+    unsigned tag = data >> 14;
+    unsigned a = (data >> 12) & 3;
+    unsigned b = (data >> 8) & 15;
+    unsigned c = (data >> 4) & 15;
+    unsigned d = data & 15;
+
+    switch (tag) {
+    default:
+        // CTCSS
+        if (a == 0)
+            fprintf(out, "%d%d.%d ", b, c, d);
+        else
+            fprintf(out, "%d%d%d.%d", a, b, c, d);
+        break;
+    case 2:
+        // DCS-N
+        fprintf(out, "D%d%d%dN", b, c, d);
+        break;
+    case 3:
+        // DCS-I
+        fprintf(out, "D%d%d%dI", b, c, d);
+        break;
+    }
+}
+
+//
+// Print base parameters of the channel:
+//      Name
+//      RX Frequency
+//      TX Frequency
+//      Power
+//      Scan List
+//      Squelch
+//      Admit Criteria
+//
+static void print_chan_base(FILE *out, channel_t *ch, int cnum)
+{
+    fprintf(out, "%5d   ", cnum);
+    print_unicode(out, ch->name, 16, 1);
+    fprintf(out, " ");
+    print_freq(out, ch->rx_frequency);
+    fprintf(out, " ");
+    print_offset(out, ch->rx_frequency, ch->tx_frequency);
+
+    fprintf(out, " %-4s  ", POWER_NAME[ch->power]);
+
+    if (ch->scan_list_index == 0)
+        fprintf(out, "-    ");
+    else
+        fprintf(out, "%-4d ", ch->scan_list_index);
+
+    fprintf(out, "%1d  %-6s ", ch->squelch, ADMIT_NAME[ch->admit_criteria]);
+}
+
+//
+// Print extended parameters of the channel:
+//      TOT
+//      TOT Rekey Delay
+//      RX Ref Frequency
+//      RX Ref Frequency
+//      Autoscan
+//      RX Only
+//      Lone Worker
+//      VOX
+//
+static void print_chan_ext(FILE *out, channel_t *ch)
+{
+#if 0
+    tot;                        // TOT x 15sec: 0-Infinite, 1=15s... 37=255s
+    tot_rekey_delay;            // TOT Rekey Delay: 0s...255s
+    rx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
+    tx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
+    autoscan            : 1,    // Autoscan Enable
+    rx_only             : 1,    // RX Only Enable
+    lone_worker         : 1;    // Lone Worker
+    vox                 : 1,    // VOX Enable
+#endif
+}
+
+static void print_digital_channels(FILE *out, int verbose)
+{
+    int i;
+
+    if (verbose) {
+        fprintf(out, "# Table of digital channels.\n");
+        fprintf(out, "# 1) Channel number: 1-%d\n", NCHAN);
+        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+        fprintf(out, "# 3) Receive frequency in MHz\n");
+        fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
+        fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
+        fprintf(out, "# 6) Scan list: - or index\n");
+        fprintf(out, "#\n");
+    }
+    fprintf(out, "Digital Name             Receive  Transmit Power Scan Sq Admit  Cl Sl Group InCall\n");
+    for (i=0; i<NCHAN; i++) {
+        channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
+
+        if (ch->name[0] == 0 || ch->channel_mode != MODE_DIGITAL) {
+            // Select digital channels
+            continue;
+        }
+        print_chan_base(out, ch, i+1);
+
+        // Print digital parameters of the channel:
+        //      Color Code
+        //      Repeater Slot
+        //      Group List
+        //      In Call Criteria
+        fprintf(out, "%-2d %1d  ", ch->colorcode, ch->repeater_slot);
+        if (ch->group_list_index == 0)
+            fprintf(out, "-     ");
+        else
+            fprintf(out, "%-5d ", ch->group_list_index);
+        fprintf(out, "%-6s ", INCALL_NAME[ch->in_call_criteria]);
+
+        print_chan_ext(out, ch);
+#if 0
+        // Extended digital parameters of the channel:
+        //      Emergency System
+        //      Contact Name
+        //      Privacy
+        //      Privacy No. (+1)
+        //      Private Call Confirmed
+        //      Emergency Alarm Ack
+        //      Data Call Confirmed
+        //      DCDM switch (inverted)
+        //      Leader/MS
+        emergency_system_index;
+        contact_name_index;
+        privacy             : 2,
+        privacy_no          : 4,
+        private_call_conf   : 1,
+        emergency_alarm_ack : 1,
+        data_call_conf      : 1;
+        dcdm_switch_dis     : 1,
+        leader_ms           : 1,
+#endif
+        fprintf(out, "\n");
+    }
+}
+
+static void print_analog_channels(FILE *out, int verbose)
+{
+    int i;
+
+    if (verbose) {
+        fprintf(out, "# Table of analog channels.\n");
+        fprintf(out, "# 1) Channel number: 1-%d\n", NCHAN);
+        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+        fprintf(out, "# 3) Receive frequency in MHz\n");
+        fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
+        fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
+        fprintf(out, "# 6) Bandwidth in kHz: 12.5, 20, 25\n");
+        fprintf(out, "# 7) Scan list: - or index\n");
+        fprintf(out, "#\n");
+    }
+    fprintf(out, "Analog  Name             Receive  Transmit Power Scan Sq Admit  RxTone TxTone Width\n");
+    for (i=0; i<NCHAN; i++) {
+        channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
+
+        if (ch->name[0] == 0 || ch->channel_mode != MODE_ANALOG) {
+            // Select analog channels
+            continue;
+        }
+        print_chan_base(out, ch, i+1);
+
+        // Print analog parameters of the channel:
+        //      CTCSS/DCS Dec
+        //      CTCSS/DCS Enc
+        //      Bandwidth
+        print_tone(out, ch->ctcss_dcs_decode);
+        fprintf(out, "  ");
+        print_tone(out, ch->ctcss_dcs_encode);
+        fprintf(out, "  %-6s ", BANDWIDTH[ch->bandwidth]);
+#if 0
+        // Extended analog parameters of the channel:
+        //      Rx Signaling System
+        //      Tx Signaling System
+        //      Display PTT ID (inverted)
+        //      Non-QT/DQT Turn-off Freq.
+        rx_signaling_syst;          // Rx Signaling System: Off, DTMF-1...4
+        tx_signaling_syst;          // Tx Signaling System: Off, DTMF-1...4
+        display_pttid_dis   : 1;    // Display PTT ID (inverted)
+        turn_off_freq       : 2;    // Non-QT/DQT Turn-off Freq.: None, 259.2Hz or 55.2Hz
+#endif
+        fprintf(out, "\n");
+    }
+}
+
+//
 // Print full information about the device configuration.
 //
 static void uv380_print_config(FILE *out, int verbose)
@@ -728,41 +867,13 @@ static void uv380_print_config(FILE *out, int verbose)
     //
     // Channels.
     //
-    fprintf(out, "\n");
-    if (verbose) {
-        fprintf(out, "# Table of preprogrammed channels.\n");
-        fprintf(out, "# 1) Channel number: 1-%d\n", NCHAN);
-        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
-        fprintf(out, "# 3) Receive frequency in MHz\n");
-        fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
-        fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
-        fprintf(out, "# 6) Bandwidth in kHz: 12.5, 20, 25\n");
-        fprintf(out, "# 7) Scan list: - or index\n");
-        fprintf(out, "#\n");
+    if (have_channels(MODE_DIGITAL)) {
+        fprintf(out, "\n");
+        print_digital_channels(out, verbose);
     }
-    fprintf(out, "Channel Name             Receive  Transmit Power Width  Scan\n");
-    for (i=0; i<NCHAN; i++) {
-        channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
-
-        if (ch->name[0] == 0) {
-            // Channel is disabled
-            continue;
-        }
-
-        fprintf(out, "%5d   ", i+1);
-        print_unicode(out, ch->name, 16, 1);
-        fprintf(out, " ");
-        print_freq(out, ch->rx_frequency);
-        fprintf(out, " ");
-        print_offset(out, ch->rx_frequency, ch->tx_frequency);
-
-        fprintf(out, " %-4s  %-6s ",
-            POWER_NAME[ch->power], BANDWIDTH[ch->bandwidth]);
-
-        if (ch->scan_list_index == 0)
-            fprintf(out, "-\n");
-        else
-            fprintf(out, "%d\n", ch->scan_list_index);
+    if (have_channels(MODE_ANALOG)) {
+        fprintf(out, "\n");
+        print_analog_channels(out, verbose);
     }
 
     //
