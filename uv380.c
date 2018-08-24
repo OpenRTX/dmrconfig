@@ -309,6 +309,10 @@ static const char *BANDWIDTH[] = { "12.5", "20", "25" };
 static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
 static const char *ADMIT_NAME[] = { "Always", "Free", "Tone" };
 static const char *INCALL_NAME[] = { "Always", "Admit", "TXInt" };
+static const char *REF_FREQUENCY[] = { "Low", "Med", "High" };
+static const char *PRIVACY_NAME[] = { "-", "Basic", "Enhanced" };
+static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DTMF-4" };
+static const char *TURNOFF_FREQ[] = { "259.2", "55.2", "???", "-" };
 
 //
 // Print a generic information about the device.
@@ -733,16 +737,18 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 //
 static void print_chan_ext(FILE *out, channel_t *ch)
 {
-#if 0
-    tot;                        // TOT x 15sec: 0-Infinite, 1=15s... 37=255s
-    tot_rekey_delay;            // TOT Rekey Delay: 0s...255s
-    rx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
-    tx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
-    autoscan            : 1,    // Autoscan Enable
-    rx_only             : 1,    // RX Only Enable
-    lone_worker         : 1;    // Lone Worker
-    vox                 : 1,    // VOX Enable
-#endif
+    if (ch->tot == 0)
+        fprintf(out, "-   ");
+    else
+        fprintf(out, "%-3d ", ch->tot * 15);
+
+    fprintf(out, "%-3d ", ch->tot_rekey_delay);
+    fprintf(out, "%-5s ", REF_FREQUENCY[ch->rx_ref_frequency]);
+    fprintf(out, "%-5s ", REF_FREQUENCY[ch->tx_ref_frequency]);
+    fprintf(out, "%c  ", "-+"[ch->autoscan]);
+    fprintf(out, "%c  ", "-+"[ch->rx_only]);
+    fprintf(out, "%c  ", "-+"[ch->lone_worker]);
+    fprintf(out, "%c   ", "-+"[ch->vox]);
 }
 
 static void print_digital_channels(FILE *out, int verbose)
@@ -759,7 +765,11 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 6) Scan list: - or index\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Digital Name             Receive  Transmit Power Scan Sq Admit  Cl Sl Group InCall\n");
+    fprintf(out, "Digital Name             Receive  Transmit Power Scan Sq Admit  Cl Sl Group Cntct InCall");
+#if 1
+    fprintf(out, " TOT Dly RxRef TxRef AS RO LW VOX EmSys Privacy  PN PCC EAA DCC DCDM LM");
+#endif
+    fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
 
@@ -773,19 +783,23 @@ static void print_digital_channels(FILE *out, int verbose)
         //      Color Code
         //      Repeater Slot
         //      Group List
+        //      Contact Name
         //      In Call Criteria
         fprintf(out, "%-2d %1d  ", ch->colorcode, ch->repeater_slot);
         if (ch->group_list_index == 0)
             fprintf(out, "-     ");
         else
             fprintf(out, "%-5d ", ch->group_list_index);
+        if (ch->contact_name_index == 0)
+            fprintf(out, "-     ");
+        else
+            fprintf(out, "%-5d ", ch->contact_name_index);
         fprintf(out, "%-6s ", INCALL_NAME[ch->in_call_criteria]);
-
+#if 1
         print_chan_ext(out, ch);
-#if 0
+
         // Extended digital parameters of the channel:
         //      Emergency System
-        //      Contact Name
         //      Privacy
         //      Privacy No. (+1)
         //      Private Call Confirmed
@@ -793,15 +807,27 @@ static void print_digital_channels(FILE *out, int verbose)
         //      Data Call Confirmed
         //      DCDM switch (inverted)
         //      Leader/MS
-        emergency_system_index;
-        contact_name_index;
-        privacy             : 2,
-        privacy_no          : 4,
-        private_call_conf   : 1,
-        emergency_alarm_ack : 1,
-        data_call_conf      : 1;
-        dcdm_switch_dis     : 1,
-        leader_ms           : 1,
+
+        if (ch->emergency_system_index == 0)
+            fprintf(out, "-     ");
+        else
+            fprintf(out, "%-5d ", ch->emergency_system_index);
+
+        fprintf(out, "%-8s ", PRIVACY_NAME[ch->privacy]);
+
+        if (ch->privacy == PRIV_NONE)
+            fprintf(out, "-  ");
+        else
+            fprintf(out, "%-2d ", ch->privacy_no + 1);
+
+        fprintf(out, "%c   ", "-+"[ch->private_call_conf]);
+        fprintf(out, "%c   ", "-+"[ch->emergency_alarm_ack]);
+        fprintf(out, "%c   ", "-+"[ch->data_call_conf]);
+
+        if (ch->dcdm_switch_dis)
+            fprintf(out, "-    -");
+        else
+            fprintf(out, "+    %s", ch->leader_ms ? "MS" : "Leader");
 #endif
         fprintf(out, "\n");
     }
@@ -822,7 +848,11 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 7) Scan list: - or index\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Analog  Name             Receive  Transmit Power Scan Sq Admit  RxTone TxTone Width\n");
+    fprintf(out, "Analog  Name             Receive  Transmit Power Scan Sq Admit  RxTone TxTone Width");
+#if 1
+    fprintf(out, " TOT Dly RxRef TxRef AS RO LW VOX RxSign TxSign ID TOFreq");
+#endif
+    fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
 
@@ -839,17 +869,20 @@ static void print_analog_channels(FILE *out, int verbose)
         print_tone(out, ch->ctcss_dcs_decode);
         fprintf(out, "  ");
         print_tone(out, ch->ctcss_dcs_encode);
-        fprintf(out, "  %-6s ", BANDWIDTH[ch->bandwidth]);
-#if 0
+        fprintf(out, "  %-5s ", BANDWIDTH[ch->bandwidth]);
+#if 1
+        print_chan_ext(out, ch);
+
         // Extended analog parameters of the channel:
         //      Rx Signaling System
         //      Tx Signaling System
         //      Display PTT ID (inverted)
         //      Non-QT/DQT Turn-off Freq.
-        rx_signaling_syst;          // Rx Signaling System: Off, DTMF-1...4
-        tx_signaling_syst;          // Tx Signaling System: Off, DTMF-1...4
-        display_pttid_dis   : 1;    // Display PTT ID (inverted)
-        turn_off_freq       : 2;    // Non-QT/DQT Turn-off Freq.: None, 259.2Hz or 55.2Hz
+
+        fprintf(out, "%-6s ", SIGNALING_SYSTEM[ch->rx_signaling_syst]);
+        fprintf(out, "%-6s ", SIGNALING_SYSTEM[ch->tx_signaling_syst]);
+        fprintf(out, "%c  ", "+-"[ch->display_pttid_dis]);
+        fprintf(out, "%s", TURNOFF_FREQ[ch->turn_off_freq]);
 #endif
         fprintf(out, "\n");
     }
