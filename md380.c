@@ -1,5 +1,5 @@
 /*
- * Interface to TYT MD-UV380.
+ * Interface to TYT MD-380.
  *
  * Copyright (C) 2018 Serge Vakulenko, KK6ABQ
  *
@@ -34,24 +34,23 @@
 #include "radio.h"
 #include "util.h"
 
-#define NCHAN           3000
-#define NCONTACTS       10000
+#define NCHAN           1000
+#define NCONTACTS       1000
 #define NZONES          250
 #define NGLISTS         250
 #define NSCANL          250
 #define NMESSAGES       50
 
-#define MEMSZ           0xd0000
+#define MEMSZ           0x40000
 #define OFFSET_VERSION  0x02001
 #define OFFSET_ID       0x02084
 #define OFFSET_NAME     0x020b0
 #define OFFSET_MSG      0x02180
+#define OFFSET_CONTACTS 0x05f80
 #define OFFSET_GLISTS   0x0ec20
 #define OFFSET_ZONES    0x149e0
 #define OFFSET_SCANL    0x18860
-#define OFFSET_ZONEXT   0x31000
-#define OFFSET_CHANNELS 0x40000
-#define OFFSET_CONTACTS 0x70000
+#define OFFSET_CHANNELS 0x1ee00
 
 //
 // Channel data.
@@ -183,10 +182,6 @@ typedef struct {
     // Byte 30
     //
     uint8_t power               : 2,    // Power: Low, Middle, High
-#define POWER_HIGH      3
-#define POWER_LOW       0
-#define POWER_MIDDLE    2
-
             _unused10           : 6;    // 0b111111
 
     //
@@ -245,20 +240,8 @@ typedef struct {
     //
     // Bytes 32-63
     //
-    uint16_t member_a[16];              // Member A: channels 1...16
+    uint16_t member[16];                // Member: channels 1...16
 } zone_t;
-
-typedef struct {
-    //
-    // Bytes 0-95
-    //
-    uint16_t ext_a[48];                 // Member A: channels 17...64
-
-    //
-    // Bytes 96-223
-    //
-    uint16_t member_b[64];              // Member B: channels 1...64
-} zone_ext_t;
 
 //
 // Group list data.
@@ -305,7 +288,7 @@ typedef struct {
     uint16_t member[31];                // Channels
 } scanlist_t;
 
-static const char *POWER_NAME[] = { "Low", "???", "Mid", "High" };
+static const char *POWER_NAME[] = { "Low", "High" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25" };
 static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
 static const char *ADMIT_NAME[] = { "Always", "Free", "Tone" };
@@ -318,7 +301,7 @@ static const char *TURNOFF_FREQ[] = { "259.2", "55.2", "???", "-" };
 //
 // Print a generic information about the device.
 //
-static void uv380_print_version(FILE *out)
+static void md380_print_version(FILE *out)
 {
     // Nothing to print.
 }
@@ -411,7 +394,7 @@ static int write_block(int fd, int start, const unsigned char *data, int nbytes)
 //
 // Read memory image from the device.
 //
-static void uv380_download()
+static void md380_download()
 {
     int addr;
 
@@ -430,7 +413,7 @@ static void uv380_download()
 //
 // Write memory image to the device.
 //
-static void uv380_upload(int cont_flag)
+static void md380_upload(int cont_flag)
 {
     int addr;
     char buf[80];
@@ -453,7 +436,7 @@ static void uv380_upload(int cont_flag)
 //
 // Check whether the memory image is compatible with this device.
 //
-static int uv380_is_compatible()
+static int md380_is_compatible()
 {
     return strncmp("AH017$", (char*)&radio_mem[0], 6) == 0;
 }
@@ -631,7 +614,7 @@ static void print_id(FILE *out)
 {
     const unsigned char *data = &radio_mem[OFFSET_VERSION];
 
-    fprintf(out, "Radio: TYT MD-UV380\n");
+    fprintf(out, "Radio: TYT MD-380\n");
     fprintf(out, "Name: ");
     if (radio_mem[OFFSET_NAME] != 0) {
         print_unicode(out, (uint16_t*) &radio_mem[OFFSET_NAME], 16, 0);
@@ -897,7 +880,7 @@ static void print_analog_channels(FILE *out, int verbose)
 //
 // Print full information about the device configuration.
 //
-static void uv380_print_config(FILE *out, int verbose)
+static void md380_print_config(FILE *out, int verbose)
 {
     int i;
 
@@ -928,31 +911,18 @@ static void uv380_print_config(FILE *out, int verbose)
     }
     fprintf(out, "Zone    Name             Channels\n");
     for (i=0; i<NZONES; i++) {
-        zone_t     *z     = (zone_t*) &radio_mem[OFFSET_ZONES + i*64];
-        zone_ext_t *zext  = (zone_ext_t*) &radio_mem[OFFSET_ZONEXT + i*224];
+        zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES + i*64];
 
         if (z->name[0] == 0) {
             // Zone is disabled.
             continue;
         }
 
-        fprintf(out, "%4da   ", i + 1);
+        fprintf(out, "%4d    ", i + 1);
         print_unicode(out, z->name, 16, 1);
         fprintf(out, " ");
-        if (z->member_a[0]) {
-            print_chanlist(out, z->member_a, 16);
-            if (zext->ext_a[0]) {
-                fprintf(out, ",");
-                print_chanlist(out, zext->ext_a, 48);
-            }
-        } else {
-            fprintf(out, "-");
-        }
-        fprintf(out, "\n");
-
-        fprintf(out, "%4db   -                ", i + 1);
-        if (zext->member_b[0]) {
-            print_chanlist(out, zext->member_b, 64);
+        if (z->member[0]) {
+            print_chanlist(out, z->member, 16);
         } else {
             fprintf(out, "-");
         }
@@ -1096,7 +1066,7 @@ static void uv380_print_config(FILE *out, int verbose)
 //
 // Read memory image from the binary file.
 //
-static void uv380_read_image(FILE *img)
+static void md380_read_image(FILE *img)
 {
     struct stat st;
 
@@ -1117,12 +1087,7 @@ static void uv380_read_image(FILE *img)
         // RTD file.
         // Header 0x225 bytes and footer 0x10 bytes at 0x40225.
         fseek(img, 0x225, SEEK_SET);
-        if (fread(&radio_mem[0], 1, 0x40000, img) != 0x40000) {
-            fprintf(stderr, "Error reading image data.\n");
-            exit(-1);
-        }
-        fseek(img, 0x10, SEEK_CUR);
-        if (fread(&radio_mem[0x40000], 1, MEMSZ - 0x40000, img) != MEMSZ - 0x40000) {
+        if (fread(&radio_mem[0], 1, MEMSZ, img) != MEMSZ) {
             fprintf(stderr, "Error reading image data.\n");
             exit(-1);
         }
@@ -1136,7 +1101,7 @@ static void uv380_read_image(FILE *img)
 //
 // Save memory image to the binary file.
 //
-static void uv380_save_image(FILE *img)
+static void md380_save_image(FILE *img)
 {
     fwrite(&radio_mem[0], 1, MEMSZ+1, img);
 }
@@ -1144,10 +1109,10 @@ static void uv380_save_image(FILE *img)
 //
 // Parse the scalar parameter.
 //
-static void uv380_parse_parameter(char *param, char *value)
+static void md380_parse_parameter(char *param, char *value)
 {
     if (strcasecmp("Radio", param) == 0) {
-        if (strcasecmp("TYT MD-UV380", value) != 0) {
+        if (strcasecmp("TYT MD-380", value) != 0) {
             fprintf(stderr, "Bad value for %s: %s\n", param, value);
             exit(-1);
         }
@@ -1334,7 +1299,7 @@ static int parse_zones(int first_row, char *line)
 // Parse table header.
 // Return table id, or 0 in case of error.
 //
-static int uv380_parse_header(char *line)
+static int md380_parse_header(char *line)
 {
     if (strncasecmp(line, "Channel", 7) == 0)
         return 'C';
@@ -1347,7 +1312,7 @@ static int uv380_parse_header(char *line)
 // Parse one line of table data.
 // Return 0 on failure.
 //
-static int uv380_parse_row(int table_id, int first_row, char *line)
+static int md380_parse_row(int table_id, int first_row, char *line)
 {
     switch (table_id) {
     case 'C': return parse_channel(first_row, line);
@@ -1357,18 +1322,18 @@ static int uv380_parse_row(int table_id, int first_row, char *line)
 }
 
 //
-// TYT MD-UV380
+// TYT MD-380
 //
-radio_device_t radio_uv380 = {
-    "TYT MD-UV380",
-    uv380_download,
-    uv380_upload,
-    uv380_is_compatible,
-    uv380_read_image,
-    uv380_save_image,
-    uv380_print_version,
-    uv380_print_config,
-    uv380_parse_parameter,
-    uv380_parse_header,
-    uv380_parse_row,
+radio_device_t radio_md380 = {
+    "TYT MD-380",
+    md380_download,
+    md380_upload,
+    md380_is_compatible,
+    md380_read_image,
+    md380_save_image,
+    md380_print_version,
+    md380_print_config,
+    md380_parse_parameter,
+    md380_parse_header,
+    md380_parse_row,
 };

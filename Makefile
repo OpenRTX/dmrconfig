@@ -4,8 +4,8 @@ VERSION         = 1.0
 CFLAGS		= -g -O0 -Wall -Werror -DVERSION='"$(VERSION)"'
 LDFLAGS		= -g
 
-OBJS		= main.o util.o radio.o uv380.o
-SRCS		= main.c util.c radio.c uv380.c
+OBJS		= main.o util.o radio.o uv380.o md380.o
+SRCS		= main.c util.c radio.c uv380.c md380.c
 LIBS            =
 
 # Mac OS X
@@ -29,6 +29,7 @@ dmrconfig.linux: dmrconfig
 
 ###
 main.o: main.c radio.h util.h
+md380.o: md380.c radio.h util.h
 radio.o: radio.c radio.h util.h
 util.o: util.c util.h
 uv380.o: uv380.c radio.h util.h

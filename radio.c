@@ -128,6 +128,10 @@ void radio_read_image(char *filename)
     case 852533:
         device = &radio_uv380;
         break;
+    case 262144:
+    case 262709:
+        device = &radio_md380;
+        break;
     default:
         fprintf(stderr, "%s: Unrecognized file size %u bytes.\n",
             filename, (int) st.st_size);
