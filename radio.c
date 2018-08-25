@@ -125,6 +125,7 @@ void radio_read_image(char *filename)
     }
     switch (st.st_size) {
     case 851968:
+    case 852533:
         device = &radio_uv380;
         break;
     default:

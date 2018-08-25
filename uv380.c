@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <sys/stat.h>
 #include "radio.h"
 #include "util.h"
 
@@ -1092,8 +1093,37 @@ static void uv380_print_config(FILE *out, int verbose)
 //
 static void uv380_read_image(FILE *img)
 {
-    if (fread(&radio_mem[0], 1, MEMSZ, img) != MEMSZ) {
-        fprintf(stderr, "Error reading image data.\n");
+    struct stat st;
+
+    // Guess device type by file size.
+    if (fstat(fileno(img), &st) < 0) {
+        fprintf(stderr, "Cannot get file size.\n");
+        exit(-1);
+    }
+    switch (st.st_size) {
+    case 851968:
+        // IMG file.
+        if (fread(&radio_mem[0], 1, MEMSZ, img) != MEMSZ) {
+            fprintf(stderr, "Error reading image data.\n");
+            exit(-1);
+        }
+        break;
+    case 852533:
+        // RTD file.
+        // Header 0x225 bytes and footer 0x10 bytes at 0x40225.
+        fseek(img, 0x225, SEEK_SET);
+        if (fread(&radio_mem[0], 1, 0x40000, img) != 0x40000) {
+            fprintf(stderr, "Error reading image data.\n");
+            exit(-1);
+        }
+        fseek(img, 0x10, SEEK_CUR);
+        if (fread(&radio_mem[0x40000], 1, MEMSZ - 0x40000, img) != MEMSZ - 0x40000) {
+            fprintf(stderr, "Error reading image data.\n");
+            exit(-1);
+        }
+        break;
+    default:
+        fprintf(stderr, "Unrecognized file size %u bytes.\n", (int) st.st_size);
         exit(-1);
     }
 }
