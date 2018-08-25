@@ -69,13 +69,17 @@ typedef struct {
 #define BW_25_KHZ       2
 
             autoscan            : 1,    // Autoscan Enable
-            _unused1            : 2,    // 0b11
+            squelch             : 1,    // Squelch
+#define SQ_TIGHT        0
+#define SQ_NORMAL       1
+
+            _unused1            : 1,    // 1
             lone_worker         : 1;    // Lone Worker
 
     //
     // Byte 1
     //
-    uint8_t _unused2            : 1,    // 0
+    uint8_t talkaround          : 1,    // Allow Talkaround
             rx_only             : 1,    // RX Only Enable
             repeater_slot       : 2,    // Repeater Slot: 1 or 2
             colorcode           : 4;    // Color Code: 1...15
@@ -100,18 +104,22 @@ typedef struct {
 #define REF_MEDIUM      1
 #define REF_HIGH        2
 
-            _unused3            : 1,    // 0
+            _unused2            : 1,    // 0
             emergency_alarm_ack : 1,    // Emergency Alarm Ack
-            _unused4            : 3,    // 0b110
+            _unused3            : 2,    // 0b10
+            uncompressed_udp    : 1,    // Compressed UDP Data header (0) Enable, (1) Disable
             display_pttid_dis   : 1;    // Display PTT ID (inverted)
 
     //
     // Byte 4
     //
     uint8_t tx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
-            _unused5            : 2,    // 0b01
+            _unused4            : 2,    // 0b01
             vox                 : 1,    // VOX Enable
-            _unused6            : 1,    // 1
+            power               : 1,    // Power: Low, High
+#define POWER_HIGH      1
+#define POWER_LOW       0
+
             admit_criteria      : 2;    // Admit Criteria: Always, Channel Free or Correct CTS/DCS
 #define ADMIT_ALWAYS    0
 #define ADMIT_CH_FREE   1
@@ -120,16 +128,12 @@ typedef struct {
     //
     // Byte 5
     //
-    uint8_t _unused7            : 4,    // 0
+    uint8_t _unused5            : 4,    // 0
             in_call_criteria    : 2,    // In Call Criteria: Always, Follow Admit Criteria or TX Interrupt
 #define INCALL_ALWAYS   0
 #define INCALL_ADMIT    1
-#define INCALL_TXINT    2
 
-            turn_off_freq       : 2;    // Non-QT/DQT Turn-off Freq.: None, 259.2Hz or 55.2Hz
-#define TURNOFF_NONE    3
-#define TURNOFF_259_2HZ 0
-#define TURNOFF_55_2HZ  1
+            _unused6            : 2;    // 0b11
 
     //
     // Bytes 6-7
@@ -152,13 +156,13 @@ typedef struct {
     // Bytes 12-13
     //
     uint8_t group_list_index;           // Group List: None, GroupList1...250
-    uint8_t _unused8;                   // 0
+    uint8_t _unused7;                   // 0
 
     //
     // Bytes 14-15
     //
-    uint8_t _unused9;                   // 0
-    uint8_t squelch;                    // Squelch: 0...9
+    uint8_t _unused8;                   // 0
+    uint8_t _unused9;                   // 0xff
 
     //
     // Bytes 16-23
@@ -179,21 +183,10 @@ typedef struct {
     uint8_t tx_signaling_syst;          // Tx Signaling System: Off, DTMF-1...4
 
     //
-    // Byte 30
+    // Bytes 30-31
     //
-    uint8_t power               : 2,    // Power: Low, Middle, High
-            _unused10           : 6;    // 0b111111
-
-    //
-    // Byte 31
-    //
-    uint8_t _unused11           : 3,    // 0b111
-            dcdm_switch_dis     : 1,    // DCDM switch (inverted)
-            leader_ms           : 1,    // Leader/MS: Leader or MS
-#define DCDM_LEADER     0
-#define DCDM_MS         1
-
-            _unused12           : 3;    // 0b111
+    uint8_t _unused10;                  // 0xff
+    uint8_t _unused11;                  // 0xff
 
     //
     // Bytes 32-63
@@ -289,14 +282,14 @@ typedef struct {
 } scanlist_t;
 
 static const char *POWER_NAME[] = { "Low", "High" };
+static const char *SQUELCH_NAME[] = { "Tight", "Normal" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25" };
 static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
-static const char *ADMIT_NAME[] = { "Always", "Free", "Tone" };
-static const char *INCALL_NAME[] = { "Always", "Admit", "TXInt" };
+static const char *ADMIT_NAME[] = { "-", "Free", "Tone" };
+static const char *INCALL_NAME[] = { "-", "Admit", "???", "???" };
 static const char *REF_FREQUENCY[] = { "Low", "Med", "High" };
 static const char *PRIVACY_NAME[] = { "-", "Basic", "Enhanced" };
 static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DTMF-4" };
-static const char *TURNOFF_FREQ[] = { "259.2", "55.2", "???", "-" };
 
 //
 // Print a generic information about the device.
@@ -710,7 +703,7 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
     else
         fprintf(out, "%-4d ", ch->scan_list_index);
 
-    fprintf(out, "%1d  %-6s ", ch->squelch, ADMIT_NAME[ch->admit_criteria]);
+    fprintf(out, "%-7s %-6s ", SQUELCH_NAME[ch->squelch], ADMIT_NAME[ch->admit_criteria]);
 }
 
 //
@@ -738,6 +731,7 @@ static void print_chan_ext(FILE *out, channel_t *ch)
     fprintf(out, "%c  ", "-+"[ch->rx_only]);
     fprintf(out, "%c  ", "-+"[ch->lone_worker]);
     fprintf(out, "%c   ", "-+"[ch->vox]);
+    fprintf(out, "%c  ", "-+"[ch->talkaround]);
 }
 
 static void print_digital_channels(FILE *out, int verbose)
@@ -750,13 +744,13 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
         fprintf(out, "# 3) Receive frequency in MHz\n");
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
-        fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
+        fprintf(out, "# 5) Transmit power: High, Low\n");
         fprintf(out, "# 6) Scan list: - or index\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Digital Name             Receive  Transmit Power Scan Sq Admit  Color Slot Group Cntct InCall");
+    fprintf(out, "Digital Name             Receive  Transmit Power Scan Squelch Admit  Color Slot Group Cntct InCall");
 #if 1
-    fprintf(out, " TOT Dly RxRef TxRef AS RO LW VOX EmSys Privacy  PN PCC EAA DCC DCDM");
+    fprintf(out, " TOT Dly RxRef TxRef AS RO LW VOX TA EmSys Privacy  PN PCC EAA DCC CU");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
@@ -812,11 +806,7 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "%c   ", "-+"[ch->private_call_conf]);
         fprintf(out, "%c   ", "-+"[ch->emergency_alarm_ack]);
         fprintf(out, "%c   ", "-+"[ch->data_call_conf]);
-
-        if (ch->dcdm_switch_dis)
-            fprintf(out, "-");
-        else
-            fprintf(out, "%s", ch->leader_ms ? "MS" : "Leader");
+        fprintf(out, "%c   ", "+-"[ch->uncompressed_udp]);
 #endif
         fprintf(out, "\n");
     }
@@ -832,14 +822,14 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
         fprintf(out, "# 3) Receive frequency in MHz\n");
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
-        fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
+        fprintf(out, "# 5) Transmit power: High, Low\n");
         fprintf(out, "# 6) Bandwidth in kHz: 12.5, 20, 25\n");
         fprintf(out, "# 7) Scan list: - or index\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Analog  Name             Receive  Transmit Power Scan Sq Admit  RxTone TxTone Width");
+    fprintf(out, "Analog  Name             Receive  Transmit Power Scan Squelch Admit  RxTone TxTone Width");
 #if 1
-    fprintf(out, " TOT Dly RxRef TxRef AS RO LW VOX RxSign TxSign ID TOFreq");
+    fprintf(out, " TOT Dly RxRef TxRef AS RO LW VOX TA RxSign TxSign ID");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
@@ -871,7 +861,6 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "%-6s ", SIGNALING_SYSTEM[ch->rx_signaling_syst]);
         fprintf(out, "%-6s ", SIGNALING_SYSTEM[ch->tx_signaling_syst]);
         fprintf(out, "%c  ", "+-"[ch->display_pttid_dis]);
-        fprintf(out, "%s", TURNOFF_FREQ[ch->turn_off_freq]);
 #endif
         fprintf(out, "\n");
     }

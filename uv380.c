@@ -308,8 +308,8 @@ typedef struct {
 static const char *POWER_NAME[] = { "Low", "???", "Mid", "High" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25" };
 static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
-static const char *ADMIT_NAME[] = { "Always", "Free", "Tone" };
-static const char *INCALL_NAME[] = { "Always", "Admit", "TXInt" };
+static const char *ADMIT_NAME[] = { "-", "Free", "Tone" };
+static const char *INCALL_NAME[] = { "-", "Admit", "TXInt" };
 static const char *REF_FREQUENCY[] = { "Low", "Med", "High" };
 static const char *PRIVACY_NAME[] = { "-", "Basic", "Enhanced" };
 static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DTMF-4" };
