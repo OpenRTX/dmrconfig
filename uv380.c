@@ -496,10 +496,16 @@ static void print_freq(FILE *out, unsigned data)
         (data >> 20) & 15, (data >> 16) & 15,
         (data >> 12) & 15, (data >> 8) & 15);
 
-    if ((data & 0xff) == 0)
-        putc(' ', out);
-    else
+    if ((data & 0xff) == 0) {
+        fputs("  ", out);
+    } else {
         fprintf(out, "%d", (data >> 4) & 15);
+        if ((data & 0x0f) == 0) {
+            fputs(" ", out);
+        } else {
+            fprintf(out, "%d", data & 15);
+        }
+    }
 }
 
 
@@ -571,6 +577,25 @@ static int freq_to_hz(uint32_t bcd)
 }
 
 //
+// Print frequency as MHz.
+//
+static void print_mhz(FILE *out, uint32_t hz)
+{
+    if (hz % 1000000 == 0)
+        fprintf(out, "%-8u", hz / 1000000);
+    else if (hz % 100000 == 0)
+        fprintf(out, "%-8.1f", hz / 1000000.0);
+    else if (hz % 10000 == 0)
+        fprintf(out, "%-8.2f", hz / 1000000.0);
+    else if (hz % 1000 == 0)
+        fprintf(out, "%-8.3f", hz / 1000000.0);
+    else if (hz % 100 == 0)
+        fprintf(out, "%-8.4f", hz / 1000000.0);
+    else
+        fprintf(out, "%-8.5f", hz / 1000000.0);
+}
+
+//
 // Print the transmit offset or frequency.
 //
 static void print_offset(FILE *out, uint32_t rx_bcd, uint32_t tx_bcd)
@@ -580,21 +605,16 @@ static void print_offset(FILE *out, uint32_t rx_bcd, uint32_t tx_bcd)
     int delta = tx_hz - rx_hz;
 
     if (delta == 0) {
-        fprintf(out, "+0      ");
+        fprintf(out, "+0       ");
     } else if (delta > 0 && delta/50000 <= 255) {
-        if (delta % 1000000 == 0)
-            fprintf(out, "+%-7u", delta / 1000000);
-        else
-            fprintf(out, "+%-7.3f", delta / 1000000.0);
+        fprintf(out, "+");
+        print_mhz(out, delta);
     } else if (delta < 0 && -delta/50000 <= 255) {
-        delta = - delta;
-        if (delta % 1000000 == 0)
-            fprintf(out, "-%-7u", delta / 1000000);
-        else
-            fprintf(out, "-%-7.3f", delta / 1000000.0);
+        fprintf(out, "-");
+        print_mhz(out, -delta);
     } else {
-        // Cross band mode.
-        fprintf(out, " %-7.4f", tx_hz / 1000000.0);
+        fprintf(out, " ");
+        print_mhz(out, tx_hz);
     }
 }
 
@@ -720,7 +740,7 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
     fprintf(out, " ");
     print_offset(out, ch->rx_frequency, ch->tx_frequency);
 
-    fprintf(out, " %-4s  ", POWER_NAME[ch->power]);
+    fprintf(out, "%-4s  ", POWER_NAME[ch->power]);
 
     if (ch->scan_list_index == 0)
         fprintf(out, "-    ");
@@ -771,7 +791,7 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 6) Scan list: - or index\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Digital Name             Receive  Transmit Power Scan Sq Admit  Color Slot Group Cntct InCall");
+    fprintf(out, "Digital Name             Receive   Transmit Power Scan Sq Admit  Color Slot Group Cntct InCall");
 #if 1
     fprintf(out, " TOT Dly RxRef TxRef AS RO LW VOX EmSys Privacy  PN PCC EAA DCC DCDM");
 #endif
@@ -854,7 +874,7 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 7) Scan list: - or index\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Analog  Name             Receive  Transmit Power Scan Sq Admit  RxTone TxTone Width");
+    fprintf(out, "Analog  Name             Receive   Transmit Power Scan Sq Admit  RxTone TxTone Width");
 #if 1
     fprintf(out, " TOT Dly RxRef TxRef AS RO LW VOX RxSign TxSign ID TOFreq");
 #endif
