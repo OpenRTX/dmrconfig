@@ -78,6 +78,14 @@ int serial_read(int fd, unsigned char *data, int len);
 void serial_write(int fd, const void *data, int len);
 
 //
+// DFU functions.
+//
+void dfu_init(unsigned vid, unsigned pid, int write_nbytes);
+void dfu_close(void);
+void dfu_read_block(int bno, unsigned char *data, int nbytes);
+void dfu_write_block(int bno, unsigned char *data, int nbytes);
+
+//
 // Delay in milliseconds.
 //
 void mdelay(unsigned msec);

@@ -1,12 +1,11 @@
-CC		= gcc -m32
+CC		= gcc
 
 VERSION         = 1.0
-CFLAGS		= -g -O0 -Wall -Werror -DVERSION='"$(VERSION)"'
+CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION)"'
 LDFLAGS		= -g
 
-OBJS		= main.o util.o radio.o uv380.o md380.o
-SRCS		= main.c util.c radio.c uv380.c md380.c
-LIBS            =
+OBJS		= main.o util.o radio.o dfu.o uv380.o md380.o
+LIBS            = -lusb-1.0
 
 # Mac OS X
 #CFLAGS          += -I/usr/local/opt/gettext/include
@@ -28,6 +27,7 @@ dmrconfig.linux: dmrconfig
 		strip $@
 
 ###
+dfu.o: dfu.c util.h
 main.o: main.c radio.h util.h
 md380.o: md380.c radio.h util.h
 radio.o: radio.c radio.h util.h
