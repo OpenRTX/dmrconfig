@@ -30,10 +30,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <libusb-1.0/libusb.h>
-#include "util.h"
 
 //
-// All DFU based Commands
+// USB request types.
 //
 #define REQUEST_TYPE_TO_HOST    0xA1
 #define REQUEST_TYPE_TO_DEVICE  0x21
@@ -242,7 +241,28 @@ static void erase_block(uint32_t address)
     wait_dfu_idle();
 }
 
-void dfu_init(unsigned vid, unsigned pid, int write_nbytes)
+static const char *identify()
+{
+    static uint8_t data[64];
+
+    md380_command(0xa2, 0x01);
+
+    int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_HOST,
+        REQUEST_UPLOAD, 0, 0, data, 64, 0);
+    if (error < 0) {
+        fprintf(stderr, "%s: cannot read data: %d: %s\n",
+            __func__, error, libusb_strerror(error));
+        exit(-1);
+    }
+    //printf("%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n",
+    //data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
+    //data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15]);
+
+    get_status();
+    return (const char*) data;
+}
+
+const char *dfu_init(uint16_t vid, uint16_t pid)
 {
     int error = libusb_init(&ctx);
     if (error < 0) {
@@ -278,31 +298,13 @@ void dfu_init(unsigned vid, unsigned pid, int write_nbytes)
     // Enter Programming Mode.
     md380_command(0x91, 0x01);
 
-    if (write_nbytes > 0) {
-        erase_block(0x00000000);
-        erase_block(0x00010000);
-        erase_block(0x00020000);
-        erase_block(0x00030000);
-
-        if (write_nbytes > 256*1024) {
-            erase_block(0x00110000);
-            erase_block(0x00120000);
-            erase_block(0x00130000);
-            erase_block(0x00140000);
-            erase_block(0x00150000);
-            erase_block(0x00160000);
-            erase_block(0x00170000);
-            erase_block(0x00180000);
-            erase_block(0x00190000);
-            erase_block(0x001a0000);
-            erase_block(0x001b0000);
-            erase_block(0x001c0000);
-            erase_block(0x001d0000);
-        }
-    }
+    // Get device identifier in a static buffer.
+    const char *ident = identify();
 
     // Zero address.
     set_address(0x00000000);
+
+    return ident;
 }
 
 void dfu_close()
@@ -315,7 +317,31 @@ void dfu_close()
     }
 }
 
-void dfu_read_block(int bno, unsigned char *data, int nbytes)
+void dfu_erase(int nbytes)
+{
+    erase_block(0x00000000);
+    erase_block(0x00010000);
+    erase_block(0x00020000);
+    erase_block(0x00030000);
+
+    if (nbytes > 256*1024) {
+        erase_block(0x00110000);
+        erase_block(0x00120000);
+        erase_block(0x00130000);
+        erase_block(0x00140000);
+        erase_block(0x00150000);
+        erase_block(0x00160000);
+        erase_block(0x00170000);
+        erase_block(0x00180000);
+        erase_block(0x00190000);
+        erase_block(0x001a0000);
+        erase_block(0x001b0000);
+        erase_block(0x001c0000);
+        erase_block(0x001d0000);
+    }
+}
+
+void dfu_read_block(int bno, uint8_t *data, int nbytes)
 {
     if (bno >= 256)
         bno += 832;
@@ -331,7 +357,7 @@ void dfu_read_block(int bno, unsigned char *data, int nbytes)
     get_status();
 }
 
-void dfu_write_block(int bno, unsigned char *data, int nbytes)
+void dfu_write_block(int bno, uint8_t *data, int nbytes)
 {
     if (bno >= 256)
         bno += 832;
@@ -346,39 +372,3 @@ void dfu_write_block(int bno, unsigned char *data, int nbytes)
 
     get_status();
 }
-
-#if 0
-void device_to_file(const char *filename)
-{
-    FILE *out = fopen(filename, "w");
-    if (! out) {
-        perror(filename);
-        exit(-1);
-    }
-
-    int bno;
-    for (bno=0; bno<832; bno++) {
-        uint8_t data[1024];
-        dfu_read_block(bno, data, 1024);
-
-        if (fwrite(data, 1, 1024, out) != 1024) {
-            printf("\n");
-            fprintf(stderr, "%s: cannot write output image!\n", __func__);
-            exit(-1);
-        }
-        printf(".");
-        fflush(stdout);
-    }
-    printf("\n");
-    fclose(out);
-}
-
-int main()
-{
-    dfu_init(0x0483, 0xdf11, 0);
-
-    device_to_file("output.img");
-
-    dfu_close();
-}
-#endif

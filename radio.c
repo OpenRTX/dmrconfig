@@ -35,7 +35,6 @@
 #include "radio.h"
 #include "util.h"
 
-int radio_port;                         // File descriptor of programming serial port
 unsigned char radio_mem [1024*1024];    // Radio memory contents, up to 1Mbyte
 int radio_progress;                     // Read/write progress counter
 
@@ -49,7 +48,7 @@ void radio_disconnect()
     fprintf(stderr, "Close device.\n");
 
     // Restore the port mode.
-    serial_close(radio_port);
+    dfu_close();
 
     // Radio needs a timeout to reset to a normal state.
     mdelay(2000);
@@ -68,9 +67,20 @@ void radio_print_version(FILE *out)
 //
 void radio_connect()
 {
-    //fprintf(stderr, "Connect to %s.\n", port_name);
-    //radio_port = serial_open(port_name);
-    //TODO
+    // Only TYT MD family for now.
+    const char *ident = dfu_init(0x0483, 0xdf11);
+    fprintf(stderr, "Connect to %s.\n", ident);
+
+    if (strcasecmp(ident, "MD380") == 0) {
+        device = &radio_md380;
+    } else
+    if (strcasecmp(ident, "MD-UV380") == 0) {
+        device = &radio_uv380;
+    } else {
+        fprintf(stderr, "Unrecognized radio '%s'.\n",
+            ident);
+        exit(-1);
+    }
 }
 
 //

@@ -56,32 +56,11 @@ int serial_verbose;
 void print_hex(const unsigned char *data, int len);
 
 //
-// Open the serial port.
-//
-int serial_open(void);
-
-//
-// Close the serial port.
-//
-void serial_close(int fd);
-
-//
-// Read data from serial port.
-// Return 0 when no data available.
-// Use 200-msec timeout.
-//
-int serial_read(int fd, unsigned char *data, int len);
-
-//
-// Write data to serial port.
-//
-void serial_write(int fd, const void *data, int len);
-
-//
 // DFU functions.
 //
-void dfu_init(unsigned vid, unsigned pid, int write_nbytes);
+const char *dfu_init(unsigned vid, unsigned pid);
 void dfu_close(void);
+void dfu_erase(int nbytes);
 void dfu_read_block(int bno, unsigned char *data, int nbytes);
 void dfu_write_block(int bno, unsigned char *data, int nbytes);
 

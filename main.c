@@ -61,7 +61,7 @@ void usage()
 
 int main(int argc, char **argv)
 {
-    int write_flag = 0, config_flag = 0;
+    int read_flag = 0, write_flag = 0, config_flag = 0;
 
     // Set locale and message catalogs.
     setlocale(LC_ALL, "");
@@ -77,8 +77,9 @@ int main(int argc, char **argv)
     copyright = _("Copyright (C) 2018 Serge Vakulenko KK6ABQ");
     serial_verbose = 0;
     for (;;) {
-        switch (getopt(argc, argv, "vcw")) {
+        switch (getopt(argc, argv, "vcwr")) {
         case 'v': ++serial_verbose; continue;
+        case 'r': ++read_flag;      continue;
         case 'w': ++write_flag;     continue;
         case 'c': ++config_flag;    continue;
         default:
@@ -99,20 +100,20 @@ int main(int argc, char **argv)
 
     if (write_flag) {
         // Restore image file to device.
-        if (argc != 2)
+        if (argc != 1)
             usage();
 
         radio_connect();
-        radio_read_image(argv[1]);
+        radio_read_image(argv[0]);
         radio_print_version(stdout);
         radio_upload(0);
         radio_disconnect();
 
     } else if (config_flag) {
-        if (argc != 2)
+        if (argc != 1 && argc != 2)
             usage();
 
-        if (is_file(argv[0])) {
+        if (argc == 2) {
             // Apply text config to image file.
             radio_read_image(argv[0]);
             radio_print_version(stdout);
@@ -125,16 +126,16 @@ int main(int argc, char **argv)
             radio_download();
             radio_print_version(stdout);
             radio_save_image("backup.img");
-            radio_parse_config(argv[1]);
+            radio_parse_config(argv[0]);
             radio_upload(1);
             radio_disconnect();
         }
 
-    } else {
-        if (argc != 1)
+    } else if (read_flag) {
+        if (argc != 0 && argc != 1)
             usage();
 
-        if (is_file(argv[0])) {
+        if (argc == 1) {
             // Print configuration from image file.
             // Load image from file.
             radio_read_image(argv[0]);
@@ -161,6 +162,8 @@ int main(int argc, char **argv)
             radio_print_config(conf, 1);
             fclose(conf);
         }
+    } else {
+        usage();
     }
     return 0;
 }

@@ -300,107 +300,21 @@ static void md380_print_version(FILE *out)
 }
 
 //
-// Read block of data, up to 64 bytes.
-// When start==0, return non-zero on success or 0 when empty.
-// When start!=0, halt the program on any error.
-//
-static int read_block(int fd, int start, unsigned char *data, int nbytes)
-{
-    unsigned char reply;
-    int len;
-
-    // Read data.
-    len = serial_read(fd, data, nbytes);
-    if (len != nbytes) {
-        if (start == 0)
-            return 0;
-        fprintf(stderr, "Reading block 0x%04x: got only %d bytes.\n", start, len);
-        exit(-1);
-    }
-
-    // Get acknowledge.
-    serial_write(fd, "\x06", 1);
-    if (serial_read(fd, &reply, 1) != 1) {
-        fprintf(stderr, "No acknowledge after block 0x%04x.\n", start);
-        exit(-1);
-    }
-    if (reply != 0x06) {
-        fprintf(stderr, "Bad acknowledge after block 0x%04x: %02x\n", start, reply);
-        exit(-1);
-    }
-    if (serial_verbose) {
-        printf("# Read 0x%04x: ", start);
-        print_hex(data, nbytes);
-        printf("\n");
-    } else {
-        ++radio_progress;
-        if (radio_progress % 16 == 0) {
-            fprintf(stderr, "#");
-            fflush(stderr);
-        }
-    }
-    return 1;
-}
-
-//
-// Write block of data, up to 64 bytes.
-// Halt the program on any error.
-// Return 0 on error.
-//
-static int write_block(int fd, int start, const unsigned char *data, int nbytes)
-{
-    unsigned char reply[64];
-    int len;
-
-    serial_write(fd, data, nbytes);
-
-    // Get echo.
-    len = serial_read(fd, reply, nbytes);
-    if (len != nbytes) {
-        fprintf(stderr, "! Echo for block 0x%04x: got only %d bytes.\n", start, len);
-        return 0;
-    }
-
-    // Get acknowledge.
-    if (serial_read(fd, reply, 1) != 1) {
-        fprintf(stderr, "! No acknowledge after block 0x%04x.\n", start);
-        return 0;
-    }
-    if (reply[0] != 0x06) {
-        fprintf(stderr, "! Bad acknowledge after block 0x%04x: %02x\n", start, reply[0]);
-        return 0;
-    }
-    if (serial_verbose) {
-        printf("# Write 0x%04x: ", start);
-        print_hex(data, nbytes);
-        printf("\n");
-    } else {
-        ++radio_progress;
-        if (radio_progress % 16 == 0) {
-            fprintf(stderr, "#");
-            fflush(stderr);
-        }
-    }
-    return 1;
-}
-
-//
 // Read memory image from the device.
 //
 static void md380_download()
 {
-    int addr;
+    int bno;
 
-    // Wait for the first 8 bytes.
-    while (read_block(radio_port, 0, &radio_mem[0], 8) == 0)
-        continue;
+    for (bno=0; bno<MEMSZ/1024; bno++) {
+        dfu_read_block(bno, &radio_mem[bno*1024], 1024);
 
-    // Get the rest of data.
-    for (addr=8; addr<MEMSZ; addr+=64)
-        read_block(radio_port, addr, &radio_mem[addr], 64);
-
-    // Get the checksum.
-    read_block(radio_port, MEMSZ, &radio_mem[MEMSZ], 1);
+        ++radio_progress;
+        if (radio_progress % 16 == 0) {
+            fprintf(stderr, "#");
+            fflush(stderr);
+        }
+    }
 }
 
 //
@@ -408,20 +322,19 @@ static void md380_download()
 //
 static void md380_upload(int cont_flag)
 {
-    int addr;
-    char buf[80];
+    int bno;
 
-    if (! fgets(buf, sizeof(buf), stdin))
-	/*ignore*/;
+    dfu_erase(MEMSZ);
+
     fprintf(stderr, "Sending data... ");
     fflush(stderr);
+    for (bno=0; bno<MEMSZ/1024; bno++) {
+        dfu_write_block(bno, &radio_mem[bno*1024], 1024);
 
-    if (! write_block(radio_port, 0, &radio_mem[0], 8)) {
-        //TODO
-    }
-    for (addr=8; addr<MEMSZ; addr+=64) {
-        if (! write_block(radio_port, addr, &radio_mem[addr], 64)) {
-            //TODO
+        ++radio_progress;
+        if (radio_progress % 16 == 0) {
+            fprintf(stderr, "#");
+            fflush(stderr);
         }
     }
 }
@@ -1112,7 +1025,7 @@ static void md380_read_image(FILE *img)
 //
 static void md380_save_image(FILE *img)
 {
-    fwrite(&radio_mem[0], 1, MEMSZ+1, img);
+    fwrite(&radio_mem[0], 1, MEMSZ, img);
 }
 
 //

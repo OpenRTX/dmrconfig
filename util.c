@@ -69,43 +69,6 @@ void print_hex(const unsigned char *data, int len)
 }
 
 //
-// Open the serial port.
-//
-int serial_open()
-{
-    //TODO
-    return 0;
-}
-
-//
-// Close the serial port.
-//
-void serial_close(int fd)
-{
-    // Restore the port mode.
-    //TODO
-}
-
-//
-// Read data from serial port.
-// Return 0 when no data available.
-// Use 200-msec timeout.
-//
-int serial_read(int fd, unsigned char *data, int len)
-{
-    //TODO
-    return 0;
-}
-
-//
-// Write data to serial port.
-//
-void serial_write(int fd, const void *data, int len)
-{
-    //TODO
-}
-
-//
 // Delay in milliseconds.
 //
 void mdelay(unsigned msec)
