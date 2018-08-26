@@ -310,7 +310,7 @@ static void md380_download()
         dfu_read_block(bno, &radio_mem[bno*1024], 1024);
 
         ++radio_progress;
-        if (radio_progress % 16 == 0) {
+        if (radio_progress % 32 == 0) {
             fprintf(stderr, "#");
             fflush(stderr);
         }
@@ -332,7 +332,7 @@ static void md380_upload(int cont_flag)
         dfu_write_block(bno, &radio_mem[bno*1024], 1024);
 
         ++radio_progress;
-        if (radio_progress % 16 == 0) {
+        if (radio_progress % 32 == 0) {
             fprintf(stderr, "#");
             fflush(stderr);
         }
@@ -344,7 +344,7 @@ static void md380_upload(int cont_flag)
 //
 static int md380_is_compatible()
 {
-    return strncmp("AH017$", (char*)&radio_mem[0], 6) == 0;
+    return 1;
 }
 
 //

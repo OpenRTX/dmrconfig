@@ -334,7 +334,7 @@ static void uv380_download()
         dfu_read_block(bno, &radio_mem[bno*1024], 1024);
 
         ++radio_progress;
-        if (radio_progress % 16 == 0) {
+        if (radio_progress % 32 == 0) {
             fprintf(stderr, "#");
             fflush(stderr);
         }
@@ -350,13 +350,11 @@ static void uv380_upload(int cont_flag)
 
     dfu_erase(MEMSZ);
 
-    fprintf(stderr, "Sending data... ");
-    fflush(stderr);
     for (bno=0; bno<MEMSZ/1024; bno++) {
         dfu_write_block(bno, &radio_mem[bno*1024], 1024);
 
         ++radio_progress;
-        if (radio_progress % 16 == 0) {
+        if (radio_progress % 32 == 0) {
             fprintf(stderr, "#");
             fflush(stderr);
         }
@@ -368,7 +366,7 @@ static void uv380_upload(int cont_flag)
 //
 static int uv380_is_compatible()
 {
-    return strncmp("AH017$", (char*)&radio_mem[0], 6) == 0;
+    return 1;
 }
 
 //

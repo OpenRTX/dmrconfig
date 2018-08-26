@@ -319,6 +319,10 @@ void dfu_close()
 
 void dfu_erase(int nbytes)
 {
+    // Enter Programming Mode.
+    md380_command(0x91, 0x01);
+    usleep(100000);
+
     erase_block(0x00000000);
     erase_block(0x00010000);
     erase_block(0x00020000);
@@ -339,6 +343,9 @@ void dfu_erase(int nbytes)
         erase_block(0x001c0000);
         erase_block(0x001d0000);
     }
+
+    // Zero address.
+    set_address(0x00000000);
 }
 
 void dfu_read_block(int bno, uint8_t *data, int nbytes)
@@ -371,4 +378,5 @@ void dfu_write_block(int bno, uint8_t *data, int nbytes)
     }
 
     get_status();
+    wait_dfu_idle();
 }
