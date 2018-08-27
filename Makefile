@@ -1,7 +1,8 @@
 CC		= gcc
 
-VERSION         = 1.0
-CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION)"'
+VERSION         = 0.1
+GITCOUNT        = $(shell git rev-list HEAD --count)
+CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -g
 
 OBJS		= main.o util.o radio.o dfu.o uv380.o md380.o

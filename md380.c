@@ -56,9 +56,7 @@
 // Channel data.
 //
 typedef struct {
-    //
     // Byte 0
-    //
     uint8_t channel_mode        : 2,    // Mode: Analog or Digital
 #define MODE_ANALOG     1
 #define MODE_DIGITAL    2
@@ -76,17 +74,13 @@ typedef struct {
             _unused1            : 1,    // 1
             lone_worker         : 1;    // Lone Worker
 
-    //
     // Byte 1
-    //
     uint8_t talkaround          : 1,    // Allow Talkaround
             rx_only             : 1,    // RX Only Enable
             repeater_slot       : 2,    // Repeater Slot: 1 or 2
             colorcode           : 4;    // Color Code: 1...15
 
-    //
     // Byte 2
-    //
     uint8_t privacy_no          : 4,    // Privacy No. (+1): 1...16
             privacy             : 2,    // Privacy: None, Basic or Enhanced
 #define PRIV_NONE       0
@@ -96,9 +90,7 @@ typedef struct {
             private_call_conf   : 1,    // Private Call Confirmed
             data_call_conf      : 1;    // Data Call Confirmed
 
-    //
     // Byte 3
-    //
     uint8_t rx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
 #define REF_LOW         0
 #define REF_MEDIUM      1
@@ -110,9 +102,7 @@ typedef struct {
             uncompressed_udp    : 1,    // Compressed UDP Data header (0) Enable, (1) Disable
             display_pttid_dis   : 1;    // Display PTT ID (inverted)
 
-    //
     // Byte 4
-    //
     uint8_t tx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
             _unused4            : 2,    // 0b01
             vox                 : 1,    // VOX Enable
@@ -125,9 +115,7 @@ typedef struct {
 #define ADMIT_CH_FREE   1
 #define ADMIT_TONE      2
 
-    //
     // Byte 5
-    //
     uint8_t _unused5            : 4,    // 0
             in_call_criteria    : 2,    // In Call Criteria: Always, Follow Admit Criteria or TX Interrupt
 #define INCALL_ALWAYS   0
@@ -135,62 +123,42 @@ typedef struct {
 
             _unused6            : 2;    // 0b11
 
-    //
     // Bytes 6-7
-    //
     uint16_t contact_name_index;        // Contact Name: Contact1...
 
-    //
     // Bytes 8-9
-    //
     uint8_t tot;                        // TOT x 15sec: 0-Infinite, 1=15s... 37=255s
     uint8_t tot_rekey_delay;            // TOT Rekey Delay: 0s...255s
 
-    //
     // Bytes 10-11
-    //
     uint8_t emergency_system_index;     // Emergency System: None, System1...32
     uint8_t scan_list_index;            // Scan List: None, ScanList1...250
 
-    //
     // Bytes 12-13
-    //
     uint8_t group_list_index;           // Group List: None, GroupList1...250
     uint8_t _unused7;                   // 0
 
-    //
     // Bytes 14-15
-    //
     uint8_t _unused8;                   // 0
     uint8_t _unused9;                   // 0xff
 
-    //
     // Bytes 16-23
-    //
     uint32_t rx_frequency;              // RX Frequency: 8 digits BCD
     uint32_t tx_frequency;              // TX Frequency: 8 digits BCD
 
-    //
     // Bytes 24-27
-    //
     uint16_t ctcss_dcs_decode;          // CTCSS/DCS Dec: 4 digits BCD
     uint16_t ctcss_dcs_encode;          // CTCSS/DCS Enc: 4 digits BCD
 
-    //
     // Bytes 28-29
-    //
     uint8_t rx_signaling_syst;          // Rx Signaling System: Off, DTMF-1...4
     uint8_t tx_signaling_syst;          // Tx Signaling System: Off, DTMF-1...4
 
-    //
     // Bytes 30-31
-    //
     uint8_t _unused10;                  // 0xff
     uint8_t _unused11;                  // 0xff
 
-    //
     // Bytes 32-63
-    //
     uint16_t name[16];                  // Channel Name (Unicode)
 } channel_t;
 
@@ -198,14 +166,10 @@ typedef struct {
 // Contact data.
 //
 typedef struct {
-    //
     // Bytes 0-2
-    //
     uint32_t id                 : 24;   // Call ID: 1...16777215
 
-    //
     // Byte 3
-    //
     uint8_t type                : 2,    // Call Type: Group Call, Private Call or All Call
 #define CALL_GROUP      1
 #define CALL_PRIVATE    2
@@ -215,9 +179,7 @@ typedef struct {
             receive_tone        : 1,    // Call Receive Tone: No or yes
             _unused2            : 2;    // 0b11
 
-    //
     // Bytes 4-19
-    //
     uint16_t name[16];                  // Contact Name (Unicode)
 } contact_t;
 
@@ -225,14 +187,10 @@ typedef struct {
 // Zone data.
 //
 typedef struct {
-    //
     // Bytes 0-31
-    //
     uint16_t name[16];                  // Zone Name (Unicode)
 
-    //
     // Bytes 32-63
-    //
     uint16_t member[16];                // Member: channels 1...16
 } zone_t;
 
@@ -240,14 +198,10 @@ typedef struct {
 // Group list data.
 //
 typedef struct {
-    //
     // Bytes 0-31
-    //
     uint16_t name[16];                  // Group List Name (Unicode)
 
-    //
     // Bytes 32-95
-    //
     uint16_t member[32];                // Contacts
 } grouplist_t;
 
@@ -255,29 +209,21 @@ typedef struct {
 // Scan list data.
 //
 typedef struct {
-    //
     // Bytes 0-31
-    //
     uint16_t name[16];                  // Scan List Name (Unicode)
 
-    //
     // Bytes 32-37
-    //
     uint16_t priority_ch1;              // Priority Channel 1 or ffff
     uint16_t priority_ch2;              // Priority Channel 2 or ffff
     uint16_t tx_designated_ch;          // Tx Designated Channel or ffff
 
-    //
     // Bytes 38-41
-    //
     uint8_t _unused1;                   // 0xf1
     uint8_t sign_hold_time;             // Signaling Hold Time (x25 = msec)
     uint8_t prio_sample_time;           // Priority Sample Time (x250 = msec)
     uint8_t _unused2;                   // 0xff
 
-    //
     // Bytes 42-103
-    //
     uint16_t member[31];                // Channels
 } scanlist_t;
 
@@ -542,21 +488,23 @@ static void print_id(FILE *out)
 
     fprintf(out, "Radio: TYT MD-380\n");
     fprintf(out, "Name: ");
-    if (radio_mem[OFFSET_NAME] != 0) {
+    if (radio_mem[OFFSET_NAME] != 0 && *(uint16_t*)&radio_mem[OFFSET_NAME] != 0xffff) {
         print_unicode(out, (uint16_t*) &radio_mem[OFFSET_NAME], 16, 0);
     } else {
         fprintf(out, "-");
     }
-    fprintf(out, "\nID: %d\n", *(uint32_t*) &radio_mem[OFFSET_ID]);
+    fprintf(out, "\nID: %u\n", *(uint32_t*) &radio_mem[OFFSET_ID] & 0xffffff);
 
-    fprintf(out, "Last Programmed Date: %d%d%d%d-%d%d-%d%d",
-        data[0] >> 4, data[0] & 15, data[1] >> 4, data[1] & 15,
-        data[2] >> 4, data[2] & 15, data[3] >> 4, data[3] & 15);
-    fprintf(out, " %d%d:%d%d:%d%d\n",
-        data[4] >> 4, data[4] & 15, data[5] >> 4, data[5] & 15,
-        data[6] >> 4, data[6] & 15);
-    fprintf(out, "CPS Software Version: V%x%x.%x%x\n",
-        data[7], data[8], data[9], data[10]);
+    if (*data != 0xff) {
+        fprintf(out, "Last Programmed Date: %d%d%d%d-%d%d-%d%d",
+            data[0] >> 4, data[0] & 15, data[1] >> 4, data[1] & 15,
+            data[2] >> 4, data[2] & 15, data[3] >> 4, data[3] & 15);
+        fprintf(out, " %d%d:%d%d:%d%d\n",
+            data[4] >> 4, data[4] & 15, data[5] >> 4, data[5] & 15,
+            data[6] >> 4, data[6] & 15);
+        fprintf(out, "CPS Software Version: V%x%x.%x%x\n",
+            data[7], data[8], data[9], data[10]);
+    }
 }
 
 //
@@ -799,6 +747,41 @@ static void print_analog_channels(FILE *out, int verbose)
     }
 }
 
+static int have_zones()
+{
+    zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES];
+
+    return z->name[0] != 0 && z->name[0] != 0xffff;
+}
+
+static int have_scanlists()
+{
+    scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL];
+
+    return sl->name[0] != 0 && sl->name[0] != 0xffff;
+}
+
+static int have_contacts()
+{
+    contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS];
+
+    return ct->name[0] != 0 && ct->name[0] != 0xffff;
+}
+
+static int have_grouplists()
+{
+    grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS];
+
+    return gl->name[0] != 0 && gl->name[0] != 0xffff;
+}
+
+static int have_messages()
+{
+    uint16_t *msg = (uint16_t*) &radio_mem[OFFSET_MSG];
+
+    return msg[0] != 0 && msg[0] != 0xffff;
+}
+
 //
 // Print full information about the device configuration.
 //
@@ -823,165 +806,175 @@ static void md380_print_config(FILE *out, int verbose)
     //
     // Zones.
     //
-    fprintf(out, "\n");
-    if (verbose) {
-        fprintf(out, "# Table of channel zones.\n");
-        fprintf(out, "# 1) Zone number: 1-%d\n", NZONES);
-        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
-        fprintf(out, "# 3) List of channels: numbers and ranges (N-M) separated by comma\n");
-        fprintf(out, "#\n");
-    }
-    fprintf(out, "Zone    Name             Channels\n");
-    for (i=0; i<NZONES; i++) {
-        zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES + i*64];
-
-        if (z->name[0] == 0) {
-            // Zone is disabled.
-            continue;
-        }
-
-        fprintf(out, "%4d    ", i + 1);
-        print_unicode(out, z->name, 16, 1);
-        fprintf(out, " ");
-        if (z->member[0]) {
-            print_chanlist(out, z->member, 16);
-        } else {
-            fprintf(out, "-");
-        }
+    if (have_zones()) {
         fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of channel zones.\n");
+            fprintf(out, "# 1) Zone number: 1-%d\n", NZONES);
+            fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+            fprintf(out, "# 3) List of channels: numbers and ranges (N-M) separated by comma\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "Zone    Name             Channels\n");
+        for (i=0; i<NZONES; i++) {
+            zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES + i*64];
+
+            if (z->name[0] == 0 || z->name[0] == 0xffff) {
+                // Zone is disabled.
+                continue;
+            }
+
+            fprintf(out, "%4d    ", i + 1);
+            print_unicode(out, z->name, 16, 1);
+            fprintf(out, " ");
+            if (z->member[0]) {
+                print_chanlist(out, z->member, 16);
+            } else {
+                fprintf(out, "-");
+            }
+            fprintf(out, "\n");
+        }
     }
 
     //
     // Scan lists.
     //
-    fprintf(out, "\n");
-    if (verbose) {
-        fprintf(out, "# Table of scan lists.\n");
-        fprintf(out, "# 1) Zone number: 1-%d\n", NSCANL);
-        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
-        fprintf(out, "# 3) List of channels: numbers and ranges (N-M) separated by comma\n");
-        fprintf(out, "#\n");
-    }
-    fprintf(out, "Scanlist Name             PCh1 PCh2 TxCh Hold Smpl Channels\n");
-    for (i=0; i<NSCANL; i++) {
-        scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + i*104];
-
-        if (sl->name[0] == 0) {
-            // Scan list is disabled.
-            continue;
-        }
-
-        fprintf(out, "%5d    ", i + 1);
-        print_unicode(out, sl->name, 16, 1);
-        if (sl->priority_ch1 == 0xffff) {
-            fprintf(out, " -    ");
-        } else if (sl->priority_ch1 == 0) {
-            fprintf(out, " Sel  ");
-        } else {
-            fprintf(out, " %-4d ", sl->priority_ch1);
-        }
-        if (sl->priority_ch2 == 0xffff) {
-            fprintf(out, "-    ");
-        } else if (sl->priority_ch2 == 0) {
-            fprintf(out, "Sel  ");
-        } else {
-            fprintf(out, "%-4d ", sl->priority_ch2);
-        }
-        if (sl->tx_designated_ch == 0xffff) {
-            fprintf(out, "-    ");
-        } else if (sl->tx_designated_ch == 0) {
-            fprintf(out, "Last ");
-        } else {
-            fprintf(out, "%-4d ", sl->tx_designated_ch);
-        }
-        fprintf(out, "%-4d %-4d ",
-            sl->sign_hold_time * 25, sl->prio_sample_time * 250);
-        if (sl->member[0]) {
-            print_chanlist(out, sl->member, 31);
-        } else {
-            fprintf(out, "-");
-        }
+    if (have_scanlists()) {
         fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of scan lists.\n");
+            fprintf(out, "# 1) Zone number: 1-%d\n", NSCANL);
+            fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+            fprintf(out, "# 3) List of channels: numbers and ranges (N-M) separated by comma\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "Scanlist Name             PCh1 PCh2 TxCh Hold Smpl Channels\n");
+        for (i=0; i<NSCANL; i++) {
+            scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + i*104];
+
+            if (sl->name[0] == 0 || sl->name[0] == 0xffff) {
+                // Scan list is disabled.
+                continue;
+            }
+
+            fprintf(out, "%5d    ", i + 1);
+            print_unicode(out, sl->name, 16, 1);
+            if (sl->priority_ch1 == 0xffff) {
+                fprintf(out, " -    ");
+            } else if (sl->priority_ch1 == 0) {
+                fprintf(out, " Sel  ");
+            } else {
+                fprintf(out, " %-4d ", sl->priority_ch1);
+            }
+            if (sl->priority_ch2 == 0xffff) {
+                fprintf(out, "-    ");
+            } else if (sl->priority_ch2 == 0) {
+                fprintf(out, "Sel  ");
+            } else {
+                fprintf(out, "%-4d ", sl->priority_ch2);
+            }
+            if (sl->tx_designated_ch == 0xffff) {
+                fprintf(out, "-    ");
+            } else if (sl->tx_designated_ch == 0) {
+                fprintf(out, "Last ");
+            } else {
+                fprintf(out, "%-4d ", sl->tx_designated_ch);
+            }
+            fprintf(out, "%-4d %-4d ",
+                sl->sign_hold_time * 25, sl->prio_sample_time * 250);
+            if (sl->member[0]) {
+                print_chanlist(out, sl->member, 31);
+            } else {
+                fprintf(out, "-");
+            }
+            fprintf(out, "\n");
+        }
     }
 
     //
     // Contacts.
     //
-    fprintf(out, "\n");
-    if (verbose) {
-        fprintf(out, "# Table of contacts.\n");
-        fprintf(out, "# 1) Contact number: 1-%d\n", NCONTACTS);
-        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
-        fprintf(out, "# 3) Call type: Group, Private, All\n");
-        fprintf(out, "# 4) Call ID: 1...16777215\n");
-        fprintf(out, "# 5) Call receive tone: -, Yes\n");
-        fprintf(out, "#\n");
-    }
-    fprintf(out, "Contact Name             Type    ID       RxTone\n");
-    for (i=0; i<NCONTACTS; i++) {
-        contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS + i*36];
-
-        if (ct->name[0] == 0) {
-            // Contact is disabled
-            continue;
+    if (have_contacts()) {
+        fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of contacts.\n");
+            fprintf(out, "# 1) Contact number: 1-%d\n", NCONTACTS);
+            fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+            fprintf(out, "# 3) Call type: Group, Private, All\n");
+            fprintf(out, "# 4) Call ID: 1...16777215\n");
+            fprintf(out, "# 5) Call receive tone: -, Yes\n");
+            fprintf(out, "#\n");
         }
+        fprintf(out, "Contact Name             Type    ID       RxTone\n");
+        for (i=0; i<NCONTACTS; i++) {
+            contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS + i*36];
 
-        fprintf(out, "%5d   ", i+1);
-        print_unicode(out, ct->name, 16, 1);
-        fprintf(out, " %-7s %-8d %s\n",
-            CONTACT_TYPE[ct->type], ct->id, ct->receive_tone ? "Yes" : "-");
+            if (ct->name[0] == 0 || ct->name[0] == 0xffff) {
+                // Contact is disabled
+                continue;
+            }
+
+            fprintf(out, "%5d   ", i+1);
+            print_unicode(out, ct->name, 16, 1);
+            fprintf(out, " %-7s %-8d %s\n",
+                CONTACT_TYPE[ct->type], ct->id, ct->receive_tone ? "Yes" : "-");
+        }
     }
 
     //
     // Group lists.
     //
-    fprintf(out, "\n");
-    if (verbose) {
-        fprintf(out, "# Table of group lists.\n");
-        fprintf(out, "# 1) Group list number: 1-%d\n", NGLISTS);
-        fprintf(out, "# 2) List of contacts: numbers and ranges (N-M) separated by comma\n");
-        fprintf(out, "#\n");
-    }
-    fprintf(out, "Grouplist Contacts\n");
-    for (i=0; i<NGLISTS; i++) {
-        grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS + i*96];
-
-        if (gl->name[0] == 0) {
-            // Group list is disabled.
-            continue;
-        }
-
-        fprintf(out, "%5d     ", i + 1);
-        if (gl->member[0]) {
-            print_chanlist(out, gl->member, 32);
-        } else {
-            fprintf(out, "-");
-        }
+    if (have_grouplists()) {
         fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of group lists.\n");
+            fprintf(out, "# 1) Group list number: 1-%d\n", NGLISTS);
+            fprintf(out, "# 2) List of contacts: numbers and ranges (N-M) separated by comma\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "Grouplist Contacts\n");
+        for (i=0; i<NGLISTS; i++) {
+            grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS + i*96];
+
+            if (gl->name[0] == 0 || gl->name[0] == 0xffff) {
+                // Group list is disabled.
+                continue;
+            }
+
+            fprintf(out, "%5d     ", i + 1);
+            if (gl->member[0]) {
+                print_chanlist(out, gl->member, 32);
+            } else {
+                fprintf(out, "-");
+            }
+            fprintf(out, "\n");
+        }
     }
 
     //
     // Text messages.
     //
-    fprintf(out, "\n");
-    if (verbose) {
-        fprintf(out, "# Table of text messages.\n");
-        fprintf(out, "# 1) Message number: 1-%d\n", NMESSAGES);
-        fprintf(out, "# 2) Text: up to 144 characters\n");
-        fprintf(out, "#\n");
-    }
-    fprintf(out, "Message Text\n");
-    for (i=0; i<NMESSAGES; i++) {
-        uint16_t *msg = (uint16_t*) &radio_mem[OFFSET_MSG + i*288];
-
-        if (msg[0] == 0) {
-            // Message is disabled
-            continue;
-        }
-
-        fprintf(out, "%5d   ", i+1);
-        print_unicode(out, msg, 144, 0);
+    if (have_messages()) {
         fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of text messages.\n");
+            fprintf(out, "# 1) Message number: 1-%d\n", NMESSAGES);
+            fprintf(out, "# 2) Text: up to 144 characters\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "Message Text\n");
+        for (i=0; i<NMESSAGES; i++) {
+            uint16_t *msg = (uint16_t*) &radio_mem[OFFSET_MSG + i*288];
+
+            if (msg[0] == 0 || msg[0] == 0xffff) {
+                // Message is disabled
+                continue;
+            }
+
+            fprintf(out, "%5d   ", i+1);
+            print_unicode(out, msg, 144, 0);
+            fprintf(out, "\n");
+        }
     }
 }
 
