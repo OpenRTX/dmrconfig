@@ -109,9 +109,10 @@ void radio_upload(int cont_flag)
         exit(-1);
     }
     radio_progress = 0;
-    if (! serial_verbose)
+    if (! serial_verbose) {
         fprintf(stderr, "Write device: ");
-
+        fflush(stderr);
+    }
     device->upload(cont_flag);
 
     if (! serial_verbose)
