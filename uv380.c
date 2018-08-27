@@ -469,12 +469,32 @@ static void print_offset(FILE *out, uint32_t rx_bcd, uint32_t tx_bcd)
     }
 }
 
-static void print_chanlist(FILE *out, uint16_t *data, int nchan)
+static int compare_uint16(const void *pa, const void *pb)
+{
+    uint16_t a = *(uint16_t*) pa;
+    uint16_t b = *(uint16_t*) pb;
+
+    if (a == 0)
+        return (b != 0);
+    if (b == 0)
+        return -1;
+    if (a < b)
+        return -1;
+    if (a > b)
+        return 1;
+    return 0;
+}
+
+static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
 {
     int last  = -1;
     int range = 0;
     int n;
+    uint16_t data[nchan];
 
+    // Sort the list before printing.
+    memcpy(data, unsorted, nchan * sizeof(uint16_t));
+    qsort(data, nchan, sizeof(uint16_t), compare_uint16);
     for (n=0; n<=nchan; n++) {
         int cnum = data[n];
 
