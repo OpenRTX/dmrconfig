@@ -328,8 +328,7 @@ static void print_unicode(FILE *out, const uint16_t *text, unsigned nchars, int 
     unsigned i;
 
     for (i=0; i<nchars && *text; i++) {
-        //TODO: convert to utf8
-        putc(*text++, out);
+        putc_utf8(*text++, out);
     }
     if (fill_flag) {
         for (; i<nchars; i++) {
@@ -1144,7 +1143,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     if (! is_valid_frequency(tx_mhz))
         goto badtx;
 
-    //TODO
+    //TODO: parse CTSS/DCS tone
     tmode = 0;
 
     if (strcasecmp("High", power_str) == 0) {

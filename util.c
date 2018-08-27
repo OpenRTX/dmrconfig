@@ -185,3 +185,26 @@ void print_options(FILE *out, const char **tab, int num, const char *info)
     }
     fprintf(out, "\n");
 }
+
+//
+// Write Unicode symbol to file.
+// Convert to UTF-8 encoding:
+// 00000000.0xxxxxxx -> 0xxxxxxx
+// 00000xxx.xxyyyyyy -> 110xxxxx, 10yyyyyy
+// xxxxyyyy.yyzzzzzz -> 1110xxxx, 10yyyyyy, 10zzzzzz
+//
+void putc_utf8(unsigned short ch, FILE *out)
+{
+    if (ch < 0x80) {
+        putc (ch, out);
+
+    } else if (ch < 0x800) {
+        putc (ch >> 6 | 0xc0, out);
+        putc ((ch & 0x3f) | 0x80, out);
+
+    } else {
+        putc (ch >> 12 | 0xe0, out);
+        putc (((ch >> 6) & 0x3f) | 0x80, out);
+        putc ((ch & 0x3f) | 0x80, out);
+    }
+}

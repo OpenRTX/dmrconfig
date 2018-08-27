@@ -119,3 +119,8 @@ void print_options(FILE *out, const char **tab, int num, const char *info);
 // Print list of all squelch tones.
 //
 void print_squelch_tones(FILE *out, int normal_only);
+
+//
+// Write Unicode symbol to a file in UTF-8 encoding.
+//
+void putc_utf8(unsigned short ch, FILE *out);
