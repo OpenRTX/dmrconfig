@@ -352,6 +352,9 @@ static void print_freq(FILE *out, unsigned data)
 static void setup_channel(int i, char *name, double rx_mhz, double tx_mhz,
     int tmode, int power, int wide, int scan, int isam)
 {
+    //TODO: set autoscan=0 for simplex channels and hotspots, 1 for repeaters
+    //TODO: always set Data Call Confirmed=1 (wait for SMS acknowledge)
+    //TODO: always set talkaround=0
 #if 0
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[OFFSET_CHANNELS];
 
@@ -879,7 +882,11 @@ static void md380_print_config(FILE *out, int verbose)
             fprintf(out, "# 3) List of channels: numbers and ranges (N-M) separated by comma\n");
             fprintf(out, "#\n");
         }
-        fprintf(out, "Scanlist Name             PCh1 PCh2 TxCh Hold Smpl Channels\n");
+        fprintf(out, "Scanlist Name             PCh1 PCh2 TxCh ");
+#ifdef PRINT_RARE_PARAMS
+        fprintf(out, "Hold Smpl ");
+#endif
+        fprintf(out, "Channels\n");
         for (i=0; i<NSCANL; i++) {
             scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + i*104];
 
@@ -911,8 +918,10 @@ static void md380_print_config(FILE *out, int verbose)
             } else {
                 fprintf(out, "%-4d ", sl->tx_designated_ch);
             }
+#ifdef PRINT_RARE_PARAMS
             fprintf(out, "%-4d %-4d ",
                 sl->sign_hold_time * 25, sl->prio_sample_time * 250);
+#endif
             if (sl->member[0]) {
                 print_chanlist(out, sl->member, 31);
             } else {
