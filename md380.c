@@ -233,9 +233,12 @@ static const char *BANDWIDTH[] = { "12.5", "20", "25" };
 static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
 static const char *ADMIT_NAME[] = { "-", "Free", "Tone", "Color" };
 static const char *INCALL_NAME[] = { "-", "Admit", "???", "???" };
+
+#ifdef PRINT_RARE_PARAMS
 static const char *REF_FREQUENCY[] = { "Low", "Med", "High" };
 static const char *PRIVACY_NAME[] = { "-", "Basic", "Enhanced" };
 static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DTMF-4" };
+#endif
 
 //
 // Print a generic information about the device.
@@ -603,9 +606,19 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
     else
         fprintf(out, "%-4d ", ch->scan_list_index);
 
-    fprintf(out, "%-7s %-6s ", SQUELCH_NAME[ch->squelch], ADMIT_NAME[ch->admit_criteria]);
+    fprintf(out, "%-7s ", SQUELCH_NAME[ch->squelch]);
+
+    if (ch->tot == 0)
+        fprintf(out, "-   ");
+    else
+        fprintf(out, "%-3d ", ch->tot * 15);
+
+    fprintf(out, "%c  ", "-+"[ch->rx_only]);
+
+    fprintf(out, "%-6s ", ADMIT_NAME[ch->admit_criteria]);
 }
 
+#ifdef PRINT_RARE_PARAMS
 //
 // Print extended parameters of the channel:
 //      TOT
@@ -619,20 +632,15 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 //
 static void print_chan_ext(FILE *out, channel_t *ch)
 {
-    if (ch->tot == 0)
-        fprintf(out, "-   ");
-    else
-        fprintf(out, "%-3d ", ch->tot * 15);
-
     fprintf(out, "%-3d ", ch->tot_rekey_delay);
     fprintf(out, "%-5s ", REF_FREQUENCY[ch->rx_ref_frequency]);
     fprintf(out, "%-5s ", REF_FREQUENCY[ch->tx_ref_frequency]);
     fprintf(out, "%c  ", "-+"[ch->autoscan]);
-    fprintf(out, "%c  ", "-+"[ch->rx_only]);
     fprintf(out, "%c  ", "-+"[ch->lone_worker]);
     fprintf(out, "%c   ", "-+"[ch->vox]);
     fprintf(out, "%c  ", "-+"[ch->talkaround]);
 }
+#endif
 
 static void print_digital_channels(FILE *out, int verbose)
 {
@@ -648,9 +656,9 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 6) Scan list: - or index\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Digital Name             Receive   Transmit Power Scan Squelch Admit  Color Slot Group Cntct InCall");
-#if 1
-    fprintf(out, " TOT Dly RxRef TxRef AS RO LW VOX TA EmSys Privacy  PN PCC EAA DCC CU");
+    fprintf(out, "Digital Name             Receive   Transmit Power Scan Squelch TOT RO Admit  Color Slot InCall RxGL TxContact");
+#ifdef PRINT_RARE_PARAMS
+    fprintf(out, " Dly RxRef TxRef AS LW VOX TA EmSys Privacy  PN PCC EAA DCC CU");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
@@ -665,20 +673,23 @@ static void print_digital_channels(FILE *out, int verbose)
         // Print digital parameters of the channel:
         //      Color Code
         //      Repeater Slot
+        //      In Call Criteria
         //      Group List
         //      Contact Name
-        //      In Call Criteria
         fprintf(out, "%-5d %-3d  ", ch->colorcode, ch->repeater_slot);
-        if (ch->group_list_index == 0)
-            fprintf(out, "-     ");
-        else
-            fprintf(out, "%-5d ", ch->group_list_index);
-        if (ch->contact_name_index == 0)
-            fprintf(out, "-     ");
-        else
-            fprintf(out, "%-5d ", ch->contact_name_index);
         fprintf(out, "%-6s ", INCALL_NAME[ch->in_call_criteria]);
-#if 1
+
+        if (ch->group_list_index == 0)
+            fprintf(out, "-    ");
+        else
+            fprintf(out, "%-4d ", ch->group_list_index);
+
+        if (ch->contact_name_index == 0)
+            fprintf(out, "-");
+        else
+            fprintf(out, "%d", ch->contact_name_index);
+
+#ifdef PRINT_RARE_PARAMS
         print_chan_ext(out, ch);
 
         // Extended digital parameters of the channel:
@@ -727,9 +738,9 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 7) Scan list: - or index\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Analog  Name             Receive   Transmit Power Scan Squelch Admit  RxTone TxTone Width");
-#if 1
-    fprintf(out, " TOT Dly RxRef TxRef AS RO LW VOX TA RxSign TxSign ID");
+    fprintf(out, "Analog  Name             Receive   Transmit Power Scan Squelch TOT RO Admit  RxTone TxTone Width");
+#ifdef PRINT_RARE_PARAMS
+    fprintf(out, " Dly RxRef TxRef AS LW VOX TA RxSign TxSign ID");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
@@ -748,8 +759,9 @@ static void print_analog_channels(FILE *out, int verbose)
         print_tone(out, ch->ctcss_dcs_decode);
         fprintf(out, "  ");
         print_tone(out, ch->ctcss_dcs_encode);
-        fprintf(out, "  %-5s ", BANDWIDTH[ch->bandwidth]);
-#if 1
+        fprintf(out, "  %s", BANDWIDTH[ch->bandwidth]);
+
+#ifdef PRINT_RARE_PARAMS
         print_chan_ext(out, ch);
 
         // Extended analog parameters of the channel:
