@@ -124,7 +124,7 @@ typedef struct {
     uint16_t contact_name_index;        // Contact Name: Contact1...
 
     // Bytes 8-9
-    uint8_t tot;                        // TOT x 15sec: 0-Infinite, 1=15s... 37=255s
+    uint8_t tot;                        // TOT x 15sec: 0-Infinite, 1=15s... 37=555s
     uint8_t tot_rekey_delay;            // TOT Rekey Delay: 0s...255s
 
     // Bytes 10-11
@@ -483,7 +483,7 @@ static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
     // Sort the list before printing.
     memcpy(data, unsorted, nchan * sizeof(uint16_t));
     qsort(data, nchan, sizeof(uint16_t), compare_uint16);
-    for (n=0; n<=nchan; n++) {
+    for (n=0; n<nchan; n++) {
         int cnum = data[n];
 
         if (cnum == 0)
@@ -653,11 +653,20 @@ static void print_digital_channels(FILE *out, int verbose)
     if (verbose) {
         fprintf(out, "# Table of digital channels.\n");
         fprintf(out, "# 1) Channel number: 1-%d\n", NCHAN);
-        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+        fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
         fprintf(out, "# 3) Receive frequency in MHz\n");
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
         fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
-        fprintf(out, "# 6) Scan list: - or index\n");
+        fprintf(out, "# 6) Scan list: - or index in Scanlist table\n");
+        fprintf(out, "# 7) Squelch level: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9\n");
+        fprintf(out, "# 8) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 9) Receive only: -, +\n");
+        fprintf(out, "# 10) Admit criteria: -, Free, Color\n");
+        fprintf(out, "# 11) Color code: 1, 2, 3... 15\n");
+        fprintf(out, "# 12) Time slot: 1 or 2\n");
+        fprintf(out, "# 13) In call criteria: -, Admit, TXInt\n");
+        fprintf(out, "# 14) Receive group list: - or index in Grouplist table\n");
+        fprintf(out, "# 15) Contact for transmit: - or index in Contacts table\n");
         fprintf(out, "#\n");
     }
     fprintf(out, "Digital Name             Receive   Transmit Power Scan Sq TOT RO Admit  Color Slot InCall RxGL TxContact");
@@ -738,12 +747,18 @@ static void print_analog_channels(FILE *out, int verbose)
     if (verbose) {
         fprintf(out, "# Table of analog channels.\n");
         fprintf(out, "# 1) Channel number: 1-%d\n", NCHAN);
-        fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+        fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
         fprintf(out, "# 3) Receive frequency in MHz\n");
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
         fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
-        fprintf(out, "# 6) Bandwidth in kHz: 12.5, 20, 25\n");
-        fprintf(out, "# 7) Scan list: - or index\n");
+        fprintf(out, "# 6) Scan list: - or index\n");
+        fprintf(out, "# 7) Squelch level: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9\n");
+        fprintf(out, "# 8) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 9) Receive only: -, +\n");
+        fprintf(out, "# 10) Admit criteria: -, Free, Tone\n");
+        fprintf(out, "# 11) Guard tone for receive, or '-' to disable\n");
+        fprintf(out, "# 12) Guard tone for transmit, or '-' to disable\n");
+        fprintf(out, "# 13) Bandwidth in kHz: 12.5, 20, 25\n");
         fprintf(out, "#\n");
     }
     fprintf(out, "Analog  Name             Receive   Transmit Power Scan Sq TOT RO Admit  RxTone TxTone Width");
