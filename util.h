@@ -124,3 +124,8 @@ void print_squelch_tones(FILE *out, int normal_only);
 // Write Unicode symbol to a file in UTF-8 encoding.
 //
 void putc_utf8(unsigned short ch, FILE *out);
+
+//
+// Print utf16 text as utf8.
+//
+void print_unicode(FILE *out, const unsigned short *text, unsigned nchars, int fill_flag);

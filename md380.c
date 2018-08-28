@@ -308,23 +308,6 @@ static void setup_zone(int zone_index, int chan_index)
 }
 
 //
-// Print utf16 text as utf8.
-//
-static void print_unicode(FILE *out, const uint16_t *text, unsigned nchars, int fill_flag)
-{
-    unsigned i;
-
-    for (i=0; i<nchars && *text; i++) {
-        putc_utf8(*text++, out);
-    }
-    if (fill_flag) {
-        for (; i<nchars; i++) {
-            putc_utf8(' ', out);
-        }
-    }
-}
-
-//
 // Print frequency (BCD value).
 //
 static void print_freq(FILE *out, unsigned data)

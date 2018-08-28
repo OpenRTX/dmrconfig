@@ -208,3 +208,23 @@ void putc_utf8(unsigned short ch, FILE *out)
         putc ((ch & 0x3f) | 0x80, out);
     }
 }
+
+//
+// Print utf16 text as utf8.
+//
+void print_unicode(FILE *out, const unsigned short *text, unsigned nchars, int fill_flag)
+{
+    unsigned i, ch;
+
+    for (i=0; i<nchars && *text; i++) {
+        ch = *text++;
+        if (ch == '\t')
+            ch = ' ';
+        putc_utf8(ch, out);
+    }
+    if (fill_flag) {
+        for (; i<nchars; i++) {
+            putc(' ', out);
+        }
+    }
+}
