@@ -42,20 +42,21 @@ void usage()
     fprintf(stderr, _("DMR Config, Version %s, %s\n"), version, copyright);
     fprintf(stderr, _("Usage:\n"));
     fprintf(stderr, _("    dmrconfig [-v] -r\n"));
-    fprintf(stderr, _("                                 Save device binary image to file 'device.img',\n"));
-    fprintf(stderr, _("                                 and text configuration to 'device.conf'.\n"));
+    fprintf(stderr, _("                                 Read image from the radio and save it to a binary file 'device.img'.\n"));
+    fprintf(stderr, _("                                 Save configuration to a text file 'device.conf'.\n"));
     fprintf(stderr, _("    dmrconfig -w [-v] file.img\n"));
-    fprintf(stderr, _("                                 Write image to device.\n"));
+    fprintf(stderr, _("                                 Write image to the radio.\n"));
     fprintf(stderr, _("    dmrconfig -c [-v] file.conf\n"));
-    fprintf(stderr, _("                                 Configure device from text file.\n"));
+    fprintf(stderr, _("                                 Apply configuration script to the radio.\n"));
     fprintf(stderr, _("    dmrconfig -c [-v] file.img file.conf\n"));
-    fprintf(stderr, _("                                 Apply text configuration to the image.\n"));
+    fprintf(stderr, _("                                 Apply text configuration to the image file.\n"));
+    fprintf(stderr, _("                                 Store modified copy to a file 'device.img'.\n"));
     fprintf(stderr, _("    dmrconfig file.img\n"));
-    fprintf(stderr, _("                                 Display configuration from image file.\n"));
+    fprintf(stderr, _("                                 Display configuration from the image file.\n"));
     fprintf(stderr, _("Options:\n"));
-    fprintf(stderr, _("    -w           Write image to device.\n"));
-    fprintf(stderr, _("    -c           Configure device from text file.\n"));
-    fprintf(stderr, _("    -v           Trace serial protocol.\n"));
+    fprintf(stderr, _("    -w           Write image to the radio.\n"));
+    fprintf(stderr, _("    -c           Configure the radio from a text file.\n"));
+    fprintf(stderr, _("    -v           Trace USB protocol.\n"));
     exit(-1);
 }
 

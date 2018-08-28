@@ -30,6 +30,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <libusb-1.0/libusb.h>
+#include "util.h"
 
 //
 // USB request types.
@@ -110,6 +111,9 @@ static status_t status;
 
 static int detach(int timeout)
 {
+    if (serial_verbose) {
+        printf("--- Send DETACH\n");
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_DEVICE,
         REQUEST_DETACH, timeout, 0, NULL, 0, 0);
     return error;
@@ -117,29 +121,52 @@ static int detach(int timeout)
 
 static int get_status()
 {
+    if (serial_verbose) {
+        printf("--- Send GETSTATUS [6]\n");
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_HOST,
         REQUEST_GETSTATUS, 0, 0, (unsigned char*)&status, 6, 0);
+    if (serial_verbose && error == USB_OK) {
+        printf("--- Recv ");
+        print_hex((unsigned char*)&status, 6);
+        printf("\n");
+    }
     return error;
 }
 
 static int clear_status()
 {
+    if (serial_verbose) {
+        printf("--- Send CLRSTATUS\n");
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_DEVICE,
         REQUEST_CLRSTATUS, 0, 0, NULL, 0, 0);
     return error;
 }
 
-static int get_state(int *state)
+static int get_state(int *pstate)
 {
-    unsigned char state_buf;
+    unsigned char state;
+
+    if (serial_verbose) {
+        printf("--- Send GETSTATE [1]\n");
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_HOST,
-        REQUEST_GETSTATE, 0, 0, &state_buf, 1, 0);
-    *state = state_buf;
+        REQUEST_GETSTATE, 0, 0, &state, 1, 0);
+    *pstate = state;
+    if (serial_verbose && error == USB_OK) {
+        printf("--- Recv ");
+        print_hex(&state, 1);
+        printf("\n");
+    }
     return error;
 }
 
 static int dfu_abort()
 {
+    if (serial_verbose) {
+        printf("--- Send ABORT\n");
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_DEVICE,
         REQUEST_ABORT, 0, 0, NULL, 0, 0);
     return error;
@@ -191,6 +218,12 @@ static void wait_dfu_idle()
 static void md380_command(uint8_t a, uint8_t b)
 {
     unsigned char cmd[2] = { a, b };
+
+    if (serial_verbose) {
+        printf("--- Send DNLOAD [2] ");
+        print_hex(cmd, 2);
+        printf("\n");
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_DEVICE,
         REQUEST_DNLOAD, 0, 0, cmd, 2, 0);
     if (error < 0) {
@@ -211,6 +244,12 @@ static void set_address(uint32_t address)
         (uint8_t)(address >> 16),
         (uint8_t)(address >> 24),
     };
+
+    if (serial_verbose) {
+        printf("--- Send DNLOAD [5] ");
+        print_hex(cmd, 5);
+        printf("\n");
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_DEVICE,
         REQUEST_DNLOAD, 0, 0, cmd, 5, 0);
     if (error < 0) {
@@ -230,6 +269,12 @@ static void erase_block(uint32_t address)
         (uint8_t)(address >> 16),
         (uint8_t)(address >> 24),
     };
+
+    if (serial_verbose) {
+        printf("--- Send DNLOAD [5] ");
+        print_hex(cmd, 5);
+        printf("\n");
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_DEVICE,
         REQUEST_DNLOAD, 0, 0, cmd, 5, 0);
     if (error < 0) {
@@ -247,6 +292,9 @@ static const char *identify()
 
     md380_command(0xa2, 0x01);
 
+    if (serial_verbose) {
+        printf("--- Send UPLOAD [64]\n");
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_HOST,
         REQUEST_UPLOAD, 0, 0, data, 64, 0);
     if (error < 0) {
@@ -254,15 +302,16 @@ static const char *identify()
             __func__, error, libusb_strerror(error));
         exit(-1);
     }
-    //printf("%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n",
-    //data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
-    //data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15]);
-
+    if (serial_verbose && error == USB_OK) {
+        printf("--- Recv ");
+        print_hex(data, 64);
+        printf("\n");
+    }
     get_status();
     return (const char*) data;
 }
 
-const char *dfu_init(uint16_t vid, uint16_t pid)
+const char *dfu_init(unsigned vid, unsigned pid)
 {
     int error = libusb_init(&ctx);
     if (error < 0) {
@@ -353,6 +402,9 @@ void dfu_read_block(int bno, uint8_t *data, int nbytes)
     if (bno >= 256)
         bno += 832;
 
+    if (serial_verbose) {
+        printf("--- Send UPLOAD [%d]\n", nbytes);
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_HOST,
         REQUEST_UPLOAD, bno+2, 0, data, nbytes, 0);
     if (error < 0) {
@@ -360,7 +412,11 @@ void dfu_read_block(int bno, uint8_t *data, int nbytes)
             __func__, bno, nbytes, error, libusb_strerror(error));
         exit(-1);
     }
-
+    if (serial_verbose && error == USB_OK) {
+        printf("--- Recv ");
+        print_hex(data, nbytes);
+        printf("\n");
+    }
     get_status();
 }
 
@@ -369,6 +425,11 @@ void dfu_write_block(int bno, uint8_t *data, int nbytes)
     if (bno >= 256)
         bno += 832;
 
+    if (serial_verbose) {
+        printf("--- Send DNLOAD [%d] ", nbytes);
+        print_hex(data, nbytes);
+        printf("\n");
+    }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_DEVICE,
         REQUEST_DNLOAD, bno+2, 0, data, nbytes, 0);
     if (error < 0) {
