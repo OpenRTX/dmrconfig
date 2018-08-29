@@ -211,6 +211,7 @@ void putc_utf8(unsigned short ch, FILE *out)
 
 //
 // Print utf16 text as utf8.
+// For short texts, replace space with underscore.
 //
 void print_unicode(FILE *out, const unsigned short *text, unsigned nchars, int fill_flag)
 {
@@ -220,6 +221,8 @@ void print_unicode(FILE *out, const unsigned short *text, unsigned nchars, int f
         ch = *text++;
         if (ch == '\t')
             ch = ' ';
+        if (nchars <= 16 && ch == ' ')
+            ch = '_';
         putc_utf8(ch, out);
     }
     if (fill_flag) {

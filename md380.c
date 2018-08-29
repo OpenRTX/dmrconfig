@@ -843,7 +843,7 @@ static void md380_print_config(FILE *out, int verbose)
         if (verbose) {
             fprintf(out, "# Table of channel zones.\n");
             fprintf(out, "# 1) Zone number: 1-%d\n", NZONES);
-            fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+            fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
             fprintf(out, "# 3) List of channels: numbers and ranges (N-M) separated by comma\n");
             fprintf(out, "#\n");
         }
@@ -876,8 +876,11 @@ static void md380_print_config(FILE *out, int verbose)
         if (verbose) {
             fprintf(out, "# Table of scan lists.\n");
             fprintf(out, "# 1) Zone number: 1-%d\n", NSCANL);
-            fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
-            fprintf(out, "# 3) List of channels: numbers and ranges (N-M) separated by comma\n");
+            fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
+            fprintf(out, "# 3) Priority channel 1 (50%% of scans): -, Sel or index\n");
+            fprintf(out, "# 4) Priority channel 2 (25%% of scans): -, Sel or index\n");
+            fprintf(out, "# 5) Designated transmit channel: -, Last or index\n");
+            fprintf(out, "# 6) List of channels: numbers and ranges (N-M) separated by comma\n");
             fprintf(out, "#\n");
         }
         fprintf(out, "Scanlist Name             PCh1 PCh2 TxCh ");
@@ -937,7 +940,7 @@ static void md380_print_config(FILE *out, int verbose)
         if (verbose) {
             fprintf(out, "# Table of contacts.\n");
             fprintf(out, "# 1) Contact number: 1-%d\n", NCONTACTS);
-            fprintf(out, "# 2) Name: up to 16 characters, no spaces\n");
+            fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
             fprintf(out, "# 3) Call type: Group, Private, All\n");
             fprintf(out, "# 4) Call ID: 1...16777215\n");
             fprintf(out, "# 5) Call receive tone: -, Yes\n");
