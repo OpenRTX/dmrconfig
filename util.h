@@ -129,3 +129,19 @@ void putc_utf8(unsigned short ch, FILE *out);
 // Print utf16 text as utf8.
 //
 void print_unicode(FILE *out, const unsigned short *text, unsigned nchars, int fill_flag);
+
+//
+// Fetch Unicode symbol from UTF-8 string.
+// Advance string pointer.
+//
+int utf8_to_unicode(const char **p);
+
+//
+// Decode UTF-8 string into UCS-2 string, at most nsym characters.
+//
+void utf8_decode(unsigned short *dst, const char *src, unsigned nsym);
+
+//
+// Get local time in format: YYYYMMDDhhmmss
+//
+void get_timestamp(char p[16]);

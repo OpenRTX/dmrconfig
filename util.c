@@ -30,6 +30,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
 #ifdef MINGW32
 #   include <windows.h>
 #else
@@ -228,6 +229,57 @@ void print_unicode(FILE *out, const unsigned short *text, unsigned nchars, int f
     if (fill_flag) {
         for (; i<nchars; i++) {
             putc(' ', out);
+        }
+    }
+}
+
+//
+// Get local time in format: YYYYMMDDhhmmss
+//
+void get_timestamp(char p[16])
+{
+    time_t now = time(NULL);
+    struct tm *local = localtime(&now);
+
+    if (! local) {
+        perror("localtime");
+        exit(-1);
+    }
+    if (!strftime(p, 16, "%Y%m%d%H%M%S", local)) {
+        perror("strftime");
+        exit(-1);
+    }
+}
+
+//
+// Fetch Unicode symbol from UTF-8 string.
+// Advance string pointer.
+//
+int utf8_to_unicode(const char **p)
+{
+    int c1, c2, c3;
+
+    c1 = (unsigned char) *(*p)++;
+    if (! (c1 & 0x80))
+        return c1;
+    c2 = (unsigned char) *(*p)++;
+    if (! (c1 & 0x20))
+        return (c1 & 0x1f) << 6 | (c2 & 0x3f);
+    c3 = (unsigned char) *(*p)++;
+    return (c1 & 0x0f) << 12 | (c2 & 0x3f) << 6 | (c3 & 0x3f);
+}
+
+//
+// Decode UTF-8 string into UCS-2 string, at most nsym characters.
+//
+void utf8_decode(unsigned short *dst, const char *src, unsigned nsym)
+{
+    for (; nsym > 0; nsym--) {
+        if ((*dst++ = utf8_to_unicode(&src)) == 0) {
+            // Clear the remaining bytes.
+            while (--nsym > 0)
+                *dst++ = 0;
+            break;
         }
     }
 }

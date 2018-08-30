@@ -42,9 +42,8 @@
 #define NMESSAGES       50
 
 #define MEMSZ           0x40000
-#define OFFSET_VERSION  0x02001
-#define OFFSET_ID       0x02084
-#define OFFSET_NAME     0x020b0
+#define OFFSET_TIMESTMP 0x02001
+#define OFFSET_SETTINGS 0x02040
 #define OFFSET_MSG      0x02180
 #define OFFSET_CONTACTS 0x05f80
 #define OFFSET_GLISTS   0x0ec20
@@ -226,6 +225,86 @@ typedef struct {
     // Bytes 42-103
     uint16_t member[31];                // Channels
 } scanlist_t;
+
+//
+// General settings.
+// TODO: verify the general settings with CPS
+//
+typedef struct {
+
+    // Bytes 0-19
+    uint16_t intro_screen_line1[10];
+
+    // Bytes 20-39
+    uint16_t intro_screen_line2[10];
+
+    // Bytes 40-63
+    uint8_t  _unused40[24];
+
+    // Byte 64
+    uint8_t  _unused64_0                : 3,
+             monitor_type               : 1,
+             _unused64_4                : 1,
+             disable_all_leds           : 1,
+             _unused64_6                : 2;
+
+    // Byte 65
+    uint8_t  talk_permit_tone           : 2,
+             pw_and_lock_enable         : 1,
+             ch_free_indication_tone    : 1,
+             _unused65_4                : 1,
+             disable_all_tones          : 1,
+             save_mode_receive          : 1,
+             save_preamble              : 1;
+
+    // Byte 66
+    uint8_t  _unused66_0                : 2,
+             keypad_tones               : 1,
+             intro_screen               : 1,
+             _unused66_4                : 4;
+
+    // Byte 67
+    uint8_t  _unused67;
+
+    // Bytes 68-71
+    uint8_t  radio_id[3];
+    uint8_t  _unused71;
+
+    // Bytes 72-84
+    uint8_t  tx_preamble_duration;
+    uint8_t  group_call_hang_time;
+    uint8_t  private_call_hang_time;
+    uint8_t  vox_sensitivity;
+    uint8_t  _unused76[2];
+    uint8_t  rx_low_battery_interval;
+    uint8_t  call_alert_tone_duration;
+    uint8_t  lone_worker_response_time;
+    uint8_t  lone_worker_reminder_time;
+    uint8_t  _unused82;
+    uint8_t  scan_digital_hang_time;
+    uint8_t  scan_analog_hang_time;
+
+    // Byte 85
+    uint8_t  _unused85_0                : 6,
+             backlight_time             : 2;
+
+    // Bytes 86-87
+    uint8_t  set_keypad_lock_time;
+    uint8_t  mode;
+
+    // Bytes 88-95
+    uint32_t power_on_password;
+    uint32_t radio_prog_password;
+
+    // Bytes 96-103
+    uint8_t  pc_prog_password[8];
+
+    // Bytes 104-111
+    uint8_t  _unused104[8];
+
+    // Bytes 112-143
+    uint16_t radio_name[16];
+} general_settings_t;
 
 static const char *POWER_NAME[] = { "Low", "High" };
 static const char *SQUELCH_NAME[] = { "Tight", "Normal" };
@@ -502,25 +581,27 @@ static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
 
 static void print_id(FILE *out)
 {
-    const unsigned char *data = &radio_mem[OFFSET_VERSION];
+    general_settings_t *gs = (general_settings_t*) &radio_mem[OFFSET_SETTINGS];
+    unsigned id = gs->radio_id[0] | (gs->radio_id[1] << 8) | (gs->radio_id[2] << 16);
+    unsigned char *timestamp = &radio_mem[OFFSET_TIMESTMP];
 
     fprintf(out, "Name: ");
-    if (radio_mem[OFFSET_NAME] != 0 && *(uint16_t*)&radio_mem[OFFSET_NAME] != 0xffff) {
-        print_unicode(out, (uint16_t*) &radio_mem[OFFSET_NAME], 16, 0);
+    if (gs->radio_name[0] != 0 && gs->radio_name[0] != 0xffff) {
+        print_unicode(out, gs->radio_name, 16, 0);
     } else {
         fprintf(out, "-");
     }
-    fprintf(out, "\nID: %u\n", *(uint32_t*) &radio_mem[OFFSET_ID] & 0xffffff);
+    fprintf(out, "\nID: %u\n", id);
 
-    if (*data != 0xff) {
+    if (*timestamp != 0xff) {
         fprintf(out, "Last Programmed Date: %d%d%d%d-%d%d-%d%d",
-            data[0] >> 4, data[0] & 15, data[1] >> 4, data[1] & 15,
-            data[2] >> 4, data[2] & 15, data[3] >> 4, data[3] & 15);
+            timestamp[0] >> 4, timestamp[0] & 15, timestamp[1] >> 4, timestamp[1] & 15,
+            timestamp[2] >> 4, timestamp[2] & 15, timestamp[3] >> 4, timestamp[3] & 15);
         fprintf(out, " %d%d:%d%d:%d%d\n",
-            data[4] >> 4, data[4] & 15, data[5] >> 4, data[5] & 15,
-            data[6] >> 4, data[6] & 15);
+            timestamp[4] >> 4, timestamp[4] & 15, timestamp[5] >> 4, timestamp[5] & 15,
+            timestamp[6] >> 4, timestamp[6] & 15);
         fprintf(out, "CPS Software Version: V%x%x.%x%x\n",
-            data[7], data[8], data[9], data[10]);
+            timestamp[7], timestamp[8], timestamp[9], timestamp[10]);
     }
 }
 
@@ -1078,11 +1159,36 @@ static void md380_save_image(radio_device_t *radio, FILE *img)
 //
 static void md380_parse_parameter(radio_device_t *radio, char *param, char *value)
 {
+    general_settings_t *gs = (general_settings_t*) &radio_mem[OFFSET_SETTINGS];
+
     if (strcasecmp("Radio", param) == 0) {
         if (strcasecmp(radio->name, value) != 0) {
             fprintf(stderr, "Bad value for %s: %s\n", param, value);
             exit(-1);
         }
+        return;
+    }
+
+    if (strcasecmp ("Name", param) == 0) {
+        // Decode utf8 text to ucs2.
+        utf8_decode(gs->radio_name, value, 16);
+        return;
+    }
+
+    if (strcasecmp ("ID", param) == 0) {
+        uint32_t id = strtoul(value, 0, 0);
+        gs->radio_id[0] = id;
+        gs->radio_id[1] = id >> 8;
+        gs->radio_id[2] = id >> 16;
+        return;
+    }
+
+    if (strcasecmp ("Last Programmed Date", param) == 0) {
+        // Ignore.
+        return;
+    }
+    if (strcasecmp ("CPS Software Version", param) == 0) {
+        // Ignore.
         return;
     }
     fprintf(stderr, "Unknown parameter: %s = %s\n", param, value);
@@ -1096,7 +1202,21 @@ static void md380_parse_parameter(radio_device_t *radio, char *param, char *valu
 //
 static int parse_digital_channel(int first_row, char *line)
 {
-    //TODO: parse digital channel
+    //TODO: parse digital channel Name
+    //TODO: parse digital channel Receive
+    //TODO: parse digital channel Transmit
+    //TODO: parse digital channel Power
+    //TODO: parse digital channel Scan
+    //TODO: parse digital channel AS
+    //TODO: parse digital channel Sq
+    //TODO: parse digital channel TOT
+    //TODO: parse digital channel RO
+    //TODO: parse digital channel Admit
+    //TODO: parse digital channel Color
+    //TODO: parse digital channel Slot
+    //TODO: parse digital channel InCall
+    //TODO: parse digital channel RxGL
+    //TODO: parse digital channel TxContact
     return 0;
 }
 
@@ -1108,7 +1228,19 @@ static int parse_digital_channel(int first_row, char *line)
 static int parse_analog_channel(int first_row, char *line)
 {
 #if 1
-    //TODO: parse analog channel
+    //TODO: parse analog channel Name
+    //TODO: parse analog channel Receive
+    //TODO: parse analog channel Transmit
+    //TODO: parse analog channel Power
+    //TODO: parse analog channel Scan
+    //TODO: parse analog channel AS
+    //TODO: parse analog channel Sq
+    //TODO: parse analog channel TOT
+    //TODO: parse analog channel RO
+    //TODO: parse analog channel Admit
+    //TODO: parse analog channel RxTone
+    //TODO: parse analog channel TxTone
+    //TODO: parse analog channel Width
     return 0;
 #else
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
@@ -1272,7 +1404,11 @@ static int parse_zones(int first_row, char *line)
 //
 static int parse_scanlist(int first_row, char *line)
 {
-    //TODO: parse scanlist
+    //TODO: parse scanlist Name
+    //TODO: parse scanlist PCh1
+    //TODO: parse scanlist PCh2
+    //TODO: parse scanlist TxCh
+    //TODO: parse scanlist Channels
     return 0;
 }
 
@@ -1282,7 +1418,10 @@ static int parse_scanlist(int first_row, char *line)
 //
 static int parse_contact(int first_row, char *line)
 {
-    //TODO: parse contact
+    //TODO: parse contact Name
+    //TODO: parse contact Type
+    //TODO: parse contact ID
+    //TODO: parse contact RxTone
     return 0;
 }
 
@@ -1292,7 +1431,7 @@ static int parse_contact(int first_row, char *line)
 //
 static int parse_grouplist(int first_row, char *line)
 {
-    //TODO: parse grouplist
+    //TODO: parse grouplist Contacts
     return 0;
 }
 
@@ -1335,6 +1474,39 @@ static int md380_parse_row(radio_device_t *radio, int table_id, int first_row, c
 }
 
 //
+// Update timestamp.
+//
+static void md380_update_timestamp(radio_device_t *radio)
+{
+    unsigned char *timestamp = &radio_mem[OFFSET_TIMESTMP];
+    char p[16];
+
+    // Last Programmed Date
+    get_timestamp(p);
+    timestamp[0] = ((p[0]  & 0xf) << 4) | (p[1]  & 0xf); // year upper
+    timestamp[1] = ((p[2]  & 0xf) << 4) | (p[3]  & 0xf); // year lower
+    timestamp[2] = ((p[4]  & 0xf) << 4) | (p[5]  & 0xf); // month
+    timestamp[3] = ((p[6]  & 0xf) << 4) | (p[7]  & 0xf); // day
+    timestamp[4] = ((p[8]  & 0xf) << 4) | (p[9]  & 0xf); // hour
+    timestamp[5] = ((p[10] & 0xf) << 4) | (p[11] & 0xf); // minute
+    timestamp[6] = ((p[12] & 0xf) << 4) | (p[13] & 0xf); // second
+
+    // CPS Software Version: Vdx.xx
+    const char *dot = strchr(VERSION, '.');
+    if (dot) {
+        timestamp[7] = 0x0d; // D means Dmrconfig
+        timestamp[8] = dot[-1] & 0x0f;
+        if (dot[2] == '.') {
+            timestamp[9] = 0;
+            timestamp[10] = dot[1] & 0x0f;
+        } else {
+            timestamp[9] = dot[1] & 0x0f;
+            timestamp[10] = dot[2] & 0x0f;
+        }
+    }
+}
+
+//
 // TYT MD-380
 //
 radio_device_t radio_md380 = {
@@ -1349,4 +1521,5 @@ radio_device_t radio_md380 = {
     md380_parse_parameter,
     md380_parse_header,
     md380_parse_row,
+    md380_update_timestamp,
 };

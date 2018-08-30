@@ -257,6 +257,7 @@ badline:            fprintf(stderr, "Invalid line: '%s'\n", line);
         }
     }
     fclose(conf);
+    device->update_timestamp(device);
 }
 
 //

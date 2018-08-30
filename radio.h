@@ -88,6 +88,7 @@ struct _radio_device_t {
     void (*parse_parameter)(radio_device_t *radio, char *param, char *value);
     int (*parse_header)(radio_device_t *radio, char *line);
     int (*parse_row)(radio_device_t *radio, int table_id, int first_row, char *line);
+    void (*update_timestamp)(radio_device_t *radio);
 };
 
 extern radio_device_t radio_md380;   // TYT MD-380
