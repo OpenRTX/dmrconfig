@@ -443,49 +443,89 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     int admit, int colorcode, int timeslot, int incall, int grouplist, int contact,
     int rxtone, int txtone, int width)
 {
-    //TODO: always set Data Call Confirmed=1 (wait for SMS acknowledge)
-    //TODO: always set talkaround=0
-#if 0
-    memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[OFFSET_CHANNELS];
+    channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
 
-    hz_to_freq((int) (rx_mhz * 1000000.0), ch->rxfreq);
+    // Byte 0
+    ch->channel_mode = mode;
+    ch->bandwidth    = width;
+    ch->autoscan     = autoscan;
+    ch->_unused1     = 3;
+    ch->lone_worker  = 0;
 
-    double offset_mhz = tx_mhz - rx_mhz;
-    ch->offset = 0;
-    ch->txfreq[0] = ch->txfreq[1] = ch->txfreq[2] = 0;
-    if (offset_mhz == 0) {
-        ch->duplex = D_SIMPLEX;
-    } else if (offset_mhz > 0 && offset_mhz < 256 * 0.05) {
-        ch->duplex = D_POS_OFFSET;
-        ch->offset = (int) (offset_mhz / 0.05 + 0.5);
-    } else if (offset_mhz < 0 && offset_mhz > -256 * 0.05) {
-        ch->duplex = D_NEG_OFFSET;
-        ch->offset = (int) (-offset_mhz / 0.05 + 0.5);
-    } else {
-        ch->duplex = D_CROSS_BAND;
-        hz_to_freq((int) (tx_mhz * 1000000.0), ch->txfreq);
-    }
-    ch->used = (rx_mhz > 0);
-    ch->tmode = tmode;
-    ch->power = power;
-    ch->isnarrow = ! wide;
-    ch->isam = isam;
-    ch->step = (rx_mhz >= 400) ? STEP_12_5 : STEP_5;
-    ch->_u1 = 0;
-    ch->_u2 = (rx_mhz >= 400);
-    ch->_u3 = 0;
-    ch->_u4[0] = 15;
-    ch->_u4[1] = 0;
-    ch->_u5[0] = ch->_u5[1] = ch->_u5[2] = 0;
+    // Byte 1
+    ch->_unused2      = 0;
+    ch->rx_only       = rxonly;
+    ch->repeater_slot = timeslot;
+    ch->colorcode     = colorcode;
 
-    // Scan mode.
-    unsigned char *scan_data = &radio_mem[OFFSET_SCAN + i/4];
-    int scan_shift = (i & 3) * 2;
-    *scan_data &= ~(3 << scan_shift);
-    *scan_data |= scan << scan_shift;
+    // Byte 2
+    ch->privacy_no        = 0;
+    ch->privacy           = PRIV_NONE;
+    ch->private_call_conf = 0;
+    ch->data_call_conf    = 1;  // Always ask for SMS acknowledge
 
-    encode_name(i, name);
-#endif
+    // Byte 3
+    ch->rx_ref_frequency    = REF_LOW;
+    ch->_unused3            = 0;
+    ch->emergency_alarm_ack = 0;
+    ch->_unused4            = 6;
+    ch->display_pttid_dis   = 1;
+
+    // Byte 4
+    ch->tx_ref_frequency = REF_LOW;
+    ch->_unused5         = 1;
+    ch->vox              = 0;
+    ch->_unused6         = 1;
+    ch->admit_criteria   = admit;
+
+    // Byte 5
+    ch->_unused7         = 0;
+    ch->in_call_criteria = incall;
+    ch->turn_off_freq    = TURNOFF_NONE;
+
+    // Bytes 6-7
+    ch->contact_name_index = contact;
+
+    // Bytes 8-9
+    ch->tot             = tot;
+    ch->tot_rekey_delay = 0;
+
+    // Bytes 10-11
+    ch->emergency_system_index = 0;
+    ch->scan_list_index        = scanlist;
+
+    // Bytes 12-13
+    ch->group_list_index = grouplist;
+    ch->_unused8         = 0;
+
+    // Bytes 14-15
+    ch->_unused9 = 0;
+    ch->squelch  = squelch;
+
+    // Bytes 16-23
+    ch->rx_frequency = mhz_to_bcd(rx_mhz);
+    ch->tx_frequency = mhz_to_bcd(tx_mhz);
+
+    // Bytes 24-27
+    ch->ctcss_dcs_receive = rxtone;
+    ch->ctcss_dcs_transmit = txtone;
+
+    // Bytes 28-29
+    ch->rx_signaling_syst = 0;
+    ch->tx_signaling_syst = 0;
+
+    // Byte 30
+    ch->power     = power;
+    ch->_unused10 = 0x3f;
+
+    // Byte 31
+    ch->_unused11       = 7;
+    ch->dcdm_switch_dis = 1;
+    ch->leader_ms       = DCDM_MS;
+    ch->_unused12       = 7;
+
+    // Bytes 32-63
+    utf8_decode(ch->name, name, 16);
 }
 
 //
@@ -493,7 +533,89 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
 //
 static void erase_channel(int i)
 {
-    //TODO: erase channel
+    channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
+
+    // Byte 0
+    ch->channel_mode = MODE_ANALOG;
+    ch->bandwidth    = BW_25_KHZ;
+    ch->autoscan     = 0;
+    ch->_unused1     = 3;
+    ch->lone_worker  = 0;
+
+    // Byte 1
+    ch->_unused2      = 0;
+    ch->rx_only       = 0;
+    ch->repeater_slot = 1;
+    ch->colorcode     = 1;
+
+    // Byte 2
+    ch->privacy_no        = 0;
+    ch->privacy           = PRIV_NONE;
+    ch->private_call_conf = 0;
+    ch->data_call_conf    = 0;
+
+    // Byte 3
+    ch->rx_ref_frequency    = REF_LOW;
+    ch->_unused3            = 0;
+    ch->emergency_alarm_ack = 0;
+    ch->_unused4            = 6;
+    ch->display_pttid_dis   = 1;
+
+    // Byte 4
+    ch->tx_ref_frequency = REF_LOW;
+    ch->_unused5         = 1;
+    ch->vox              = 0;
+    ch->_unused6         = 1;
+    ch->admit_criteria   = ADMIT_ALWAYS;
+
+    // Byte 5
+    ch->_unused7         = 0;
+    ch->in_call_criteria = INCALL_ALWAYS;
+    ch->turn_off_freq    = TURNOFF_NONE;
+
+    // Bytes 6-7
+    ch->contact_name_index = 0;
+
+    // Bytes 8-9
+    ch->tot             = 60/15;
+    ch->tot_rekey_delay = 0;
+
+    // Bytes 10-11
+    ch->emergency_system_index = 0;
+    ch->scan_list_index        = 0;
+
+    // Bytes 12-13
+    ch->group_list_index = 0;
+    ch->_unused8         = 0;
+
+    // Bytes 14-15
+    ch->_unused9 = 0;
+    ch->squelch  = 3;
+
+    // Bytes 16-23
+    ch->rx_frequency = 0x40000000;
+    ch->tx_frequency = 0x40000000;
+
+    // Bytes 24-27
+    ch->ctcss_dcs_receive = 0;
+    ch->ctcss_dcs_transmit = 0;
+
+    // Bytes 28-29
+    ch->rx_signaling_syst = 0;
+    ch->tx_signaling_syst = 0;
+
+    // Byte 30
+    ch->power     = POWER_HIGH;
+    ch->_unused10 = 0x3f;
+
+    // Byte 31
+    ch->_unused11       = 7;
+    ch->dcdm_switch_dis = 1;
+    ch->leader_ms       = DCDM_MS;
+    ch->_unused12       = 7;
+
+    // Bytes 32-63
+    utf8_decode(ch->name, "", 16);
 }
 
 static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
@@ -1325,7 +1447,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 
     setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
         power, scanlist, autoscan, squelch, tot, rxonly, admit,
-        colorcode, timeslot, incall, grouplist, contact, 0, 0, 0);
+        colorcode, timeslot, incall, grouplist, contact, 0, 0, BW_12_5_KHZ);
 
     radio->channel_count++;
     return 1;

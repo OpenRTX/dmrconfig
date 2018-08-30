@@ -114,35 +114,14 @@ void mdelay(unsigned msec)
 }
 
 //
-// Convert 32-bit value from binary coded decimal
-// to integer format (8 digits).
+// Round double value to integer.
 //
-int bcd_to_int(int bcd)
+static int iround(double x)
 {
-    return ((bcd >> 28) & 15) * 10000000 +
-           ((bcd >> 24) & 15) * 1000000 +
-           ((bcd >> 20) & 15) * 100000 +
-           ((bcd >> 16) & 15) * 10000 +
-           ((bcd >> 12) & 15) * 1000 +
-           ((bcd >> 8)  & 15) * 100 +
-           ((bcd >> 4)  & 15) * 10 +
-           (bcd         & 15);
-}
+    if (x >= 0)
+        return (int)(x + 0.5);
 
-//
-// Convert 32-bit value from integer
-// binary coded decimal format (8 digits).
-//
-int int_to_bcd(int val)
-{
-    return ((val / 10000000) % 10) << 28 |
-           ((val / 1000000)  % 10) << 24 |
-           ((val / 100000)   % 10) << 20 |
-           ((val / 10000)    % 10) << 16 |
-           ((val / 1000)     % 10) << 12 |
-           ((val / 100)      % 10) << 8 |
-           ((val / 10)       % 10) << 4 |
-           (val              % 10);
+    return -(int)(-x + 0.5);
 }
 
 //
@@ -416,6 +395,24 @@ void print_freq(FILE *out, unsigned data)
             fprintf(out, "%d", data & 15);
         }
     }
+}
+
+//
+// Convert frequency in MHz from floating point to
+// a binary coded decimal format (8 digits).
+//
+unsigned mhz_to_bcd(double mhz)
+{
+    unsigned hz = iround(mhz * 1000000.0);
+
+    return ((hz / 100000000) % 10) << 28 |
+           ((hz / 10000000)  % 10) << 24 |
+           ((hz / 1000000)   % 10) << 20 |
+           ((hz / 100000)    % 10) << 16 |
+           ((hz / 10000)     % 10) << 12 |
+           ((hz / 1000)      % 10) << 8 |
+           ((hz / 100)       % 10) << 4 |
+           ((hz / 10)        % 10);
 }
 
 //

@@ -75,16 +75,10 @@ void mdelay(unsigned msec);
 int is_file(char *filename);
 
 //
-// Convert 32-bit value from binary coded decimal
-// to integer format (8 digits).
+// Convert frequency in MHz from floating point to
+// a binary coded decimal format (8 digits).
 //
-int bcd_to_int(int bcd);
-
-//
-// Convert 32-bit value from integer
-// binary coded decimal format (8 digits).
-//
-int int_to_bcd(int val);
+unsigned mhz_to_bcd(double mhz);
 
 //
 // Get a binary value of the parameter: On/Off,
