@@ -11,6 +11,9 @@ VPATH = ../../dmrconfig.wiki/files
 
 all:    $(CONF)
 
+clean:
+	rm -f *.conf
+
 .SUFFIXES: .conf .rdt
 
 .rdt.conf:

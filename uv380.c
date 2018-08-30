@@ -344,6 +344,18 @@ static void print_freq(FILE *out, unsigned data)
     }
 }
 
+#if 0
+//
+// Check that the radio does support this frequency.
+//
+static int is_valid_frequency(int mhz)
+{
+    if (mhz >= 108 && mhz <= 520)
+        return 1;
+    if (mhz >= 700 && mhz <= 999)
+        return 1;
+    return 0;
+}
 
 //
 // Set the parameters for a given memory channel.
@@ -351,10 +363,8 @@ static void print_freq(FILE *out, unsigned data)
 static void setup_channel(int i, char *name, double rx_mhz, double tx_mhz,
     int tmode, int power, int wide, int scan, int isam)
 {
-    //TODO: set autoscan=0 for simplex channels and hotspots, 1 for repeaters
     //TODO: always set Data Call Confirmed=1 (wait for SMS acknowledge)
     //TODO: always set talkaround=0
-#if 0
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[OFFSET_CHANNELS];
 
     hz_to_freq((int) (rx_mhz * 1000000.0), ch->rxfreq);
@@ -394,8 +404,8 @@ static void setup_channel(int i, char *name, double rx_mhz, double tx_mhz,
     *scan_data |= scan << scan_shift;
 
     encode_name(i, name);
-#endif
 }
+#endif
 
 //
 // Convert a 4-byte frequency value from binary coded decimal
@@ -608,6 +618,8 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
     else
         fprintf(out, "%-4d ", ch->scan_list_index);
 
+    fprintf(out, "%c  ", "-+"[ch->autoscan]);
+
     if (ch->squelch <= 9)
         fprintf(out, "%1d  ", ch->squelch);
     else
@@ -640,7 +652,6 @@ static void print_chan_ext(FILE *out, channel_t *ch)
     fprintf(out, "%-3d ", ch->tot_rekey_delay);
     fprintf(out, "%-5s ", REF_FREQUENCY[ch->rx_ref_frequency]);
     fprintf(out, "%-5s ", REF_FREQUENCY[ch->tx_ref_frequency]);
-    fprintf(out, "%c  ", "-+"[ch->autoscan]);
     fprintf(out, "%c  ", "-+"[ch->lone_worker]);
     fprintf(out, "%c   ", "-+"[ch->vox]);
 }
@@ -669,9 +680,9 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 15) Contact for transmit: - or index in Contacts table\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Digital Name             Receive   Transmit Power Scan Sq TOT RO Admit  Color Slot InCall RxGL TxContact");
+    fprintf(out, "Digital Name             Receive   Transmit Power Scan AS Sq TOT RO Admit  Color Slot InCall RxGL TxContact");
 #ifdef PRINT_RARE_PARAMS
-    fprintf(out, " Dly RxRef TxRef AS LW VOX EmSys Privacy  PN PCC EAA DCC DCDM");
+    fprintf(out, " Dly RxRef TxRef LW VOX EmSys Privacy  PN PCC EAA DCC DCDM");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
@@ -761,9 +772,9 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 13) Bandwidth in kHz: 12.5, 20, 25\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Analog  Name             Receive   Transmit Power Scan Sq TOT RO Admit  RxTone TxTone Width");
+    fprintf(out, "Analog  Name             Receive   Transmit Power Scan AS Sq TOT RO Admit  RxTone TxTone Width");
 #ifdef PRINT_RARE_PARAMS
-    fprintf(out, " Dly RxRef TxRef AS LW VOX RxSign TxSign ID TOFreq");
+    fprintf(out, " Dly RxRef TxRef LW VOX RxSign TxSign ID TOFreq");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
@@ -1120,24 +1131,27 @@ static void uv380_parse_parameter(char *param, char *value)
 }
 
 //
-// Check that the radio does support this frequency.
+// Parse one line of Digital channel table.
+// Start_flag is 1 for the first table row.
+// Return 0 on failure.
 //
-static int is_valid_frequency(int mhz)
+static int parse_digital_channel(int first_row, char *line)
 {
-    if (mhz >= 108 && mhz <= 520)
-        return 1;
-    if (mhz >= 700 && mhz <= 999)
-        return 1;
+    //TODO: parse digital channel
     return 0;
 }
 
 //
-// Parse one line of memory channel table.
+// Parse one line of Analog channel table.
 // Start_flag is 1 for the first table row.
 // Return 0 on failure.
 //
-static int parse_channel(int first_row, char *line)
+static int parse_analog_channel(int first_row, char *line)
 {
+#if 1
+    //TODO: parse analog channel
+    return 0;
+#else
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
     char power_str[256], wide_str[256], scan_str[256];
     int num, tmode, power, wide, scan, isam;
@@ -1218,6 +1232,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     setup_channel(num-1, name_str, rx_mhz, tx_mhz,
         tmode, power, wide, scan, isam);
     return 1;
+#endif
 }
 
 //
@@ -1293,15 +1308,53 @@ static int parse_zones(int first_row, char *line)
 }
 
 //
+// Parse one line of Scanlist table.
+// Return 0 on failure.
+//
+static int parse_scanlist(int first_row, char *line)
+{
+    //TODO: parse scanlist
+    return 0;
+}
+
+//
+// Parse one line of Contacts table.
+// Return 0 on failure.
+//
+static int parse_contact(int first_row, char *line)
+{
+    //TODO: parse contact
+    return 0;
+}
+
+//
+// Parse one line of Grouplist table.
+// Return 0 on failure.
+//
+static int parse_grouplist(int first_row, char *line)
+{
+    //TODO: parse grouplist
+    return 0;
+}
+
+//
 // Parse table header.
 // Return table id, or 0 in case of error.
 //
 static int uv380_parse_header(char *line)
 {
-    if (strncasecmp(line, "Channel", 7) == 0)
-        return 'C';
+    if (strncasecmp(line, "Digital", 7) == 0)
+        return 'D';
+    if (strncasecmp(line, "Analog", 6) == 0)
+        return 'A';
     if (strncasecmp(line, "Zone", 4) == 0)
         return 'Z';
+    if (strncasecmp(line, "Scanlist", 8) == 0)
+        return 'S';
+    if (strncasecmp(line, "Contact", 7) == 0)
+        return 'C';
+    if (strncasecmp(line, "Grouplist", 9) == 0)
+        return 'G';
     return 0;
 }
 
@@ -1312,8 +1365,12 @@ static int uv380_parse_header(char *line)
 static int uv380_parse_row(int table_id, int first_row, char *line)
 {
     switch (table_id) {
-    case 'C': return parse_channel(first_row, line);
+    case 'D': return parse_digital_channel(first_row, line);
+    case 'A': return parse_analog_channel(first_row, line);
     case 'Z': return parse_zones(first_row, line);
+    case 'S': return parse_scanlist(first_row, line);
+    case 'C': return parse_contact(first_row, line);
+    case 'G': return parse_grouplist(first_row, line);
     }
     return 0;
 }
