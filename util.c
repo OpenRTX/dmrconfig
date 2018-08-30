@@ -271,11 +271,18 @@ int utf8_to_unicode(const char **p)
 
 //
 // Decode UTF-8 string into UCS-2 string, at most nsym characters.
+// Replace underscore by space.
 //
 void utf8_decode(unsigned short *dst, const char *src, unsigned nsym)
 {
     for (; nsym > 0; nsym--) {
-        if ((*dst++ = utf8_to_unicode(&src)) == 0) {
+        int ch = utf8_to_unicode(&src);
+
+        if (ch == '_')
+            ch = ' ';
+        *dst++ = ch;
+
+        if (ch == 0) {
             // Clear the remaining bytes.
             while (--nsym > 0)
                 *dst++ = 0;

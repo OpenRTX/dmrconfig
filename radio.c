@@ -194,6 +194,7 @@ void radio_parse_config(char *filename)
         exit(-1);
     }
 
+    device->channel_count = 0;
     while (fgets(line, sizeof(line), conf)) {
         line[sizeof(line)-1] = 0;
 

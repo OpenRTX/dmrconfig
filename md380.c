@@ -113,6 +113,7 @@ typedef struct {
 #define ADMIT_ALWAYS    0
 #define ADMIT_CH_FREE   1
 #define ADMIT_TONE      2
+#define ADMIT_COLOR     3
 
     // Byte 5
     uint8_t _unused5            : 4,    // 0
@@ -324,7 +325,20 @@ static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DT
 //
 static void md380_print_version(radio_device_t *radio, FILE *out)
 {
-    // Nothing to print.
+    unsigned char *timestamp = &radio_mem[OFFSET_TIMESTMP];
+    static const char charmap[16] = "0123456789:;<=>?";
+
+    if (*timestamp != 0xff) {
+        fprintf(out, "Last Programmed Date: %d%d%d%d-%d%d-%d%d",
+            timestamp[0] >> 4, timestamp[0] & 15, timestamp[1] >> 4, timestamp[1] & 15,
+            timestamp[2] >> 4, timestamp[2] & 15, timestamp[3] >> 4, timestamp[3] & 15);
+        fprintf(out, " %d%d:%d%d:%d%d\n",
+            timestamp[4] >> 4, timestamp[4] & 15, timestamp[5] >> 4, timestamp[5] & 15,
+            timestamp[6] >> 4, timestamp[6] & 15);
+        fprintf(out, "CPS Software Version: V%c%c.%c%c\n",
+            charmap[timestamp[7] & 15], charmap[timestamp[8] & 15],
+            charmap[timestamp[9] & 15], charmap[timestamp[10] & 15]);
+    }
 }
 
 //
@@ -407,15 +421,14 @@ static void print_freq(FILE *out, unsigned data)
     }
 }
 
-#if 0
 //
 // Check that the radio does support this frequency.
 //
 static int is_valid_frequency(int mhz)
 {
-    if (mhz >= 108 && mhz <= 520)
+    if (mhz >= 136 && mhz <= 174)
         return 1;
-    if (mhz >= 700 && mhz <= 999)
+    if (mhz >= 400 && mhz <= 480)
         return 1;
     return 0;
 }
@@ -423,11 +436,13 @@ static int is_valid_frequency(int mhz)
 //
 // Set the parameters for a given memory channel.
 //
-static void setup_channel(int i, char *name, double rx_mhz, double tx_mhz,
-    int tmode, int power, int wide, int scan, int isam)
+static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_mhz,
+    int power, int scanlist, int autoscan, int squelch, int tot, int rxonly,
+    int admit, int colorcode, int timeslot, int incall, int grouplist, int contact)
 {
     //TODO: always set Data Call Confirmed=1 (wait for SMS acknowledge)
     //TODO: always set talkaround=0
+#if 0
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[OFFSET_CHANNELS];
 
     hz_to_freq((int) (rx_mhz * 1000000.0), ch->rxfreq);
@@ -467,8 +482,8 @@ static void setup_channel(int i, char *name, double rx_mhz, double tx_mhz,
     *scan_data |= scan << scan_shift;
 
     encode_name(i, name);
-}
 #endif
+}
 
 //
 // Convert a 4-byte frequency value from binary coded decimal
@@ -583,8 +598,6 @@ static void print_id(FILE *out)
 {
     general_settings_t *gs = (general_settings_t*) &radio_mem[OFFSET_SETTINGS];
     unsigned id = gs->radio_id[0] | (gs->radio_id[1] << 8) | (gs->radio_id[2] << 16);
-    unsigned char *timestamp = &radio_mem[OFFSET_TIMESTMP];
-    static const char charmap[16] = "0123456789:;<=>?";
 
     fprintf(out, "Name: ");
     if (gs->radio_name[0] != 0 && gs->radio_name[0] != 0xffff) {
@@ -593,18 +606,6 @@ static void print_id(FILE *out)
         fprintf(out, "-");
     }
     fprintf(out, "\nID: %u\n", id);
-
-    if (*timestamp != 0xff) {
-        fprintf(out, "Last Programmed Date: %d%d%d%d-%d%d-%d%d",
-            timestamp[0] >> 4, timestamp[0] & 15, timestamp[1] >> 4, timestamp[1] & 15,
-            timestamp[2] >> 4, timestamp[2] & 15, timestamp[3] >> 4, timestamp[3] & 15);
-        fprintf(out, " %d%d:%d%d:%d%d\n",
-            timestamp[4] >> 4, timestamp[4] & 15, timestamp[5] >> 4, timestamp[5] & 15,
-            timestamp[6] >> 4, timestamp[6] & 15);
-        fprintf(out, "CPS Software Version: V%c%c.%c%c\n",
-            charmap[timestamp[7] & 15], charmap[timestamp[8] & 15],
-            charmap[timestamp[9] & 15], charmap[timestamp[10] & 15]);
-    }
 }
 
 static void print_intro(FILE *out)
@@ -751,17 +752,18 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
         fprintf(out, "# 3) Receive frequency in MHz\n");
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
-        fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
+        fprintf(out, "# 5) Transmit power: High, Low\n");
         fprintf(out, "# 6) Scan list: - or index in Scanlist table\n");
-        fprintf(out, "# 7) Squelch level: Normal, Tight\n");
-        fprintf(out, "# 8) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
-        fprintf(out, "# 9) Receive only: -, +\n");
-        fprintf(out, "# 10) Admit criteria: -, Free, Color\n");
-        fprintf(out, "# 11) Color code: 1, 2, 3... 15\n");
-        fprintf(out, "# 12) Time slot: 1 or 2\n");
-        fprintf(out, "# 13) In call criteria: -, Admit, TXInt\n");
-        fprintf(out, "# 14) Receive group list: - or index in Grouplist table\n");
-        fprintf(out, "# 15) Contact for transmit: - or index in Contacts table\n");
+        fprintf(out, "# 7) Autoscan flag: -, +\n");
+        fprintf(out, "# 8) Squelch level: Normal, Tight\n");
+        fprintf(out, "# 9) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 10) Receive only: -, +\n");
+        fprintf(out, "# 11) Admit criteria: -, Free, Color\n");
+        fprintf(out, "# 12) Color code: 1, 2, 3... 15\n");
+        fprintf(out, "# 13) Time slot: 1 or 2\n");
+        fprintf(out, "# 14) In call criteria: -, Admit, TXInt\n");
+        fprintf(out, "# 15) Receive group list: - or index in Grouplist table\n");
+        fprintf(out, "# 16) Contact for transmit: - or index in Contacts table\n");
         fprintf(out, "#\n");
     }
     fprintf(out, "Digital Name             Receive   Transmit Power Scan AS Squelch TOT RO Admit  Color Slot InCall RxGL TxContact");
@@ -841,15 +843,16 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
         fprintf(out, "# 3) Receive frequency in MHz\n");
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
-        fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
+        fprintf(out, "# 5) Transmit power: High, Low\n");
         fprintf(out, "# 6) Scan list: - or index\n");
-        fprintf(out, "# 7) Squelch level: Normal, Tight\n");
-        fprintf(out, "# 8) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
-        fprintf(out, "# 9) Receive only: -, +\n");
-        fprintf(out, "# 10) Admit criteria: -, Free, Tone\n");
-        fprintf(out, "# 11) Guard tone for receive, or '-' to disable\n");
-        fprintf(out, "# 12) Guard tone for transmit, or '-' to disable\n");
-        fprintf(out, "# 13) Bandwidth in kHz: 12.5, 20, 25\n");
+        fprintf(out, "# 7) Autoscan flag: -, +\n");
+        fprintf(out, "# 8) Squelch level: Normal, Tight\n");
+        fprintf(out, "# 9) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 10) Receive only: -, +\n");
+        fprintf(out, "# 11) Admit criteria: -, Free, Tone\n");
+        fprintf(out, "# 12) Guard tone for receive, or '-' to disable\n");
+        fprintf(out, "# 13) Guard tone for transmit, or '-' to disable\n");
+        fprintf(out, "# 14) Bandwidth in kHz: 12.5, 20, 25\n");
         fprintf(out, "#\n");
     }
     fprintf(out, "Analog  Name             Receive   Transmit Power Scan AS Squelch TOT RO Admit  RxTone TxTone Width");
@@ -936,6 +939,8 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
 
     fprintf(out, "Radio: %s\n", radio->name);
     print_id(out);
+    if (verbose)
+        md380_print_version(radio, out);
     print_intro(out);
 
     //
@@ -1227,24 +1232,160 @@ static void md380_parse_parameter(radio_device_t *radio, char *param, char *valu
 // Start_flag is 1 for the first table row.
 // Return 0 on failure.
 //
-static int parse_digital_channel(int first_row, char *line)
+static int parse_digital_channel(radio_device_t *radio, int first_row, char *line)
 {
-    //TODO: parse digital channel Name
-    //TODO: parse digital channel Receive
-    //TODO: parse digital channel Transmit
-    //TODO: parse digital channel Power
-    //TODO: parse digital channel Scan
-    //TODO: parse digital channel AS
-    //TODO: parse digital channel Sq
-    //TODO: parse digital channel TOT
-    //TODO: parse digital channel RO
-    //TODO: parse digital channel Admit
-    //TODO: parse digital channel Color
-    //TODO: parse digital channel Slot
-    //TODO: parse digital channel InCall
-    //TODO: parse digital channel RxGL
-    //TODO: parse digital channel TxContact
-    return 0;
+    char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
+    char power_str[256], scanlist_str[256], autoscan_str[256], squelch_str[256];
+    char tot_str[256], rxonly_str[256], admit_str[256], colorcode_str[256];
+    char slot_str[256], incall_str[256], grouplist_str[256], contact_str[256];
+    int num, power, scanlist, autoscan, squelch, tot, rxonly, admit;
+    int colorcode, timeslot, incall, grouplist, contact;
+    double rx_mhz, tx_mhz;
+
+    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
+        num_str, name_str, rxfreq_str, offset_str,
+        power_str, scanlist_str, autoscan_str, squelch_str,
+        tot_str, rxonly_str, admit_str, colorcode_str,
+        slot_str, incall_str, grouplist_str, contact_str) != 16)
+        return 0;
+
+    num = atoi(num_str);
+    if (num < 1 || num > NCHAN) {
+        fprintf(stderr, "Bad channel number.\n");
+        return 0;
+    }
+
+    if (sscanf(rxfreq_str, "%lf", &rx_mhz) != 1 ||
+        !is_valid_frequency(rx_mhz)) {
+        fprintf(stderr, "Bad receive frequency.\n");
+        return 0;
+    }
+    if (sscanf(offset_str, "%lf", &tx_mhz) != 1) {
+badtx:  fprintf(stderr, "Bad transmit frequency.\n");
+        return 0;
+    }
+    if (offset_str[0] == '-' || offset_str[0] == '+')
+        tx_mhz += rx_mhz;
+    if (! is_valid_frequency(tx_mhz))
+        goto badtx;
+
+    if (strcasecmp("High", power_str) == 0) {
+        power = POWER_HIGH;
+    } else if (strcasecmp("Low", power_str) == 0) {
+        power = POWER_LOW;
+    } else {
+        fprintf(stderr, "Bad power level.\n");
+        return 0;
+    }
+
+    if (*scanlist_str == '-') {
+        scanlist = 0;
+    } else {
+        scanlist = atoi(scanlist_str);
+        if (scanlist == 0 || scanlist > NSCANL) {
+            fprintf(stderr, "Bad scanlist.\n");
+            return 0;
+        }
+    }
+
+    if (*autoscan_str == '-') {
+        autoscan = 0;
+    } else if (*autoscan_str == '+') {
+        autoscan = 1;
+    } else {
+        fprintf(stderr, "Bad autoscan flag.\n");
+        return 0;
+    }
+
+    squelch = atoi(squelch_str);
+    if (squelch > 9) {
+        fprintf(stderr, "Bad squelch level.\n");
+        return 0;
+    }
+
+    tot = atoi(tot_str);
+    if (tot > 37) {
+        fprintf(stderr, "Bad timeout timer.\n");
+        return 0;
+    }
+    tot *= 15;
+
+    if (*rxonly_str == '-') {
+        rxonly = 0;
+    } else if (*rxonly_str == '+') {
+        rxonly = 1;
+    } else {
+        fprintf(stderr, "Bad receive only flag.\n");
+        return 0;
+    }
+
+    if (*admit_str == '-' || strcasecmp("Always", admit_str) == 0) {
+        admit = ADMIT_ALWAYS;
+    } else if (strcasecmp("Free", admit_str) == 0) {
+        admit = ADMIT_CH_FREE;
+    } else if (strcasecmp("Color", admit_str) == 0) {
+        admit = ADMIT_COLOR;
+    } else {
+        fprintf(stderr, "Bad admit criteria.\n");
+        return 0;
+    }
+
+    colorcode = atoi(colorcode_str);
+    if (colorcode < 1 || colorcode > 15) {
+        fprintf(stderr, "Bad color code.\n");
+        return 0;
+    }
+
+    timeslot = atoi(slot_str);
+    if (timeslot < 1 || timeslot > 2) {
+        fprintf(stderr, "Bad timeslot.\n");
+        return 0;
+    }
+
+    if (*incall_str == '-' || strcasecmp("Always", incall_str) == 0) {
+        incall = INCALL_ALWAYS;
+    } else if (strcasecmp("Admit", incall_str) == 0) {
+        incall = INCALL_ADMIT;
+    } else {
+        fprintf(stderr, "Bad incall criteria.\n");
+        return 0;
+    }
+
+    if (*grouplist_str == '-') {
+        grouplist = 0;
+    } else {
+        grouplist = atoi(grouplist_str);
+        if (grouplist == 0 || grouplist > NGLISTS) {
+            fprintf(stderr, "Bad receive grouplist.\n");
+            return 0;
+        }
+    }
+
+    if (*contact_str == '-') {
+        contact = 0;
+    } else {
+        contact = atoi(contact_str);
+        if (contact == 0 || contact > NCONTACTS) {
+            fprintf(stderr, "Bad transmit contact.\n");
+            return 0;
+        }
+    }
+
+    if (first_row && radio->channel_count == 0) {
+        // On first entry, erase the channel table.
+        int i;
+        for (i=0; i<NCHAN; i++) {
+            setup_channel(i, MODE_ANALOG, 0, 0, 0, POWER_HIGH, 0, 0, 0,
+                4, 0, 0, 1, 1, 0, 0, 0);
+        }
+    }
+
+    setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
+        power, scanlist, autoscan, squelch, tot, rxonly, admit,
+        colorcode, timeslot, incall, grouplist, contact);
+
+    radio->channel_count++;
+    return 1;
 }
 
 //
@@ -1252,7 +1393,7 @@ static int parse_digital_channel(int first_row, char *line)
 // Start_flag is 1 for the first table row.
 // Return 0 on failure.
 //
-static int parse_analog_channel(int first_row, char *line)
+static int parse_analog_channel(radio_device_t *radio, int first_row, char *line)
 {
 #if 1
     //TODO: parse analog channel Name
@@ -1339,16 +1480,17 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         return 0;
     }
 
-    if (first_row) {
+    if (first_row && radio->channel_count == 0) {
         // On first entry, erase the channel table.
         int i;
         for (i=0; i<NCHAN; i++) {
-            setup_channel(i, 0, 0, 0, 0, 12, 1, 0, 0);
+            setup_channel(i, MODE_ANALOG, 0, 0, 0, 0, 12, 1, 0, 0);
         }
     }
 
-    setup_channel(num-1, name_str, rx_mhz, tx_mhz,
+    setup_channel(num-1, MODE_ANALOG, name_str, rx_mhz, tx_mhz,
         tmode, power, wide, scan, isam);
+    radio->channel_count++;
     return 1;
 #endif
 }
@@ -1490,8 +1632,8 @@ static int md380_parse_header(radio_device_t *radio, char *line)
 static int md380_parse_row(radio_device_t *radio, int table_id, int first_row, char *line)
 {
     switch (table_id) {
-    case 'D': return parse_digital_channel(first_row, line);
-    case 'A': return parse_analog_channel(first_row, line);
+    case 'D': return parse_digital_channel(radio, first_row, line);
+    case 'A': return parse_analog_channel(radio, first_row, line);
     case 'Z': return parse_zones(first_row, line);
     case 'S': return parse_scanlist(first_row, line);
     case 'C': return parse_contact(first_row, line);

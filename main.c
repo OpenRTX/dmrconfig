@@ -140,7 +140,6 @@ int main(int argc, char **argv)
             // Print configuration from image file.
             // Load image from file.
             radio_read_image(argv[0]);
-            radio_print_version(stdout);
             radio_print_config(stdout, ! isatty(1));
 
         } else {
@@ -159,7 +158,6 @@ int main(int argc, char **argv)
                 perror(filename);
                 exit(-1);
             }
-            radio_print_version(conf);
             radio_print_config(conf, 1);
             fclose(conf);
         }
