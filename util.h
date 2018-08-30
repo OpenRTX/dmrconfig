@@ -156,3 +156,34 @@ void get_timestamp(char p[16]);
 // '-'   - Disabled
 //
 int encode_tone(char *str);
+
+//
+// Print frequency (BCD value).
+//
+void print_freq(FILE *out, unsigned data);
+
+//
+// Convert a 4-byte frequency value from binary coded decimal
+// to integer format (in Hertz).
+//
+int freq_to_hz(unsigned bcd);
+
+//
+// Print frequency as MHz.
+//
+void print_mhz(FILE *out, unsigned hz);
+
+//
+// Print the transmit offset or frequency.
+//
+void print_offset(FILE *out, unsigned rx_bcd, unsigned tx_bcd);
+
+//
+// Compare channel index for qsort().
+//
+int compare_index(const void *pa, const void *pb);
+
+//
+// Print CTSS or DCS tone.
+//
+void print_tone(FILE *out, unsigned data);

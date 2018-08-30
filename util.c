@@ -43,7 +43,7 @@
 //
 #define NCTCSS  50
 
-const int CTCSS_TONES [NCTCSS] = {
+static const int CTCSS_TONES [NCTCSS] = {
      670,  693,  719,  744,  770,  797,  825,  854,  885,  915,
      948,  974, 1000, 1035, 1072, 1109, 1148, 1188, 1230, 1273,
     1318, 1365, 1413, 1462, 1514, 1567, 1598, 1622, 1655, 1679,
@@ -395,4 +395,139 @@ int encode_tone(char *str)
     }
 
     return (a << 12) | (b << 8) | (c << 4) | d | (tag << 14);
+}
+
+//
+// Print frequency (BCD value).
+//
+void print_freq(FILE *out, unsigned data)
+{
+    fprintf(out, "%d%d%d.%d%d%d", (data >> 28) & 15, (data >> 24) & 15,
+        (data >> 20) & 15, (data >> 16) & 15,
+        (data >> 12) & 15, (data >> 8) & 15);
+
+    if ((data & 0xff) == 0) {
+        fputs("  ", out);
+    } else {
+        fprintf(out, "%d", (data >> 4) & 15);
+        if ((data & 0x0f) == 0) {
+            fputs(" ", out);
+        } else {
+            fprintf(out, "%d", data & 15);
+        }
+    }
+}
+
+//
+// Convert a 4-byte frequency value from binary coded decimal
+// to integer format (in Hertz).
+//
+int freq_to_hz(unsigned bcd)
+{
+    int a = (bcd >> 28) & 15;
+    int b = (bcd >> 24) & 15;
+    int c = (bcd >> 20) & 15;
+    int d = (bcd >> 16) & 15;
+    int e = (bcd >> 12) & 15;
+    int f = (bcd >> 8)  & 15;
+    int g = (bcd >> 4)  & 15;
+    int h =  bcd        & 15;
+
+    return (((((((a*10 + b) * 10 + c) * 10 + d) * 10 + e) * 10 + f) * 10 + g) * 10 + h) * 10;
+}
+
+//
+// Print frequency as MHz.
+//
+void print_mhz(FILE *out, unsigned hz)
+{
+    if (hz % 1000000 == 0)
+        fprintf(out, "%-8u", hz / 1000000);
+    else if (hz % 100000 == 0)
+        fprintf(out, "%-8.1f", hz / 1000000.0);
+    else if (hz % 10000 == 0)
+        fprintf(out, "%-8.2f", hz / 1000000.0);
+    else if (hz % 1000 == 0)
+        fprintf(out, "%-8.3f", hz / 1000000.0);
+    else if (hz % 100 == 0)
+        fprintf(out, "%-8.4f", hz / 1000000.0);
+    else
+        fprintf(out, "%-8.5f", hz / 1000000.0);
+}
+
+//
+// Print the transmit offset or frequency.
+//
+void print_offset(FILE *out, unsigned rx_bcd, unsigned tx_bcd)
+{
+    int rx_hz = freq_to_hz(rx_bcd);
+    int tx_hz = freq_to_hz(tx_bcd);
+    int delta = tx_hz - rx_hz;
+
+    if (delta == 0) {
+        fprintf(out, "+0       ");
+    } else if (delta > 0 && delta/50000 <= 255) {
+        fprintf(out, "+");
+        print_mhz(out, delta);
+    } else if (delta < 0 && -delta/50000 <= 255) {
+        fprintf(out, "-");
+        print_mhz(out, -delta);
+    } else {
+        fprintf(out, " ");
+        print_mhz(out, tx_hz);
+    }
+}
+
+//
+// Compare channel index for qsort().
+//
+int compare_index(const void *pa, const void *pb)
+{
+    unsigned short a = *(unsigned short*) pa;
+    unsigned short b = *(unsigned short*) pb;
+
+    if (a == 0)
+        return (b != 0);
+    if (b == 0)
+        return -1;
+    if (a < b)
+        return -1;
+    if (a > b)
+        return 1;
+    return 0;
+}
+
+//
+// Print CTSS or DCS tone.
+//
+void print_tone(FILE *out, unsigned data)
+{
+    if (data == 0xffff) {
+        fprintf(out, "-    ");
+        return;
+    }
+
+    unsigned tag = data >> 14;
+    unsigned a = (data >> 12) & 3;
+    unsigned b = (data >> 8) & 15;
+    unsigned c = (data >> 4) & 15;
+    unsigned d = data & 15;
+
+    switch (tag) {
+    default:
+        // CTCSS
+        if (a == 0)
+            fprintf(out, "%d%d.%d ", b, c, d);
+        else
+            fprintf(out, "%d%d%d.%d", a, b, c, d);
+        break;
+    case 2:
+        // DCS-N
+        fprintf(out, "D%d%d%dN", b, c, d);
+        break;
+    case 3:
+        // DCS-I
+        fprintf(out, "D%d%d%dI", b, c, d);
+        break;
+    }
 }

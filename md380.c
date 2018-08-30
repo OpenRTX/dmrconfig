@@ -408,27 +408,6 @@ static void erase_zone(int zone_index)
 }
 
 //
-// Print frequency (BCD value).
-//
-static void print_freq(FILE *out, unsigned data)
-{
-    fprintf(out, "%d%d%d.%d%d%d", (data >> 28) & 15, (data >> 24) & 15,
-        (data >> 20) & 15, (data >> 16) & 15,
-        (data >> 12) & 15, (data >> 8) & 15);
-
-    if ((data & 0xff) == 0) {
-        fputs("  ", out);
-    } else {
-        fprintf(out, "%d", (data >> 4) & 15);
-        if ((data & 0x0f) == 0) {
-            fputs(" ", out);
-        } else {
-            fprintf(out, "%d", data & 15);
-        }
-    }
-}
-
-//
 // Check that the radio does support this frequency.
 //
 static int is_valid_frequency(int mhz)
@@ -501,82 +480,6 @@ static void erase_channel(int i)
     //TODO: erase channel
 }
 
-//
-// Convert a 4-byte frequency value from binary coded decimal
-// to integer format (in Hertz).
-//
-static int freq_to_hz(uint32_t bcd)
-{
-    int a = (bcd >> 28) & 15;
-    int b = (bcd >> 24) & 15;
-    int c = (bcd >> 20) & 15;
-    int d = (bcd >> 16) & 15;
-    int e = (bcd >> 12) & 15;
-    int f = (bcd >> 8)  & 15;
-    int g = (bcd >> 4)  & 15;
-    int h =  bcd        & 15;
-
-    return (((((((a*10 + b) * 10 + c) * 10 + d) * 10 + e) * 10 + f) * 10 + g) * 10 + h) * 10;
-}
-
-//
-// Print frequency as MHz.
-//
-static void print_mhz(FILE *out, uint32_t hz)
-{
-    if (hz % 1000000 == 0)
-        fprintf(out, "%-8u", hz / 1000000);
-    else if (hz % 100000 == 0)
-        fprintf(out, "%-8.1f", hz / 1000000.0);
-    else if (hz % 10000 == 0)
-        fprintf(out, "%-8.2f", hz / 1000000.0);
-    else if (hz % 1000 == 0)
-        fprintf(out, "%-8.3f", hz / 1000000.0);
-    else if (hz % 100 == 0)
-        fprintf(out, "%-8.4f", hz / 1000000.0);
-    else
-        fprintf(out, "%-8.5f", hz / 1000000.0);
-}
-
-//
-// Print the transmit offset or frequency.
-//
-static void print_offset(FILE *out, uint32_t rx_bcd, uint32_t tx_bcd)
-{
-    int rx_hz = freq_to_hz(rx_bcd);
-    int tx_hz = freq_to_hz(tx_bcd);
-    int delta = tx_hz - rx_hz;
-
-    if (delta == 0) {
-        fprintf(out, "+0       ");
-    } else if (delta > 0 && delta/50000 <= 255) {
-        fprintf(out, "+");
-        print_mhz(out, delta);
-    } else if (delta < 0 && -delta/50000 <= 255) {
-        fprintf(out, "-");
-        print_mhz(out, -delta);
-    } else {
-        fprintf(out, " ");
-        print_mhz(out, tx_hz);
-    }
-}
-
-static int compare_uint16(const void *pa, const void *pb)
-{
-    uint16_t a = *(uint16_t*) pa;
-    uint16_t b = *(uint16_t*) pb;
-
-    if (a == 0)
-        return (b != 0);
-    if (b == 0)
-        return -1;
-    if (a < b)
-        return -1;
-    if (a > b)
-        return 1;
-    return 0;
-}
-
 static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
 {
     int last  = -1;
@@ -586,7 +489,7 @@ static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
 
     // Sort the list before printing.
     memcpy(data, unsorted, nchan * sizeof(uint16_t));
-    qsort(data, nchan, sizeof(uint16_t), compare_uint16);
+    qsort(data, nchan, sizeof(uint16_t), compare_index);
     for (n=0; n<=nchan; n++) {
         int cnum = data[n];
 
@@ -658,41 +561,6 @@ static int have_channels(int mode)
             return 1;
     }
     return 0;
-}
-
-//
-// Print CTSS or DCS tone.
-//
-static void print_tone(FILE *out, uint16_t data)
-{
-    if (data == 0xffff) {
-        fprintf(out, "-    ");
-        return;
-    }
-
-    unsigned tag = data >> 14;
-    unsigned a = (data >> 12) & 3;
-    unsigned b = (data >> 8) & 15;
-    unsigned c = (data >> 4) & 15;
-    unsigned d = data & 15;
-
-    switch (tag) {
-    default:
-        // CTCSS
-        if (a == 0)
-            fprintf(out, "%d%d.%d ", b, c, d);
-        else
-            fprintf(out, "%d%d%d.%d", a, b, c, d);
-        break;
-    case 2:
-        // DCS-N
-        fprintf(out, "D%d%d%dN", b, c, d);
-        break;
-    case 3:
-        // DCS-I
-        fprintf(out, "D%d%d%dI", b, c, d);
-        break;
-    }
 }
 
 //
