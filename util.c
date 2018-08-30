@@ -39,6 +39,38 @@
 #include "util.h"
 
 //
+// CTCSS tones, Hz*10.
+//
+#define NCTCSS  50
+
+const int CTCSS_TONES [NCTCSS] = {
+     670,  693,  719,  744,  770,  797,  825,  854,  885,  915,
+     948,  974, 1000, 1035, 1072, 1109, 1148, 1188, 1230, 1273,
+    1318, 1365, 1413, 1462, 1514, 1567, 1598, 1622, 1655, 1679,
+    1713, 1738, 1773, 1799, 1835, 1862, 1899, 1928, 1966, 1995,
+    2035, 2065, 2107, 2181, 2257, 2291, 2336, 2418, 2503, 2541,
+};
+
+//
+// DCS codes.
+//
+#define NDCS    104
+
+static const int DCS_CODES[NDCS] = {
+     23,  25,  26,  31,  32,  36,  43,  47,  51,  53,
+     54,  65,  71,  72,  73,  74, 114, 115, 116, 122,
+    125, 131, 132, 134, 143, 145, 152, 155, 156, 162,
+    165, 172, 174, 205, 212, 223, 225, 226, 243, 244,
+    245, 246, 251, 252, 255, 261, 263, 265, 266, 271,
+    274, 306, 311, 315, 325, 331, 332, 343, 346, 351,
+    356, 364, 365, 371, 411, 412, 413, 423, 431, 432,
+    445, 446, 452, 454, 455, 462, 464, 465, 466, 503,
+    506, 516, 523, 526, 532, 546, 565, 606, 612, 624,
+    627, 631, 632, 654, 662, 664, 703, 712, 723, 731,
+    732, 734, 743, 754,
+};
+
+//
 // Check for a regular file.
 //
 int is_file(char *filename)
@@ -289,4 +321,78 @@ void utf8_decode(unsigned short *dst, const char *src, unsigned nsym)
             break;
         }
     }
+}
+
+//
+// Convert tone string to BCD format.
+// Four possible formats:
+// nnn.n - CTCSS frequency
+// DnnnN - DCS normal
+// DnnnI - DCS inverted
+// '-'   - Disabled
+//
+int encode_tone(char *str)
+{
+    unsigned val, tag, a, b, c, d;
+
+    if (*str == '-') {
+        // Disabled
+        return 0;
+
+    } else if (*str == 'D' || *str == 'd') {
+        //
+        // DCS tone
+        //
+        char *e;
+        val = strtoul(++str, &e, 10);
+
+        // Find a valid index in DCS table.
+        int i;
+        for (i=0; i<NDCS; i++)
+            if (DCS_CODES[i] == val)
+                break;
+        if (i >= NDCS)
+            return -1;
+
+        a = 0;
+        b = val / 100;
+        c = val / 10 % 10;
+        d = val % 10;
+
+        if (*e == 'N' || *e == 'n') {
+            tag = 2;
+        } else if (*e == 'I' || *e == 'i') {
+            tag = 3;
+        } else {
+            return -1;
+        }
+    } else if (*str >= '0' && *str <= '9') {
+        //
+        // CTCSS tone
+        //
+        float hz;
+        if (sscanf(str, "%f", &hz) != 1)
+            return -1;
+
+        // Round to integer.
+        val = hz * 10.0 + 0.5;
+
+        // Find a valid index in CTCSS table.
+        int i;
+        for (i=0; i<NCTCSS; i++)
+            if (CTCSS_TONES[i] == val)
+                break;
+        if (i >= NCTCSS)
+            return -1;
+
+        a = val / 1000;
+        b = val / 100 % 10;
+        c = val / 10 % 10;
+        d = val % 10;
+        tag = 0;
+    } else {
+        return -1;
+    }
+
+    return (a << 12) | (b << 8) | (c << 4) | d | (tag << 14);
 }

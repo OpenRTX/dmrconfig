@@ -145,3 +145,14 @@ void utf8_decode(unsigned short *dst, const char *src, unsigned nsym);
 // Get local time in format: YYYYMMDDhhmmss
 //
 void get_timestamp(char p[16]);
+
+//
+// Convert tone string to BCD format.
+// Return -1 on error.
+// Four possible formats:
+// nnn.n - CTCSS frequency
+// DnnnN - DCS normal
+// DnnnI - DCS inverted
+// '-'   - Disabled
+//
+int encode_tone(char *str);
