@@ -251,10 +251,10 @@ typedef struct {
 typedef struct {
 
     // Bytes 0-19
-    uint16_t intro_screen_line1[10];
+    uint16_t intro_line1[10];
 
     // Bytes 20-39
-    uint16_t intro_screen_line2[10];
+    uint16_t intro_line2[10];
 
     // Bytes 40-63
     uint8_t  _unused40[24];
@@ -278,7 +278,7 @@ typedef struct {
     // Byte 66
     uint8_t  _unused66_0                : 2,
              keypad_tones               : 1,
-             intro_screen               : 1,
+             intro_picture              : 1,
              _unused66_4                : 4;
 
     // Byte 67
@@ -600,6 +600,7 @@ static void print_id(FILE *out)
     general_settings_t *gs = (general_settings_t*) &radio_mem[OFFSET_SETTINGS];
     unsigned id = gs->radio_id[0] | (gs->radio_id[1] << 8) | (gs->radio_id[2] << 16);
     unsigned char *timestamp = &radio_mem[OFFSET_TIMESTMP];
+    static const char charmap[16] = "0123456789:;<=>?";
 
     fprintf(out, "Name: ");
     if (gs->radio_name[0] != 0 && gs->radio_name[0] != 0xffff) {
@@ -616,9 +617,30 @@ static void print_id(FILE *out)
         fprintf(out, " %d%d:%d%d:%d%d\n",
             timestamp[4] >> 4, timestamp[4] & 15, timestamp[5] >> 4, timestamp[5] & 15,
             timestamp[6] >> 4, timestamp[6] & 15);
-        fprintf(out, "CPS Software Version: V%x%x.%x%x\n",
-            timestamp[7], timestamp[8], timestamp[9], timestamp[10]);
+        fprintf(out, "CPS Software Version: V%c%c.%c%c\n",
+            charmap[timestamp[7] & 15], charmap[timestamp[8] & 15],
+            charmap[timestamp[9] & 15], charmap[timestamp[10] & 15]);
     }
+}
+
+static void print_intro(FILE *out)
+{
+    general_settings_t *gs = (general_settings_t*) &radio_mem[OFFSET_SETTINGS];
+
+    fprintf(out, "\n# Text displayed when the radio powers up.\n");
+    fprintf(out, "Welcome Line 1: ");
+    if (gs->intro_line1[0] != 0 && gs->intro_line1[0] != 0xffff) {
+        print_unicode(out, gs->intro_line1, 10, 0);
+    } else {
+        fprintf(out, "-");
+    }
+    fprintf(out, "\nWelcome Line 2: ");
+    if (gs->intro_line2[0] != 0 && gs->intro_line2[0] != 0xffff) {
+        print_unicode(out, gs->intro_line2, 10, 0);
+    } else {
+        fprintf(out, "-");
+    }
+    fprintf(out, "\n");
 }
 
 //
@@ -937,6 +959,7 @@ static void uv380_print_config(radio_device_t *radio, FILE *out, int verbose)
 
     fprintf(out, "Radio: %s\n", radio->name);
     print_id(out);
+    print_intro(out);
 
     //
     // Channels.
@@ -1211,13 +1234,10 @@ static void uv380_parse_parameter(radio_device_t *radio, char *param, char *valu
         }
         return;
     }
-
     if (strcasecmp ("Name", param) == 0) {
-        // Decode utf8 text to ucs2.
         utf8_decode(gs->radio_name, value, 16);
         return;
     }
-
     if (strcasecmp ("ID", param) == 0) {
         uint32_t id = strtoul(value, 0, 0);
         gs->radio_id[0] = id;
@@ -1225,13 +1245,20 @@ static void uv380_parse_parameter(radio_device_t *radio, char *param, char *valu
         gs->radio_id[2] = id >> 16;
         return;
     }
-
     if (strcasecmp ("Last Programmed Date", param) == 0) {
         // Ignore.
         return;
     }
     if (strcasecmp ("CPS Software Version", param) == 0) {
         // Ignore.
+        return;
+    }
+    if (strcasecmp ("Welcome Line 1", param) == 0) {
+        utf8_decode(gs->intro_line1, value, 10);
+        return;
+    }
+    if (strcasecmp ("Welcome Line 2", param) == 0) {
+        utf8_decode(gs->intro_line2, value, 10);
         return;
     }
     fprintf(stderr, "Unknown parameter: %s = %s\n", param, value);
@@ -1537,7 +1564,7 @@ static void uv380_update_timestamp(radio_device_t *radio)
     // CPS Software Version: Vdx.xx
     const char *dot = strchr(VERSION, '.');
     if (dot) {
-        timestamp[7] = 0x0d; // D means Dmrconfig
+        timestamp[7] = 0x0d; // Prints as '='
         timestamp[8] = dot[-1] & 0x0f;
         if (dot[2] == '.') {
             timestamp[9] = 0;
