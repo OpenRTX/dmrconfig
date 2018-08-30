@@ -59,7 +59,7 @@ void radio_disconnect()
 //
 void radio_print_version(FILE *out)
 {
-    device->print_version(out);
+    device->print_version(device, out);
 }
 
 //
@@ -73,6 +73,9 @@ void radio_connect()
 
     if (strcasecmp(ident, "MD380") == 0) {
         device = &radio_md380;
+    } else
+    if (strcasecmp(ident, "MD-2017") == 0) {
+        device = &radio_md2017;
     } else
     if (strcasecmp(ident, "MD-UV380") == 0) {
         device = &radio_uv380;
@@ -92,7 +95,7 @@ void radio_download()
     if (! serial_verbose)
         fprintf(stderr, "Read device: ");
 
-    device->download();
+    device->download(device);
 
     if (! serial_verbose)
         fprintf(stderr, " done.\n");
@@ -104,7 +107,7 @@ void radio_download()
 void radio_upload(int cont_flag)
 {
     // Check for compatibility.
-    if (! device->is_compatible()) {
+    if (! device->is_compatible(device)) {
         fprintf(stderr, "Incompatible image - cannot upload.\n");
         exit(-1);
     }
@@ -113,7 +116,7 @@ void radio_upload(int cont_flag)
         fprintf(stderr, "Write device: ");
         fflush(stderr);
     }
-    device->upload(cont_flag);
+    device->upload(device, cont_flag);
 
     if (! serial_verbose)
         fprintf(stderr, " done.\n");
@@ -154,7 +157,7 @@ void radio_read_image(char *filename)
         perror(filename);
         exit(-1);
     }
-    device->read_image(img);
+    device->read_image(device, img);
     fclose(img);
 }
 
@@ -171,7 +174,7 @@ void radio_save_image(char *filename)
         perror(filename);
         exit(-1);
     }
-    device->save_image(img);
+    device->save_image(device, img);
     fclose(img);
 }
 
@@ -217,7 +220,7 @@ void radio_parse_config(char *filename)
             v = strchr(p, ':');
             if (! v) {
                 // Table header: get table type.
-                table_id = device->parse_header(p);
+                table_id = device->parse_header(device, p);
                 if (! table_id) {
 badline:            fprintf(stderr, "Invalid line: '%s'\n", line);
                     exit(-1);
@@ -233,7 +236,7 @@ badline:            fprintf(stderr, "Invalid line: '%s'\n", line);
             while (*v == ' ' || *v == '\t')
                 v++;
 
-            device->parse_parameter(p, v);
+            device->parse_parameter(device, p, v);
 
         } else {
             // Table row or comment.
@@ -247,7 +250,7 @@ badline:            fprintf(stderr, "Invalid line: '%s'\n", line);
                 goto badline;
             }
 
-            if (! device->parse_row(table_id, ! table_dirty, p)) {
+            if (! device->parse_row(device, table_id, ! table_dirty, p)) {
                 goto badline;
             }
             table_dirty = 1;
@@ -275,5 +278,5 @@ void radio_print_config(FILE *out, int verbose)
         fprintf(out, "# Version %s, %s\n", version, copyright);
         fprintf(out, "#\n");
     }
-    device->print_config(out, verbose);
+    device->print_config(device, out, verbose);
 }

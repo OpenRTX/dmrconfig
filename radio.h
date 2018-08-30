@@ -75,21 +75,23 @@ void radio_parse_config(char *filename);
 //
 // Device-dependent interface to the radio.
 //
-typedef struct {
+typedef struct _radio_device_t radio_device_t;
+struct _radio_device_t {
     const char *name;
-    void (*download)(void);
-    void (*upload)(int cont_flag);
-    int (*is_compatible)(void);
-    void (*read_image)(FILE *img);
-    void (*save_image)(FILE *img);
-    void (*print_version)(FILE *out);
-    void (*print_config)(FILE *out, int verbose);
-    void (*parse_parameter)(char *param, char *value);
-    int (*parse_header)(char *line);
-    int (*parse_row)(int table_id, int first_row, char *line);
-} radio_device_t;
+    void (*download)(radio_device_t *radio);
+    void (*upload)(radio_device_t *radio, int cont_flag);
+    int (*is_compatible)(radio_device_t *radio);
+    void (*read_image)(radio_device_t *radio, FILE *img);
+    void (*save_image)(radio_device_t *radio, FILE *img);
+    void (*print_version)(radio_device_t *radio, FILE *out);
+    void (*print_config)(radio_device_t *radio, FILE *out, int verbose);
+    void (*parse_parameter)(radio_device_t *radio, char *param, char *value);
+    int (*parse_header)(radio_device_t *radio, char *line);
+    int (*parse_row)(radio_device_t *radio, int table_id, int first_row, char *line);
+};
 
 extern radio_device_t radio_md380;   // TYT MD-380
+extern radio_device_t radio_md2017;  // TYT MD-2017
 extern radio_device_t radio_uv380;   // TYT MD-UV380
 
 //

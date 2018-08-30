@@ -243,7 +243,7 @@ static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DT
 //
 // Print a generic information about the device.
 //
-static void md380_print_version(FILE *out)
+static void md380_print_version(radio_device_t *radio, FILE *out)
 {
     // Nothing to print.
 }
@@ -251,7 +251,7 @@ static void md380_print_version(FILE *out)
 //
 // Read memory image from the device.
 //
-static void md380_download()
+static void md380_download(radio_device_t *radio)
 {
     int bno;
 
@@ -269,7 +269,7 @@ static void md380_download()
 //
 // Write memory image to the device.
 //
-static void md380_upload(int cont_flag)
+static void md380_upload(radio_device_t *radio, int cont_flag)
 {
     int bno;
 
@@ -291,7 +291,7 @@ static void md380_upload(int cont_flag)
 //
 // Check whether the memory image is compatible with this device.
 //
-static int md380_is_compatible()
+static int md380_is_compatible(radio_device_t *radio)
 {
     return 1;
 }
@@ -504,7 +504,6 @@ static void print_id(FILE *out)
 {
     const unsigned char *data = &radio_mem[OFFSET_VERSION];
 
-    fprintf(out, "Radio: TYT MD-380\n");
     fprintf(out, "Name: ");
     if (radio_mem[OFFSET_NAME] != 0 && *(uint16_t*)&radio_mem[OFFSET_NAME] != 0xffff) {
         print_unicode(out, (uint16_t*) &radio_mem[OFFSET_NAME], 16, 0);
@@ -828,10 +827,11 @@ static int have_messages()
 //
 // Print full information about the device configuration.
 //
-static void md380_print_config(FILE *out, int verbose)
+static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
 {
     int i;
 
+    fprintf(out, "Radio: %s\n", radio->name);
     print_id(out);
 
     //
@@ -1033,7 +1033,7 @@ static void md380_print_config(FILE *out, int verbose)
 //
 // Read memory image from the binary file.
 //
-static void md380_read_image(FILE *img)
+static void md380_read_image(radio_device_t *radio, FILE *img)
 {
     struct stat st;
 
@@ -1068,7 +1068,7 @@ static void md380_read_image(FILE *img)
 //
 // Save memory image to the binary file.
 //
-static void md380_save_image(FILE *img)
+static void md380_save_image(radio_device_t *radio, FILE *img)
 {
     fwrite(&radio_mem[0], 1, MEMSZ, img);
 }
@@ -1076,10 +1076,10 @@ static void md380_save_image(FILE *img)
 //
 // Parse the scalar parameter.
 //
-static void md380_parse_parameter(char *param, char *value)
+static void md380_parse_parameter(radio_device_t *radio, char *param, char *value)
 {
     if (strcasecmp("Radio", param) == 0) {
-        if (strcasecmp("TYT MD-380", value) != 0) {
+        if (strcasecmp(radio->name, value) != 0) {
             fprintf(stderr, "Bad value for %s: %s\n", param, value);
             exit(-1);
         }
@@ -1300,7 +1300,7 @@ static int parse_grouplist(int first_row, char *line)
 // Parse table header.
 // Return table id, or 0 in case of error.
 //
-static int md380_parse_header(char *line)
+static int md380_parse_header(radio_device_t *radio, char *line)
 {
     if (strncasecmp(line, "Digital", 7) == 0)
         return 'D';
@@ -1321,7 +1321,7 @@ static int md380_parse_header(char *line)
 // Parse one line of table data.
 // Return 0 on failure.
 //
-static int md380_parse_row(int table_id, int first_row, char *line)
+static int md380_parse_row(radio_device_t *radio, int table_id, int first_row, char *line)
 {
     switch (table_id) {
     case 'D': return parse_digital_channel(first_row, line);
