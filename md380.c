@@ -409,6 +409,8 @@ static int zone_append(int zone_index, int cnum)
     int i;
 
     for (i=0; i<16; i++) {
+        if (z->member[i] == cnum)
+            return 1;
         if (z->member[i] == 0) {
             z->member[i] = cnum;
             return 1;
@@ -469,6 +471,8 @@ static int scanlist_append(int list_index, int cnum)
     int i;
 
     for (i=0; i<31; i++) {
+        if (sl->member[i] == cnum)
+            return 1;
         if (sl->member[i] == 0) {
             sl->member[i] = cnum;
             return 1;
@@ -494,6 +498,33 @@ static void setup_contact(int index, const char *name, int type, int id, int rxt
     ct->receive_tone = rxtone;
 
     utf8_decode(ct->name, name, 16);
+}
+
+static void setup_grouplist(int index, const char *name)
+{
+    grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS + index*96];
+
+    utf8_decode(gl->name, name, 16);
+}
+
+//
+// Add contact to a grouplist.
+// Return 0 on failure.
+//
+static int grouplist_append(int index, int cnum)
+{
+    grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS + index*96];
+    int i;
+
+    for (i=0; i<32; i++) {
+        if (gl->member[i] == cnum)
+            return 1;
+        if (gl->member[i] == 0) {
+            gl->member[i] = cnum;
+            return 1;
+        }
+    }
+    return 0;
 }
 
 //
@@ -1121,10 +1152,11 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         if (verbose) {
             fprintf(out, "# Table of group lists.\n");
             fprintf(out, "# 1) Group list number: 1-%d\n", NGLISTS);
-            fprintf(out, "# 2) List of contacts: numbers and ranges (N-M) separated by comma\n");
+            fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
+            fprintf(out, "# 3) List of contacts: numbers and ranges (N-M) separated by comma\n");
             fprintf(out, "#\n");
         }
-        fprintf(out, "Grouplist Contacts\n");
+        fprintf(out, "Grouplist Name             Contacts\n");
         for (i=0; i<NGLISTS; i++) {
             grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS + i*96];
 
@@ -1134,6 +1166,8 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
             }
 
             fprintf(out, "%5d     ", i + 1);
+            print_unicode(out, gl->name, 16, 1);
+            fprintf(out, " ");
             if (gl->member[0]) {
                 print_chanlist(out, gl->member, 32);
             } else {
@@ -1859,8 +1893,74 @@ static int parse_contact(int first_row, char *line)
 //
 static int parse_grouplist(int first_row, char *line)
 {
-    //TODO: parse grouplist Contacts
-    return 0;
+    char num_str[256], name_str[256], list_str[256];
+    int glnum;
+
+    if (sscanf(line, "%s %s %s", num_str, name_str, list_str) != 3)
+        return 0;
+
+    glnum = strtoul(num_str, 0, 10);
+    if (glnum < 1 || glnum > NGLISTS) {
+        fprintf(stderr, "Bad group list number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Grouplists table.
+        memset(&radio_mem[OFFSET_GLISTS], 0, NGLISTS*96);
+    }
+
+    setup_grouplist(glnum-1, name_str);
+
+    if (*list_str != '-') {
+        char *str   = list_str;
+        int   range = 0;
+        int   last  = 0;
+
+        // Parse contact list.
+        for (;;) {
+            char *eptr;
+            int cnum = strtoul(str, &eptr, 10);
+
+            if (eptr == str) {
+                fprintf(stderr, "Group list %d: wrong contact list '%s'.\n", glnum, str);
+                return 0;
+            }
+            if (cnum < 1 || cnum > NCONTACTS) {
+                fprintf(stderr, "Group list %d: wrong contact number %d.\n", glnum, cnum);
+                return 0;
+            }
+
+            if (range) {
+                // Add range.
+                int c;
+                for (c=last+1; c<=cnum; c++) {
+                    if (!grouplist_append(glnum-1, c)) {
+                        fprintf(stderr, "Group list %d: too many contacts.\n", glnum);
+                        return 0;
+                    }
+                }
+            } else {
+                // Add single contact.
+                if (!grouplist_append(glnum-1, cnum)) {
+                    fprintf(stderr, "Group list %d: too many contacts.\n", glnum);
+                    return 0;
+                }
+            }
+
+            if (*eptr == 0)
+                break;
+
+            if (*eptr != ',' && *eptr != '-') {
+                fprintf(stderr, "Group list %d: wrong contact list '%s'.\n", glnum, eptr);
+                return 0;
+            }
+            range = (*eptr == '-');
+            last = cnum;
+            str = eptr + 1;
+        }
+    }
+    return 1;
 }
 
 //
