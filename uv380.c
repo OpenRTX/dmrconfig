@@ -566,6 +566,19 @@ static int grouplist_append(int index, int cnum)
 }
 
 //
+// Set text for a given message.
+//
+static void setup_message(int index, const char *text)
+{
+    uint16_t *msg = (uint16_t*) &radio_mem[OFFSET_MSG + index*288];
+
+    // Skip spaces and tabs.
+    while (*text == ' ' || *text == '\t')
+        text++;
+    utf8_decode(msg, text, 144);
+}
+
+//
 // Check that the radio does support this frequency.
 //
 static int is_valid_frequency(int mhz)
@@ -2046,6 +2059,30 @@ static int parse_grouplist(int first_row, char *line)
 }
 
 //
+// Parse one line of Messages table.
+// Return 0 on failure.
+//
+static int parse_messages(int first_row, char *line)
+{
+    char *text;
+    int mnum;
+
+    mnum = strtoul(line, &text, 10);
+    if (text == line || mnum < 1 || mnum > NMESSAGES) {
+        fprintf(stderr, "Bad message number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Messages table.
+        memset(&radio_mem[OFFSET_MSG], 0, NMESSAGES*288);
+    }
+
+    setup_message(mnum-1, text);
+    return 1;
+}
+
+//
 // Parse table header.
 // Return table id, or 0 in case of error.
 //
@@ -2063,6 +2100,8 @@ static int uv380_parse_header(radio_device_t *radio, char *line)
         return 'C';
     if (strncasecmp(line, "Grouplist", 9) == 0)
         return 'G';
+    if (strncasecmp(line, "Message", 7) == 0)
+        return 'M';
     return 0;
 }
 
@@ -2079,6 +2118,7 @@ static int uv380_parse_row(radio_device_t *radio, int table_id, int first_row, c
     case 'S': return parse_scanlist(first_row, line);
     case 'C': return parse_contact(first_row, line);
     case 'G': return parse_grouplist(first_row, line);
+    case 'M': return parse_messages(first_row, line);
     }
     return 0;
 }

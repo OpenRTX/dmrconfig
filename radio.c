@@ -130,7 +130,7 @@ void radio_read_image(char *filename)
     FILE *img;
     struct stat st;
 
-    fprintf(stderr, "Read image from file '%s'.\n", filename);
+    fprintf(stderr, "Read codeplug from file '%s'.\n", filename);
 
     // Guess device type by file size.
     if (stat(filename, &st) < 0) {
@@ -168,7 +168,7 @@ void radio_save_image(char *filename)
 {
     FILE *img;
 
-    fprintf(stderr, "Write image to file '%s'.\n", filename);
+    fprintf(stderr, "Write codeplug to file '%s'.\n", filename);
     img = fopen(filename, "w");
     if (! img) {
         perror(filename);

@@ -54,9 +54,9 @@ void usage()
     fprintf(stderr, _("    dmrconfig file.img\n"));
     fprintf(stderr, _("                                 Display configuration from the codeplug image.\n"));
     fprintf(stderr, _("Options:\n"));
-    fprintf(stderr, _("    -r           Read image to the radio.\n"));
-    fprintf(stderr, _("    -w           Write image to the radio.\n"));
-    fprintf(stderr, _("    -c           Configure the radio from a text file.\n"));
+    fprintf(stderr, _("    -r           Read codeplug from the radio.\n"));
+    fprintf(stderr, _("    -w           Write codeplug to the radio.\n"));
+    fprintf(stderr, _("    -c           Configure the radio from a text script.\n"));
     fprintf(stderr, _("    -t           Trace USB protocol.\n"));
     exit(-1);
 }
