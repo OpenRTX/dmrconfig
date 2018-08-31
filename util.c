@@ -286,6 +286,9 @@ int utf8_to_unicode(const char **p)
 //
 void utf8_decode(unsigned short *dst, const char *src, unsigned nsym)
 {
+    if (src[0] == '-' && src[1] == 0)
+        src = "";
+
     for (; nsym > 0; nsym--) {
         int ch = utf8_to_unicode(&src);
 
@@ -316,7 +319,7 @@ int encode_tone(char *str)
 
     if (*str == '-') {
         // Disabled
-        return 0;
+        return 0xffff;
 
     } else if (*str == 'D' || *str == 'd') {
         //

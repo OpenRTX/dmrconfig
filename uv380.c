@@ -423,6 +423,24 @@ static void erase_zone(int zone_index)
     memset(data, 0, 0x80);
 }
 
+static void erase_scanlist(int index)
+{
+    scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + index*104];
+
+    memset(sl, 0, 104);
+
+    // Bytes 32-37
+    sl->priority_ch1     = 0xffff;
+    sl->priority_ch2     = 0xffff;
+    sl->tx_designated_ch = 0xffff;
+
+    // Bytes 38-41
+    sl->_unused1         = 0xf1;
+    sl->sign_hold_time   = 500 / 25;    // 500 msec
+    sl->prio_sample_time = 2000 / 250;  // 2 sec
+    sl->_unused2         = 0xff;
+}
+
 //
 // Check that the radio does support this frequency.
 //
@@ -537,7 +555,7 @@ static void erase_channel(int i)
 
     // Byte 0
     ch->channel_mode = MODE_ANALOG;
-    ch->bandwidth    = BW_25_KHZ;
+    ch->bandwidth    = BW_12_5_KHZ;
     ch->autoscan     = 0;
     ch->_unused1     = 3;
     ch->lone_worker  = 0;
@@ -590,15 +608,15 @@ static void erase_channel(int i)
 
     // Bytes 14-15
     ch->_unused9 = 0;
-    ch->squelch  = 3;
+    ch->squelch  = 1;
 
     // Bytes 16-23
     ch->rx_frequency = 0x40000000;
     ch->tx_frequency = 0x40000000;
 
     // Bytes 24-27
-    ch->ctcss_dcs_receive = 0;
-    ch->ctcss_dcs_transmit = 0;
+    ch->ctcss_dcs_receive = 0xffff;
+    ch->ctcss_dcs_transmit = 0xffff;
 
     // Bytes 28-29
     ch->rx_signaling_syst = 0;
@@ -1242,7 +1260,9 @@ static void erase_channels()
     for (i=0; i<NZONES; i++) {
         erase_zone(i);
     }
-    //TODO: erase scanlists
+    for (i=0; i<NSCANL; i++) {
+        erase_scanlist(i);
+    }
 }
 
 //
@@ -1371,11 +1391,11 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     tot = atoi(tot_str);
-    if (tot > 37) {
+    if (tot > 555 || tot % 15 != 0) {
         fprintf(stderr, "Bad timeout timer.\n");
         return 0;
     }
-    tot *= 15;
+    tot /= 15;
 
     if (*rxonly_str == '-') {
         rxonly = 0;
@@ -1447,7 +1467,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 
     setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
         power, scanlist, autoscan, squelch, tot, rxonly, admit,
-        colorcode, timeslot, incall, grouplist, contact, 0, 0, BW_12_5_KHZ);
+        colorcode, timeslot, incall, grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
 
     radio->channel_count++;
     return 1;
@@ -1532,11 +1552,11 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     tot = atoi(tot_str);
-    if (tot > 37) {
+    if (tot > 555 || tot % 15 != 0) {
         fprintf(stderr, "Bad timeout timer.\n");
         return 0;
     }
-    tot *= 15;
+    tot /= 15;
 
     if (*rxonly_str == '-') {
         rxonly = 0;
