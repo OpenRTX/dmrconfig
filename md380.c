@@ -390,21 +390,45 @@ static int md380_is_compatible(radio_device_t *radio)
 }
 
 //
-// Set the bitmask of zones for a given channel.
+// Add channel to a zone.
 // Return 0 on failure.
 //
-static void setup_zone(int zone_index, int chan_index)
+static void zone_append(int zone_index, int chan_index)
 {
-    uint8_t *data = &radio_mem[OFFSET_ZONES + zone_index*0x80 + chan_index/8];
+    zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES + zone_index*64];
 
-    *data |= 1 << (chan_index & 7);
+    //TODO: append channel to a zone
+    (void)z;
 }
 
 static void erase_zone(int zone_index)
 {
-    uint8_t *data = &radio_mem[OFFSET_ZONES + zone_index*0x80];
+    zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES + zone_index*64];
 
-    memset(data, 0, 0x80);
+    memset(z, 0, 64);
+}
+
+//
+// Set parameters for a given scan list.
+//
+static void setup_scanlist(int index, const char *name,
+    int prio1, int prio2, int txchan)
+{
+    scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + index*104];
+
+    // Bytes 0-31
+    utf8_decode(sl->name, name, 16);
+
+    // Bytes 32-37
+    sl->priority_ch1     = prio1;
+    sl->priority_ch2     = prio2;
+    sl->tx_designated_ch = txchan;
+
+    // Bytes 38-41
+    sl->_unused1         = 0xf1;
+    sl->sign_hold_time   = 500 / 25;    // 500 msec
+    sl->prio_sample_time = 2000 / 250;  // 2 sec
+    sl->_unused2         = 0xff;
 }
 
 static void erase_scanlist(int index)
@@ -423,6 +447,24 @@ static void erase_scanlist(int index)
     sl->sign_hold_time   = 500 / 25;    // 500 msec
     sl->prio_sample_time = 2000 / 250;  // 2 sec
     sl->_unused2         = 0xff;
+}
+
+//
+// Add channel to a zone.
+// Return 0 on failure.
+//
+static int scanlist_append(int list_index, int cnum)
+{
+    scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + list_index*104];
+    int i;
+
+    for (i=0; i<31; i++) {
+        if (sl->member[i] == 0) {
+            sl->member[i] = cnum;
+            return 1;
+        }
+    }
+    return 0;
 }
 
 //
@@ -1011,11 +1053,11 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         fprintf(out, "\n");
         if (verbose) {
             fprintf(out, "# Table of scan lists.\n");
-            fprintf(out, "# 1) Zone number: 1-%d\n", NSCANL);
+            fprintf(out, "# 1) Scan list number: 1-%d\n", NSCANL);
             fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
             fprintf(out, "# 3) Priority channel 1 (50%% of scans): -, Sel or index\n");
             fprintf(out, "# 4) Priority channel 2 (25%% of scans): -, Sel or index\n");
-            fprintf(out, "# 5) Designated transmit channel: -, Last or index\n");
+            fprintf(out, "# 5) Designated transmit channel: Last, Sel or index\n");
             fprintf(out, "# 6) List of channels: numbers and ranges (N-M) separated by comma\n");
             fprintf(out, "#\n");
         }
@@ -1049,9 +1091,9 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
                 fprintf(out, "%-4d ", sl->priority_ch2);
             }
             if (sl->tx_designated_ch == 0xffff) {
-                fprintf(out, "-    ");
-            } else if (sl->tx_designated_ch == 0) {
                 fprintf(out, "Last ");
+            } else if (sl->tx_designated_ch == 0) {
+                fprintf(out, "Sel  ");
             } else {
                 fprintf(out, "%-4d ", sl->tx_designated_ch);
             }
@@ -1199,7 +1241,7 @@ static void md380_save_image(radio_device_t *radio, FILE *img)
 }
 
 //
-// Erase all channels, zones and scanlists.
+// Erase all channels.
 //
 static void erase_channels()
 {
@@ -1208,9 +1250,27 @@ static void erase_channels()
     for (i=0; i<NCHAN; i++) {
         erase_channel(i);
     }
+}
+
+//
+// Erase all zones.
+//
+static void erase_zones()
+{
+    int i;
+
     for (i=0; i<NZONES; i++) {
         erase_zone(i);
     }
+}
+
+//
+// Erase all scanlists.
+//
+static void erase_scanlists()
+{
+    int i;
+
     for (i=0; i<NSCANL; i++) {
         erase_scanlist(i);
     }
@@ -1408,6 +1468,8 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     if (first_row && radio->channel_count == 0) {
         // On first entry, erase all channels, zones and scanlists.
         erase_channels();
+        erase_zones();
+        erase_scanlists();
     }
 
     setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
@@ -1576,7 +1638,7 @@ static int parse_zones(int first_row, char *line)
 
     if (first_row) {
         // On first entry, erase the Zones table.
-        memset(&radio_mem[OFFSET_ZONES], 0, NZONES * 0x80);
+        erase_zones();
     }
 
     if (*chan_str == '-')
@@ -1605,12 +1667,12 @@ static int parse_zones(int first_row, char *line)
             // Add range.
             int c;
             for (c=last; c<cnum; c++) {
-                setup_zone(bnum-1, c);
+                zone_append(bnum-1, c);
                 nchan++;
             }
         } else {
             // Add single channel.
-            setup_zone(bnum-1, cnum-1);
+            zone_append(bnum-1, cnum-1);
             nchan++;
         }
 
@@ -1634,12 +1696,115 @@ static int parse_zones(int first_row, char *line)
 //
 static int parse_scanlist(int first_row, char *line)
 {
-    //TODO: parse scanlist Name
-    //TODO: parse scanlist PCh1
-    //TODO: parse scanlist PCh2
-    //TODO: parse scanlist TxCh
-    //TODO: parse scanlist Channels
-    return 0;
+    char num_str[256], name_str[256], prio1_str[256], prio2_str[256];
+    char tx_str[256], chan_str[256];
+    int snum, prio1, prio2, txchan;
+
+    if (sscanf(line, "%s %s %s %s %s %s",
+        num_str, name_str, prio1_str, prio2_str, tx_str, chan_str) != 6)
+        return 0;
+
+    snum = atoi(num_str);
+    if (snum < 1 || snum > NSCANL) {
+        fprintf(stderr, "Bad scan list number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Scanlists table.
+        erase_scanlists();
+    }
+
+    if (*prio1_str == '-') {
+        prio1 = 0xffff;
+    } else if (strcasecmp("Sel", prio1_str) == 0) {
+        prio1 = 0;
+    } else {
+        prio1 = atoi(prio1_str);
+        if (prio1 < 1 || prio1 > NCHAN) {
+            fprintf(stderr, "Bad priority channel 1.\n");
+            return 0;
+        }
+    }
+
+    if (*prio2_str == '-') {
+        prio2 = 0xffff;
+    } else if (strcasecmp("Sel", prio2_str) == 0) {
+        prio2 = 0;
+    } else {
+        prio2 = atoi(prio2_str);
+        if (prio2 < 1 || prio2 > NCHAN) {
+            fprintf(stderr, "Bad priority channel 2.\n");
+            return 0;
+        }
+    }
+
+    if (strcasecmp("Last", tx_str) == 0) {
+        txchan = 0xffff;
+    } else if (strcasecmp("Sel", tx_str) == 0) {
+        txchan = 0;
+    } else {
+        txchan = atoi(tx_str);
+        if (txchan < 1 || txchan > NCHAN) {
+            fprintf(stderr, "Bad transmit channel.\n");
+            return 0;
+        }
+    }
+
+    setup_scanlist(snum-1, name_str, prio1, prio2, txchan);
+
+    if (*chan_str != '-') {
+        char *str   = chan_str;
+        int   nchan = 0;
+        int   range = 0;
+        int   last  = 0;
+
+        // Parse channel list.
+        for (;;) {
+            char *eptr;
+            int cnum = strtoul(str, &eptr, 10);
+
+            if (eptr == str) {
+                fprintf(stderr, "Scan list %d: wrong channel list '%s'.\n", snum, str);
+                return 0;
+            }
+            if (cnum < 1 || cnum > NCHAN) {
+                fprintf(stderr, "Scan list %d: wrong channel number %d.\n", snum, cnum);
+                return 0;
+            }
+
+            if (range) {
+                // Add range.
+                int c;
+                for (c=last+1; c<=cnum; c++) {
+                    if (!scanlist_append(snum-1, c)) {
+                        fprintf(stderr, "Scan list %d: too many channels.\n", snum);
+                        return 0;
+                    }
+                    nchan++;
+                }
+            } else {
+                // Add single channel.
+                if (!scanlist_append(snum-1, cnum)) {
+                    fprintf(stderr, "Scan list %d: too many channels.\n", snum);
+                    return 0;
+                }
+                nchan++;
+            }
+
+            if (*eptr == 0)
+                break;
+
+            if (*eptr != ',' && *eptr != '-') {
+                fprintf(stderr, "Scan list %d: wrong channel list '%s'.\n", snum, eptr);
+                return 0;
+            }
+            range = (*eptr == '-');
+            last = cnum;
+            str = eptr + 1;
+        }
+    }
+    return 1;
 }
 
 //
