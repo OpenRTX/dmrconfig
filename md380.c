@@ -439,12 +439,6 @@ static void setup_scanlist(int index, const char *name,
     sl->priority_ch1     = prio1;
     sl->priority_ch2     = prio2;
     sl->tx_designated_ch = txchan;
-
-    // Bytes 38-41
-    sl->_unused1         = 0xf1;
-    sl->sign_hold_time   = 500 / 25;    // 500 msec
-    sl->prio_sample_time = 2000 / 250;  // 2 sec
-    sl->_unused2         = 0xff;
 }
 
 static void erase_scanlist(int index)
@@ -483,6 +477,25 @@ static int scanlist_append(int list_index, int cnum)
     return 0;
 }
 
+static void erase_contact(int index)
+{
+    contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS + index*36];
+
+    memset(ct, 0, 36);
+    *(uint32_t*)ct = 0xffffffff;
+}
+
+static void setup_contact(int index, const char *name, int type, int id, int rxtone)
+{
+    contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS + index*36];
+
+    ct->id           = id;
+    ct->type         = type;
+    ct->receive_tone = rxtone;
+
+    utf8_decode(ct->name, name, 16);
+}
+
 //
 // Check that the radio does support this frequency.
 //
@@ -505,82 +518,26 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
 {
     channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
 
-    // Byte 0
-    ch->channel_mode = mode;
-    ch->bandwidth    = width;
-    ch->autoscan     = autoscan;
-    ch->squelch      = squelch;
-    ch->_unused1     = 1;
-    ch->lone_worker  = 0;
+    ch->channel_mode        = mode;
+    ch->bandwidth           = width;
+    ch->autoscan            = autoscan;
+    ch->squelch             = squelch;
+    ch->rx_only             = rxonly;
+    ch->repeater_slot       = timeslot;
+    ch->colorcode           = colorcode;
+    ch->data_call_conf      = 1;        // Always ask for SMS acknowledge
+    ch->power               = power;
+    ch->admit_criteria      = admit;
+    ch->in_call_criteria    = incall;
+    ch->contact_name_index  = contact;
+    ch->tot                 = tot;
+    ch->scan_list_index     = scanlist;
+    ch->group_list_index    = grouplist;
+    ch->rx_frequency        = mhz_to_bcd(rx_mhz);
+    ch->tx_frequency        = mhz_to_bcd(tx_mhz);
+    ch->ctcss_dcs_receive   = rxtone;
+    ch->ctcss_dcs_transmit  = txtone;
 
-    // Byte 1
-    ch->talkaround    = 0;
-    ch->rx_only       = rxonly;
-    ch->repeater_slot = timeslot;
-    ch->colorcode     = colorcode;
-
-    // Byte 2
-    ch->privacy_no        = 0;
-    ch->privacy           = PRIV_NONE;
-    ch->private_call_conf = 0;
-    ch->data_call_conf    = 1;  // Always ask for SMS acknowledge
-
-    // Byte 3
-    ch->rx_ref_frequency    = REF_LOW;
-    ch->_unused2            = 0;
-    ch->emergency_alarm_ack = 0;
-    ch->_unused3            = 2;
-    ch->uncompressed_udp    = 1;
-    ch->display_pttid_dis   = 1;
-
-    // Byte 4
-    ch->tx_ref_frequency = REF_LOW;
-    ch->_unused4         = 1;
-    ch->vox              = 0;
-    ch->power            = power;
-    ch->admit_criteria   = admit;
-
-    // Byte 5
-    ch->_unused5         = 0;
-    ch->in_call_criteria = incall;
-    ch->_unused6         = 3;
-
-    // Bytes 6-7
-    ch->contact_name_index = contact;
-
-    // Bytes 8-9
-    ch->tot             = tot;
-    ch->tot_rekey_delay = 0;
-
-    // Bytes 10-11
-    ch->emergency_system_index = 0;
-    ch->scan_list_index        = scanlist;
-
-    // Bytes 12-13
-    ch->group_list_index = grouplist;
-    ch->_unused7         = 0;
-
-    // Bytes 14-15
-    ch->_unused8 = 0;
-    ch->_unused9 = 0xff;
-
-    // Bytes 16-23
-    ch->rx_frequency = mhz_to_bcd(rx_mhz);
-    ch->tx_frequency = mhz_to_bcd(tx_mhz);
-
-    // Bytes 24-27
-    ch->ctcss_dcs_receive = rxtone;
-    ch->ctcss_dcs_transmit = txtone;
-
-    // Bytes 28-29
-    ch->rx_signaling_syst = 0;
-    ch->tx_signaling_syst = 0;
-
-    // Bytes 30-31
-    ch->_unused10 = 0xff;
-    ch->_unused11 = 0xff;
-
-    // Bytes 32-63
     utf8_decode(ch->name, name, 16);
 }
 
@@ -1137,7 +1094,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
             fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
             fprintf(out, "# 3) Call type: Group, Private, All\n");
             fprintf(out, "# 4) Call ID: 1...16777215\n");
-            fprintf(out, "# 5) Call receive tone: -, Yes\n");
+            fprintf(out, "# 5) Call receive tone: -, +\n");
             fprintf(out, "#\n");
         }
         fprintf(out, "Contact Name             Type    ID       RxTone\n");
@@ -1152,7 +1109,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
             fprintf(out, "%5d   ", i+1);
             print_unicode(out, ct->name, 16, 1);
             fprintf(out, " %-7s %-8d %s\n",
-                CONTACT_TYPE[ct->type], ct->id, ct->receive_tone ? "Yes" : "-");
+                CONTACT_TYPE[ct->type], ct->id, ct->receive_tone ? "+" : "-");
         }
     }
 
@@ -1289,6 +1246,18 @@ static void erase_scanlists()
 
     for (i=0; i<NSCANL; i++) {
         erase_scanlist(i);
+    }
+}
+
+//
+// Erase all contacts.
+//
+static void erase_contacts()
+{
+    int i;
+
+    for (i=0; i<NCONTACTS; i++) {
+        erase_contact(i);
     }
 }
 
@@ -1836,11 +1805,52 @@ static int parse_scanlist(int first_row, char *line)
 //
 static int parse_contact(int first_row, char *line)
 {
-    //TODO: parse contact Name
-    //TODO: parse contact Type
-    //TODO: parse contact ID
-    //TODO: parse contact RxTone
-    return 0;
+    char num_str[256], name_str[256], type_str[256], id_str[256], rxtone_str[256];
+    int cnum, type, id, rxtone;
+
+    if (sscanf(line, "%s %s %s %s %s",
+        num_str, name_str, type_str, id_str, rxtone_str) != 5)
+        return 0;
+
+    cnum = atoi(num_str);
+    if (cnum < 1 || cnum > NCONTACTS) {
+        fprintf(stderr, "Bad contact number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Contacts table.
+        erase_contacts();
+    }
+
+    if (strcasecmp("Group", type_str) == 0) {
+        type = CALL_GROUP;
+    } else if (strcasecmp("Private", type_str) == 0) {
+        type = CALL_PRIVATE;
+    } else if (strcasecmp("All", type_str) == 0) {
+        type = CALL_ALL;
+    } else {
+        fprintf(stderr, "Bad call type.\n");
+        return 0;
+    }
+
+    id = atoi(id_str);
+    if (id < 1 || id > 0xffffff) {
+        fprintf(stderr, "Bad call ID.\n");
+        return 0;
+    }
+
+    if (*rxtone_str == '-' || strcasecmp("No", rxtone_str) == 0) {
+        rxtone = 0;
+    } else if (*rxtone_str == '+' || strcasecmp("Yes", rxtone_str) == 0) {
+        rxtone = 1;
+    } else {
+        fprintf(stderr, "Bad receive tone flag.\n");
+        return 0;
+    }
+
+    setup_contact(cnum-1, name_str, type, id, rxtone);
+    return 1;
 }
 
 //
