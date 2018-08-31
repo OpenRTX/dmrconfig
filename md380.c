@@ -691,32 +691,35 @@ static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
         fprintf(out, "-%d", last);
 }
 
-static void print_id(FILE *out)
+static void print_id(FILE *out, int verbose)
 {
     general_settings_t *gs = (general_settings_t*) &radio_mem[OFFSET_SETTINGS];
     unsigned id = gs->radio_id[0] | (gs->radio_id[1] << 8) | (gs->radio_id[2] << 16);
 
-    fprintf(out, "Name: ");
+    if (verbose)
+        fprintf(out, "\n# Unique DMR ID and name of this radio.\n");
+    fprintf(out, "ID: %u\nName: ", id);
     if (gs->radio_name[0] != 0 && gs->radio_name[0] != 0xffff) {
         print_unicode(out, gs->radio_name, 16, 0);
     } else {
         fprintf(out, "-");
     }
-    fprintf(out, "\nID: %u\n", id);
+    fprintf(out, "\n");
 }
 
-static void print_intro(FILE *out)
+static void print_intro(FILE *out, int verbose)
 {
     general_settings_t *gs = (general_settings_t*) &radio_mem[OFFSET_SETTINGS];
 
-    fprintf(out, "\n# Text displayed when the radio powers up.\n");
-    fprintf(out, "Welcome Line 1: ");
+    if (verbose)
+        fprintf(out, "\n# Text displayed when the radio powers up.\n");
+    fprintf(out, "Intro Line 1: ");
     if (gs->intro_line1[0] != 0 && gs->intro_line1[0] != 0xffff) {
         print_unicode(out, gs->intro_line1, 10, 0);
     } else {
         fprintf(out, "-");
     }
-    fprintf(out, "\nWelcome Line 2: ");
+    fprintf(out, "\nIntro Line 2: ");
     if (gs->intro_line2[0] != 0 && gs->intro_line2[0] != 0xffff) {
         print_unicode(out, gs->intro_line2, 10, 0);
     } else {
@@ -1000,10 +1003,8 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
     int i;
 
     fprintf(out, "Radio: %s\n", radio->name);
-    print_id(out);
     if (verbose)
         md380_print_version(radio, out);
-    print_intro(out);
 
     //
     // Channels.
@@ -1202,6 +1203,10 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
             fprintf(out, "\n");
         }
     }
+
+    // General settings.
+    print_id(out, verbose);
+    print_intro(out, verbose);
 }
 
 //
@@ -1328,11 +1333,11 @@ static void md380_parse_parameter(radio_device_t *radio, char *param, char *valu
         // Ignore.
         return;
     }
-    if (strcasecmp ("Welcome Line 1", param) == 0) {
+    if (strcasecmp ("Intro Line 1", param) == 0) {
         utf8_decode(gs->intro_line1, value, 10);
         return;
     }
-    if (strcasecmp ("Welcome Line 2", param) == 0) {
+    if (strcasecmp ("Intro Line 2", param) == 0) {
         utf8_decode(gs->intro_line2, value, 10);
         return;
     }

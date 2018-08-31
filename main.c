@@ -41,22 +41,23 @@ void usage()
 {
     fprintf(stderr, _("DMR Config, Version %s, %s\n"), version, copyright);
     fprintf(stderr, _("Usage:\n"));
-    fprintf(stderr, _("    dmrconfig [-v] -r\n"));
-    fprintf(stderr, _("                                 Read image from the radio and save it to a binary file 'device.img'.\n"));
+    fprintf(stderr, _("    dmrconfig -r [-t]\n"));
+    fprintf(stderr, _("                                 Read codeplug from the radio and save it to a binary file 'device.img'.\n"));
     fprintf(stderr, _("                                 Save configuration to a text file 'device.conf'.\n"));
-    fprintf(stderr, _("    dmrconfig -w [-v] file.img\n"));
-    fprintf(stderr, _("                                 Write image to the radio.\n"));
-    fprintf(stderr, _("    dmrconfig -c [-v] file.conf\n"));
+    fprintf(stderr, _("    dmrconfig -w [-t] file.img\n"));
+    fprintf(stderr, _("                                 Write codeplug to the radio.\n"));
+    fprintf(stderr, _("    dmrconfig -c [-t] file.conf\n"));
     fprintf(stderr, _("                                 Apply configuration script to the radio.\n"));
-    fprintf(stderr, _("    dmrconfig -c [-v] file.img file.conf\n"));
-    fprintf(stderr, _("                                 Apply text configuration to the image file.\n"));
+    fprintf(stderr, _("    dmrconfig -c file.img file.conf\n"));
+    fprintf(stderr, _("                                 Apply configuration script to the codeplug image.\n"));
     fprintf(stderr, _("                                 Store modified copy to a file 'device.img'.\n"));
     fprintf(stderr, _("    dmrconfig file.img\n"));
-    fprintf(stderr, _("                                 Display configuration from the image file.\n"));
+    fprintf(stderr, _("                                 Display configuration from the codeplug image.\n"));
     fprintf(stderr, _("Options:\n"));
+    fprintf(stderr, _("    -r           Read image to the radio.\n"));
     fprintf(stderr, _("    -w           Write image to the radio.\n"));
     fprintf(stderr, _("    -c           Configure the radio from a text file.\n"));
-    fprintf(stderr, _("    -v           Trace USB protocol.\n"));
+    fprintf(stderr, _("    -t           Trace USB protocol.\n"));
     exit(-1);
 }
 
@@ -78,8 +79,8 @@ int main(int argc, char **argv)
     copyright = _("Copyright (C) 2018 Serge Vakulenko KK6ABQ");
     serial_verbose = 0;
     for (;;) {
-        switch (getopt(argc, argv, "vcwr")) {
-        case 'v': ++serial_verbose; continue;
+        switch (getopt(argc, argv, "tcwr")) {
+        case 't': ++serial_verbose; continue;
         case 'r': ++read_flag;      continue;
         case 'w': ++write_flag;     continue;
         case 'c': ++config_flag;    continue;
@@ -133,36 +134,33 @@ int main(int argc, char **argv)
         }
 
     } else if (read_flag) {
-        if (argc != 0 && argc != 1)
+        if (argc != 0)
             usage();
 
-        if (argc == 1) {
-            // Print configuration from image file.
-            // Load image from file.
-            radio_read_image(argv[0]);
-            radio_print_config(stdout, ! isatty(1));
+        // Dump device to image file.
+        radio_connect();
+        radio_download();
+        radio_print_version(stdout);
+        radio_disconnect();
+        radio_save_image("device.img");
 
-        } else {
-            // Dump device to image file.
-            radio_connect();
-            radio_download();
-            radio_print_version(stdout);
-            radio_disconnect();
-            radio_save_image("device.img");
-
-            // Print configuration to file.
-            const char *filename = "device.conf";
-            printf("Print configuration to file '%s'.\n", filename);
-            FILE *conf = fopen(filename, "w");
-            if (! conf) {
-                perror(filename);
-                exit(-1);
-            }
-            radio_print_config(conf, 1);
-            fclose(conf);
+        // Print configuration to file.
+        const char *filename = "device.conf";
+        printf("Print configuration to file '%s'.\n", filename);
+        FILE *conf = fopen(filename, "w");
+        if (!conf) {
+            perror(filename);
+            exit(-1);
         }
+        radio_print_config(conf, 1);
+        fclose(conf);
     } else {
-        usage();
+        if (argc != 1)
+            usage();
+
+        // Print configuration from image file.
+        radio_read_image(argv[0]);
+        radio_print_config(stdout, !isatty(1));
     }
     return 0;
 }

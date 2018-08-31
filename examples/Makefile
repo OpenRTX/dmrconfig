@@ -17,4 +17,4 @@ clean:
 .SUFFIXES: .conf .rdt
 
 .rdt.conf:
-	dmrconfig -r $< > $@
+	dmrconfig $< > $@
