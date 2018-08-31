@@ -92,12 +92,12 @@ void radio_connect()
 void radio_download()
 {
     radio_progress = 0;
-    if (! serial_verbose)
+    if (! trace_flag)
         fprintf(stderr, "Read device: ");
 
     device->download(device);
 
-    if (! serial_verbose)
+    if (! trace_flag)
         fprintf(stderr, " done.\n");
 }
 
@@ -112,13 +112,13 @@ void radio_upload(int cont_flag)
         exit(-1);
     }
     radio_progress = 0;
-    if (! serial_verbose) {
+    if (! trace_flag) {
         fprintf(stderr, "Write device: ");
         fflush(stderr);
     }
     device->upload(device, cont_flag);
 
-    if (! serial_verbose)
+    if (! trace_flag)
         fprintf(stderr, " done.\n");
 }
 

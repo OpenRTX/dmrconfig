@@ -77,10 +77,10 @@ int main(int argc, char **argv)
     textdomain("dmrconfig");
 
     copyright = _("Copyright (C) 2018 Serge Vakulenko KK6ABQ");
-    serial_verbose = 0;
+    trace_flag = 0;
     for (;;) {
         switch (getopt(argc, argv, "tcwr")) {
-        case 't': ++serial_verbose; continue;
+        case 't': ++trace_flag; continue;
         case 'r': ++read_flag;      continue;
         case 'w': ++write_flag;     continue;
         case 'c': ++config_flag;    continue;
