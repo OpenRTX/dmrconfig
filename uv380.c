@@ -406,17 +406,47 @@ static int uv380_is_compatible(radio_device_t *radio)
 }
 
 //
+// Set name for a given zone.
+//
+static void setup_zone(int index, const char *name)
+{
+    zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES + index*64];
+
+    utf8_decode(z->name, name, 16);
+}
+
+//
 // Add channel to a zone.
 // Return 0 on failure.
 //
-static void zone_append(int zone_index, int chan_index)
+static int zone_append(int zone_index, int b_flag, int cnum)
 {
     zone_t     *z    = (zone_t*) &radio_mem[OFFSET_ZONES + zone_index*64];
     zone_ext_t *zext = (zone_ext_t*) &radio_mem[OFFSET_ZONEXT + zone_index*224];
+    int i;
 
-    //TODO: append channel to a zone
-    (void)z;
-    (void)zext;
+    if (b_flag) {
+        for (i=0; i<64; i++) {
+            if (zext->member_b[i] == 0) {
+                zext->member_b[i] = cnum;
+                return 1;
+            }
+        }
+    } else {
+        for (i=0; i<16; i++) {
+            if (z->member_a[i] == 0) {
+                z->member_a[i] = cnum;
+                return 1;
+            }
+        }
+        for (i=0; i<48; i++) {
+            if (zext->ext_a[i] == 0) {
+                zext->ext_a[i] = cnum;
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 
 static void erase_zone(int zone_index)
@@ -1685,68 +1715,77 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 //
 static int parse_zones(int first_row, char *line)
 {
-    char num_str[256], chan_str[256];
-    int bnum;
+    char num_str[256], name_str[256], chan_str[256], *eptr;
+    int znum, b_flag;
 
-    if (sscanf(line, "%s %s", num_str, chan_str) != 2)
+    if (sscanf(line, "%s %s %s", num_str, name_str, chan_str) != 3)
         return 0;
 
-    bnum = atoi(num_str);
-    if (bnum < 1 || bnum > NZONES) {
+    znum = strtoul(num_str, &eptr, 10);
+    if (znum < 1 || znum > NZONES || strchr("aAbB", *eptr) == 0) {
         fprintf(stderr, "Bad zone number.\n");
         return 0;
     }
+    b_flag = (*eptr == 'b' || *eptr == 'B');
 
     if (first_row) {
         // On first entry, erase the Zones table.
         erase_zones();
     }
 
-    if (*chan_str == '-')
-        return 1;
+    if (b_flag == 0)
+        setup_zone(znum-1, name_str);
 
-    char *str   = chan_str;
-    int   nchan = 0;
-    int   range = 0;
-    int   last  = 0;
+    if (*chan_str != '-') {
+        char *str   = chan_str;
+        int   nchan = 0;
+        int   range = 0;
+        int   last  = 0;
 
-    // Parse channel list.
-    for (;;) {
-        char *eptr;
-        int cnum = strtoul(str, &eptr, 10);
+        // Parse channel list.
+        for (;;) {
+            char *eptr;
+            int cnum = strtoul(str, &eptr, 10);
 
-        if (eptr == str) {
-            fprintf(stderr, "Zone %d: wrong channel list '%s'.\n", bnum, str);
-            return 0;
-        }
-        if (cnum < 1 || cnum > NCHAN) {
-            fprintf(stderr, "Zone %d: wrong channel number %d.\n", bnum, cnum);
-            return 0;
-        }
+            if (eptr == str) {
+                fprintf(stderr, "Zone %d: wrong channel list '%s'.\n", znum, str);
+                return 0;
+            }
+            if (cnum < 1 || cnum > NCHAN) {
+                fprintf(stderr, "Zone %d: wrong channel number %d.\n", znum, cnum);
+                return 0;
+            }
 
-        if (range) {
-            // Add range.
-            int c;
-            for (c=last; c<cnum; c++) {
-                zone_append(bnum-1, c);
+            if (range) {
+                // Add range.
+                int c;
+                for (c=last+1; c<=cnum; c++) {
+                    if (!zone_append(znum-1, b_flag, c)) {
+                        fprintf(stderr, "Zone %d: too many channels.\n", znum);
+                        return 0;
+                    }
+                    nchan++;
+                }
+            } else {
+                // Add single channel.
+                if (!zone_append(znum-1, b_flag, cnum)) {
+                    fprintf(stderr, "Zone %d: too many channels.\n", znum);
+                    return 0;
+                }
                 nchan++;
             }
-        } else {
-            // Add single channel.
-            zone_append(bnum-1, cnum-1);
-            nchan++;
-        }
 
-        if (*eptr == 0)
-            break;
+            if (*eptr == 0)
+                break;
 
-        if (*eptr != ',' && *eptr != '-') {
-            fprintf(stderr, "Zone %d: wrong channel list '%s'.\n", bnum, eptr);
-            return 0;
+            if (*eptr != ',' && *eptr != '-') {
+                fprintf(stderr, "Zone %d: wrong channel list '%s'.\n", znum, eptr);
+                return 0;
+            }
+            range = (*eptr == '-');
+            last = cnum;
+            str = eptr + 1;
         }
-        range = (*eptr == '-');
-        last = cnum;
-        str = eptr + 1;
     }
     return 1;
 }
