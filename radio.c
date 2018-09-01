@@ -282,3 +282,14 @@ void radio_print_config(FILE *out, int verbose)
     }
     device->print_config(device, out, verbose);
 }
+
+//
+// Check the configuration is correct.
+//
+void radio_verify_config()
+{
+    if (!device->verify_config(device)) {
+        // Message should be already printed.
+        exit(-1);
+    }
+}

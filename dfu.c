@@ -284,6 +284,9 @@ static void erase_block(uint32_t address)
     }
     get_status();
     wait_dfu_idle();
+
+    fprintf(stderr, "#");
+    fflush(stderr);
 }
 
 static const char *identify()
@@ -369,6 +372,8 @@ void dfu_close()
 void dfu_erase(int nbytes)
 {
     // Enter Programming Mode.
+    get_status();
+    wait_dfu_idle();
     md380_command(0x91, 0x01);
     usleep(100000);
 

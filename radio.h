@@ -73,6 +73,11 @@ void radio_save_image(char *filename);
 void radio_parse_config(char *filename);
 
 //
+// Check the configuration.
+//
+void radio_verify_config();
+
+//
 // Device-dependent interface to the radio.
 //
 typedef struct _radio_device_t radio_device_t;
@@ -85,6 +90,7 @@ struct _radio_device_t {
     void (*save_image)(radio_device_t *radio, FILE *img);
     void (*print_version)(radio_device_t *radio, FILE *out);
     void (*print_config)(radio_device_t *radio, FILE *out, int verbose);
+    int (*verify_config)(radio_device_t *radio);
     void (*parse_parameter)(radio_device_t *radio, char *param, char *value);
     int (*parse_header)(radio_device_t *radio, char *line);
     int (*parse_row)(radio_device_t *radio, int table_id, int first_row, char *line);

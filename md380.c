@@ -51,6 +51,16 @@
 #define OFFSET_SCANL    0x18860
 #define OFFSET_CHANNELS 0x1ee00
 
+#define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
+#define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
+#define GET_CHANNEL(i)      ((channel_t*) &radio_mem[OFFSET_CHANNELS + (i)*64])
+#define GET_ZONE(i)         ((zone_t*) &radio_mem[OFFSET_ZONES + (i)*64])
+#define GET_ZONEXT(i)       ((zone_ext_t*) &radio_mem[OFFSET_ZONEXT + (i)*224])
+#define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANL + (i)*104])
+#define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*36])
+#define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*96])
+#define GET_MESSAGE(i)      ((uint16_t*) &radio_mem[OFFSET_MSG + (i)*288])
+
 //
 // Channel data.
 //
@@ -325,7 +335,7 @@ static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DT
 //
 static void md380_print_version(radio_device_t *radio, FILE *out)
 {
-    unsigned char *timestamp = &radio_mem[OFFSET_TIMESTMP];
+    unsigned char *timestamp = GET_TIMESTAMP();
     static const char charmap[16] = "0123456789:;<=>?";
 
     if (*timestamp != 0xff) {
@@ -368,8 +378,6 @@ static void md380_upload(radio_device_t *radio, int cont_flag)
 
     dfu_erase(MEMSZ);
 
-    fprintf(stderr, "Sending data... ");
-    fflush(stderr);
     for (bno=0; bno<MEMSZ/1024; bno++) {
         dfu_write_block(bno, &radio_mem[bno*1024], 1024);
 
@@ -394,7 +402,7 @@ static int md380_is_compatible(radio_device_t *radio)
 //
 static void setup_zone(int index, const char *name)
 {
-    zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES + index*64];
+    zone_t *z = GET_ZONE(index);
 
     utf8_decode(z->name, name, 16);
 }
@@ -403,9 +411,9 @@ static void setup_zone(int index, const char *name)
 // Add channel to a zone.
 // Return 0 on failure.
 //
-static int zone_append(int zone_index, int cnum)
+static int zone_append(int index, int cnum)
 {
-    zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES + zone_index*64];
+    zone_t *z = GET_ZONE(index);
     int i;
 
     for (i=0; i<16; i++) {
@@ -419,9 +427,9 @@ static int zone_append(int zone_index, int cnum)
     return 0;
 }
 
-static void erase_zone(int zone_index)
+static void erase_zone(int index)
 {
-    zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES + zone_index*64];
+    zone_t *z = GET_ZONE(index);
 
     memset(z, 0, 64);
 }
@@ -432,7 +440,7 @@ static void erase_zone(int zone_index)
 static void setup_scanlist(int index, const char *name,
     int prio1, int prio2, int txchan)
 {
-    scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + index*104];
+    scanlist_t *sl = GET_SCANLIST(index);
 
     // Bytes 0-31
     utf8_decode(sl->name, name, 16);
@@ -445,7 +453,7 @@ static void setup_scanlist(int index, const char *name,
 
 static void erase_scanlist(int index)
 {
-    scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + index*104];
+    scanlist_t *sl = GET_SCANLIST(index);
 
     memset(sl, 0, 104);
 
@@ -465,9 +473,9 @@ static void erase_scanlist(int index)
 // Add channel to a zone.
 // Return 0 on failure.
 //
-static int scanlist_append(int list_index, int cnum)
+static int scanlist_append(int index, int cnum)
 {
-    scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + list_index*104];
+    scanlist_t *sl = GET_SCANLIST(index);
     int i;
 
     for (i=0; i<31; i++) {
@@ -483,7 +491,7 @@ static int scanlist_append(int list_index, int cnum)
 
 static void erase_contact(int index)
 {
-    contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS + index*36];
+    contact_t *ct = GET_CONTACT(index);
 
     memset(ct, 0, 36);
     *(uint32_t*)ct = 0xffffffff;
@@ -491,7 +499,7 @@ static void erase_contact(int index)
 
 static void setup_contact(int index, const char *name, int type, int id, int rxtone)
 {
-    contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS + index*36];
+    contact_t *ct = GET_CONTACT(index);
 
     ct->id           = id;
     ct->type         = type;
@@ -502,7 +510,7 @@ static void setup_contact(int index, const char *name, int type, int id, int rxt
 
 static void setup_grouplist(int index, const char *name)
 {
-    grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS + index*96];
+    grouplist_t *gl = GET_GROUPLIST(index);
 
     utf8_decode(gl->name, name, 16);
 }
@@ -513,7 +521,7 @@ static void setup_grouplist(int index, const char *name)
 //
 static int grouplist_append(int index, int cnum)
 {
-    grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS + index*96];
+    grouplist_t *gl = GET_GROUPLIST(index);
     int i;
 
     for (i=0; i<32; i++) {
@@ -532,7 +540,7 @@ static int grouplist_append(int index, int cnum)
 //
 static void setup_message(int index, const char *text)
 {
-    uint16_t *msg = (uint16_t*) &radio_mem[OFFSET_MSG + index*288];
+    uint16_t *msg = GET_MESSAGE(index);
 
     // Skip spaces and tabs.
     while (*text == ' ' || *text == '\t')
@@ -560,7 +568,7 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     int admit, int colorcode, int timeslot, int incall, int grouplist, int contact,
     int rxtone, int txtone, int width)
 {
-    channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
+    channel_t *ch = GET_CHANNEL(i);
 
     ch->channel_mode        = mode;
     ch->bandwidth           = width;
@@ -590,7 +598,7 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
 //
 static void erase_channel(int i)
 {
-    channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
+    channel_t *ch = GET_CHANNEL(i);
 
     // Byte 0
     ch->channel_mode = MODE_ANALOG;
@@ -706,7 +714,7 @@ static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
 
 static void print_id(FILE *out, int verbose)
 {
-    general_settings_t *gs = (general_settings_t*) &radio_mem[OFFSET_SETTINGS];
+    general_settings_t *gs = GET_SETTINGS();
     unsigned id = gs->radio_id[0] | (gs->radio_id[1] << 8) | (gs->radio_id[2] << 16);
 
     if (verbose)
@@ -722,7 +730,7 @@ static void print_id(FILE *out, int verbose)
 
 static void print_intro(FILE *out, int verbose)
 {
-    general_settings_t *gs = (general_settings_t*) &radio_mem[OFFSET_SETTINGS];
+    general_settings_t *gs = GET_SETTINGS();
 
     if (verbose)
         fprintf(out, "\n# Text displayed when the radio powers up.\n");
@@ -749,7 +757,7 @@ static int have_channels(int mode)
     int i;
 
     for (i=0; i<NCHAN; i++) {
-        channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
+        channel_t *ch = GET_CHANNEL(i);
 
         if (ch->name[0] != 0 && ch->channel_mode == mode)
             return 1;
@@ -850,7 +858,7 @@ static void print_digital_channels(FILE *out, int verbose)
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
-        channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
+        channel_t *ch = GET_CHANNEL(i);
 
         if (ch->name[0] == 0 || ch->channel_mode != MODE_DIGITAL) {
             // Select digital channels
@@ -939,7 +947,7 @@ static void print_analog_channels(FILE *out, int verbose)
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
-        channel_t *ch = (channel_t*) &radio_mem[OFFSET_CHANNELS + i*64];
+        channel_t *ch = GET_CHANNEL(i);
 
         if (ch->name[0] == 0 || ch->channel_mode != MODE_ANALOG) {
             // Select analog channels
@@ -975,37 +983,66 @@ static void print_analog_channels(FILE *out, int verbose)
 
 static int have_zones()
 {
-    zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES];
+    int i;
 
-    return z->name[0] != 0 && z->name[0] != 0xffff;
+    for (i=0; i<NZONES; i++) {
+        zone_t *z = GET_ZONE(i);
+        if (z->name[0] != 0 && z->name[0] != 0xffff)
+            return 1;
+    }
+    return 0;
 }
 
 static int have_scanlists()
 {
-    scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL];
+    int i;
 
-    return sl->name[0] != 0 && sl->name[0] != 0xffff;
+    for (i=0; i<NSCANL; i++) {
+        scanlist_t *sl = GET_SCANLIST(i);
+
+        if (sl->name[0] != 0 && sl->name[0] != 0xffff)
+            return 1;
+    }
+    return 0;
 }
 
 static int have_contacts()
 {
-    contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS];
+    int i;
 
-    return ct->name[0] != 0 && ct->name[0] != 0xffff;
+    for (i=0; i<NCONTACTS; i++) {
+        contact_t *ct = GET_CONTACT(i);
+
+        if (ct->name[0] != 0 && ct->name[0] != 0xffff)
+            return 1;
+    }
+    return 0;
 }
 
 static int have_grouplists()
 {
-    grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS];
+    int i;
 
-    return gl->name[0] != 0 && gl->name[0] != 0xffff;
+    for (i=0; i<NGLISTS; i++) {
+        grouplist_t *gl = GET_GROUPLIST(i);
+
+        if (gl->name[0] != 0 && gl->name[0] != 0xffff)
+            return 1;
+    }
+    return 0;
 }
 
 static int have_messages()
 {
-    uint16_t *msg = (uint16_t*) &radio_mem[OFFSET_MSG];
+    int i;
 
-    return msg[0] != 0 && msg[0] != 0xffff;
+    for (i=0; i<NMESSAGES; i++) {
+        uint16_t *msg = GET_MESSAGE(i);
+
+        if (msg[0] != 0 && msg[0] != 0xffff)
+            return 1;
+    }
+    return 0;
 }
 
 //
@@ -1045,7 +1082,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Zone    Name             Channels\n");
         for (i=0; i<NZONES; i++) {
-            zone_t *z = (zone_t*) &radio_mem[OFFSET_ZONES + i*64];
+            zone_t *z = GET_ZONE(i);
 
             if (z->name[0] == 0 || z->name[0] == 0xffff) {
                 // Zone is disabled.
@@ -1085,7 +1122,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
 #endif
         fprintf(out, "Channels\n");
         for (i=0; i<NSCANL; i++) {
-            scanlist_t *sl = (scanlist_t*) &radio_mem[OFFSET_SCANL + i*104];
+            scanlist_t *sl = GET_SCANLIST(i);
 
             if (sl->name[0] == 0 || sl->name[0] == 0xffff) {
                 // Scan list is disabled.
@@ -1144,7 +1181,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Contact Name             Type    ID       RxTone\n");
         for (i=0; i<NCONTACTS; i++) {
-            contact_t *ct = (contact_t*) &radio_mem[OFFSET_CONTACTS + i*36];
+            contact_t *ct = GET_CONTACT(i);
 
             if (ct->name[0] == 0 || ct->name[0] == 0xffff) {
                 // Contact is disabled
@@ -1172,7 +1209,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Grouplist Name             Contacts\n");
         for (i=0; i<NGLISTS; i++) {
-            grouplist_t *gl = (grouplist_t*) &radio_mem[OFFSET_GLISTS + i*96];
+            grouplist_t *gl = GET_GROUPLIST(i);
 
             if (gl->name[0] == 0 || gl->name[0] == 0xffff) {
                 // Group list is disabled.
@@ -1204,7 +1241,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Message Text\n");
         for (i=0; i<NMESSAGES; i++) {
-            uint16_t *msg = (uint16_t*) &radio_mem[OFFSET_MSG + i*288];
+            uint16_t *msg = GET_MESSAGE(i);
 
             if (msg[0] == 0 || msg[0] == 0xffff) {
                 // Message is disabled
@@ -1318,7 +1355,7 @@ static void erase_contacts()
 //
 static void md380_parse_parameter(radio_device_t *radio, char *param, char *value)
 {
-    general_settings_t *gs = (general_settings_t*) &radio_mem[OFFSET_SETTINGS];
+    general_settings_t *gs = GET_SETTINGS();
 
     if (strcasecmp("Radio", param) == 0) {
         if (strcasecmp(radio->name, value) != 0) {
@@ -2057,7 +2094,7 @@ static int md380_parse_row(radio_device_t *radio, int table_id, int first_row, c
 //
 static void md380_update_timestamp(radio_device_t *radio)
 {
-    unsigned char *timestamp = &radio_mem[OFFSET_TIMESTMP];
+    unsigned char *timestamp = GET_TIMESTAMP();
     char p[16];
 
     // Last Programmed Date
@@ -2086,6 +2123,146 @@ static void md380_update_timestamp(radio_device_t *radio)
 }
 
 //
+// Check that configuration is correct.
+// Return 0 on error.
+//
+static int md380_verify_config(radio_device_t *radio)
+{
+    int i, k, nchannels = 0, nzones = 0, nscanlists = 0, ngrouplists = 0;
+    int ncontacts = 0, nerrors = 0;
+
+    // Channels: check references to scanlists, contacts and grouplists.
+    for (i=0; i<NCHAN; i++) {
+        channel_t *ch = GET_CHANNEL(i);
+
+        if (ch->name[0] == 0 || ch->name[0] == 0xffff)
+            continue;
+
+        nchannels++;
+        if (ch->scan_list_index != 0) {
+            scanlist_t *sl = GET_SCANLIST(ch->scan_list_index - 1);
+
+            if (sl->name[0] == 0 || sl->name[0] == 0xffff) {
+                fprintf(stderr, "Channel %d '", i+1);
+                print_unicode(stderr, ch->name, 16, 0);
+                fprintf(stderr, "': scanlist %d not found.\n", ch->scan_list_index);
+                nerrors++;
+            }
+        }
+        if (ch->contact_name_index != 0) {
+            contact_t *ct = GET_CONTACT(ch->contact_name_index - 1);
+
+            if (ct->name[0] == 0 || ct->name[0] == 0xffff) {
+                fprintf(stderr, "Channel %d '", i+1);
+                print_unicode(stderr, ch->name, 16, 0);
+                fprintf(stderr, "': contact %d not found.\n", ch->contact_name_index);
+                nerrors++;
+            }
+        }
+        if (ch->group_list_index != 0) {
+            grouplist_t *gl = GET_GROUPLIST(ch->group_list_index - 1);
+
+            if (gl->name[0] == 0 || gl->name[0] == 0xffff) {
+                fprintf(stderr, "Channel %d '", i+1);
+                print_unicode(stderr, ch->name, 16, 0);
+                fprintf(stderr, "': grouplist %d not found.\n", ch->group_list_index);
+                nerrors++;
+            }
+        }
+    }
+
+    // Zones: check references to channels.
+    for (i=0; i<NZONES; i++) {
+        zone_t *z = GET_ZONE(i);
+
+        if (z->name[0] == 0 || z->name[0] == 0xffff)
+            continue;
+
+        nzones++;
+        for (k=0; k<16; k++) {
+            int cnum = z->member[k];
+
+            if (cnum != 0) {
+                channel_t *ch = GET_CHANNEL(cnum - 1);
+
+                if (ch->name[0] == 0 || ch->name[0] == 0xffff) {
+                    fprintf(stderr, "Zone %da '", i+1);
+                    print_unicode(stderr, z->name, 16, 0);
+                    fprintf(stderr, "': channel %d not found.\n", cnum);
+                    nerrors++;
+                }
+            }
+        }
+    }
+
+    // Scanlists: check references to channels.
+    for (i=0; i<NSCANL; i++) {
+        scanlist_t *sl = GET_SCANLIST(i);
+
+        if (sl->name[0] == 0 || sl->name[0] == 0xffff)
+            continue;
+
+        nscanlists++;
+        for (k=0; k<31; k++) {
+            int cnum = sl->member[k];
+
+            if (cnum != 0) {
+                channel_t *ch = GET_CHANNEL(cnum - 1);
+
+                if (ch->name[0] == 0 || ch->name[0] == 0xffff) {
+                    fprintf(stderr, "Scanlist %d '", i+1);
+                    print_unicode(stderr, sl->name, 16, 0);
+                    fprintf(stderr, "': channel %d not found.\n", cnum);
+                    nerrors++;
+                }
+            }
+        }
+    }
+
+    // Grouplists: check references to contacts.
+    for (i=0; i<NGLISTS; i++) {
+        grouplist_t *gl = GET_GROUPLIST(i);
+
+        if (gl->name[0] == 0 || gl->name[0] == 0xffff)
+            continue;
+
+        ngrouplists++;
+        for (k=0; k<32; k++) {
+            int cnum = gl->member[k];
+
+            if (cnum != 0) {
+                contact_t *ct = GET_CONTACT(cnum - 1);
+
+                if (ct->name[0] == 0 || ct->name[0] == 0xffff) {
+                    fprintf(stderr, "Grouplist %d '", i+1);
+                    print_unicode(stderr, gl->name, 16, 0);
+                    fprintf(stderr, "': contact %d not found.\n", cnum);
+                    nerrors++;
+                }
+            }
+        }
+    }
+
+    // Count contacts.
+    for (i=0; i<NCONTACTS; i++) {
+        contact_t *ct = GET_CONTACT(i);
+
+        if (ct->name[0] == 0 || ct->name[0] == 0xffff)
+            continue;
+
+        ncontacts++;
+    }
+
+    if (nerrors > 0) {
+        fprintf(stderr, "Total %d errors.\n", nerrors);
+        return 0;
+    }
+    fprintf(stderr, "Total %d channels, %d zones, %d scanlists, %d contacts, %d grouplists.\n",
+        nchannels, nzones, nscanlists, ncontacts, ngrouplists);
+    return 1;
+}
+
+//
 // TYT MD-380
 //
 radio_device_t radio_md380 = {
@@ -2097,6 +2274,7 @@ radio_device_t radio_md380 = {
     md380_save_image,
     md380_print_version,
     md380_print_config,
+    md380_verify_config,
     md380_parse_parameter,
     md380_parse_header,
     md380_parse_row,

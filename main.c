@@ -120,6 +120,7 @@ int main(int argc, char **argv)
             radio_read_image(argv[0]);
             radio_print_version(stdout);
             radio_parse_config(argv[1]);
+            radio_verify_config();
             radio_save_image("device.img");
 
         } else {
@@ -129,6 +130,7 @@ int main(int argc, char **argv)
             radio_print_version(stdout);
             radio_save_image("backup.img");
             radio_parse_config(argv[0]);
+            radio_verify_config();
             radio_upload(1);
             radio_disconnect();
         }
