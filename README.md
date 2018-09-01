@@ -2,31 +2,36 @@
 DMRconfig is a utility for programming digital radios via USB programming cable.
 Supported radios:
 
- * TYT MD-380
+ * TYT MD-380 (not tested)
+ * TYT MD-2017 (not tested)
  * TYT MD-UV380
 
 
 ## Usage
 
 Read codeplug from the radio and save it to file 'device.img',
-and text configuration to 'device.conf':
+and also save text configuration to 'device.conf':
 
-    dmrconfig -r [-v]
+    dmrconfig -r [-t]
 
 Write codeplug to the radio:
 
-    dmrconfig -w [-v] file.img
+    dmrconfig -w [-t] file.img
 
 Configure the radio from text file.
 Previous codeplug is saved to 'backup.img':
 
-    dmrconfig -c [-v] file.conf
+    dmrconfig -c [-t] file.conf
 
 Show configuration from the codeplug file:
 
     dmrconfig file.img
 
-Option -v enables tracing of a serial protocol to the radio.
+Apply configuration from text file to the codeplug file:
+
+    dmrconfig -c file.img file.conf
+
+Option -t enables tracing of USB protocol.
 
 
 ## Sources
