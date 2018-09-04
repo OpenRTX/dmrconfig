@@ -71,13 +71,16 @@ void radio_connect()
     const char *ident = dfu_init(0x0483, 0xdf11);
     fprintf(stderr, "Connect to %s.\n", ident);
 
-    if (strcasecmp(ident, "MD380") == 0) {
+    if (strcasecmp(ident, "DR780") == 0 ||      // TYT MD-380, Retevis RT3, RT8
+        strcasecmp(ident, "ZD3688") == 0 ||     // Zastone D900
+        strcasecmp(ident, "TP660") == 0 ||      // Zastone DP880
+        strcasecmp(ident, "ZN><:") == 0) {      // Radtel RT-27D
         device = &radio_md380;
     } else
-    if (strcasecmp(ident, "MD-2017") == 0) {
+    if (strcasecmp(ident, "2017") == 0) {       // TYT MD-2017, Retevis RT82
         device = &radio_md2017;
     } else
-    if (strcasecmp(ident, "MD-UV380") == 0) {
+    if (strcasecmp(ident, "MD-UV380") == 0) {   // TYT MD-UV380
         device = &radio_uv380;
     } else {
         fprintf(stderr, "Unrecognized radio '%s'.\n",
