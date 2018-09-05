@@ -98,9 +98,12 @@ struct _radio_device_t {
     int channel_count;
 };
 
-extern radio_device_t radio_md380;   // TYT MD-380
-extern radio_device_t radio_md2017;  // TYT MD-2017
-extern radio_device_t radio_uv380;   // TYT MD-UV380
+extern radio_device_t radio_md380;      // TYT MD-380
+extern radio_device_t radio_md2017;     // TYT MD-2017
+extern radio_device_t radio_uv380;      // TYT MD-UV380
+extern radio_device_t radio_d900;       // Zastone D900
+extern radio_device_t radio_dp880;      // Zastone DP880
+extern radio_device_t radio_rt27d;      // Radtel RT-27D
 
 //
 // Radio: memory contents.

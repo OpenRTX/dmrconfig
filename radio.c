@@ -69,11 +69,17 @@ void radio_connect()
     const char *ident = dfu_init(0x0483, 0xdf11);
     fprintf(stderr, "Connect to %s.\n", ident);
 
-    if (strcasecmp(ident, "DR780") == 0 ||      // TYT MD-380, Retevis RT3, RT8
-        strcasecmp(ident, "ZD3688") == 0 ||     // Zastone D900
-        strcasecmp(ident, "TP660") == 0 ||      // Zastone DP880
-        strcasecmp(ident, "ZN><:") == 0) {      // Radtel RT-27D
+    if (strcasecmp(ident, "DR780") == 0) {      // TYT MD-380, Retevis RT3, RT8
         device = &radio_md380;
+    } else
+    if (strcasecmp(ident, "ZD3688") == 0) {     // Zastone D900
+        device = &radio_d900;
+    } else
+    if (strcasecmp(ident, "TP660") == 0) {      // Zastone DP880
+        device = &radio_dp880;
+    } else
+    if (strcasecmp(ident, "ZN><:") == 0) {      // Radtel RT-27D
+        device = &radio_rt27d;
     } else
     if (strcasecmp(ident, "2017") == 0) {       // TYT MD-2017, Retevis RT82
         device = &radio_md2017;

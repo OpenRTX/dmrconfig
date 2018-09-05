@@ -2295,3 +2295,60 @@ radio_device_t radio_md380 = {
     md380_parse_row,
     md380_update_timestamp,
 };
+
+//
+// Zastone D900
+//
+radio_device_t radio_d900 = {
+    "Zastone D900",
+    md380_download,
+    md380_upload,
+    md380_is_compatible,
+    md380_read_image,
+    md380_save_image,
+    md380_print_version,
+    md380_print_config,
+    md380_verify_config,
+    md380_parse_parameter,
+    md380_parse_header,
+    md380_parse_row,
+    md380_update_timestamp,
+};
+
+//
+// Zastone DP880
+//
+radio_device_t radio_dp880 = {
+    "Zastone DP880",
+    md380_download,
+    md380_upload,
+    md380_is_compatible,
+    md380_read_image,
+    md380_save_image,
+    md380_print_version,
+    md380_print_config,
+    md380_verify_config,
+    md380_parse_parameter,
+    md380_parse_header,
+    md380_parse_row,
+    md380_update_timestamp,
+};
+
+//
+// Radtel RT-27D
+//
+radio_device_t radio_rt27d = {
+    "Radtel RT-27D",
+    md380_download,
+    md380_upload,
+    md380_is_compatible,
+    md380_read_image,
+    md380_save_image,
+    md380_print_version,
+    md380_print_config,
+    md380_verify_config,
+    md380_parse_parameter,
+    md380_parse_header,
+    md380_parse_row,
+    md380_update_timestamp,
+};
