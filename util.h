@@ -63,6 +63,7 @@ void dfu_close(void);
 void dfu_erase(int nbytes);
 void dfu_read_block(int bno, unsigned char *data, int nbytes);
 void dfu_write_block(int bno, unsigned char *data, int nbytes);
+void dfu_reboot(void);
 
 //
 // Delay in milliseconds.

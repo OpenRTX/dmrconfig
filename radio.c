@@ -47,11 +47,9 @@ void radio_disconnect()
 {
     fprintf(stderr, "Close device.\n");
 
-    // Restore the port mode.
+    // Restore the normal radio mode.
+    dfu_reboot();
     dfu_close();
-
-    // Radio needs a timeout to reset to a normal state.
-    mdelay(2000);
 }
 
 //
