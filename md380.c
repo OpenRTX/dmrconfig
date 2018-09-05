@@ -319,10 +319,10 @@ typedef struct {
 
 static const char *POWER_NAME[] = { "Low", "High" };
 static const char *SQUELCH_NAME[] = { "Tight", "Normal" };
-static const char *BANDWIDTH[] = { "12.5", "20", "25" };
+static const char *BANDWIDTH[] = { "12.5", "20", "25", "25" };
 static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
 static const char *ADMIT_NAME[] = { "-", "Free", "Tone", "Color" };
-static const char *INCALL_NAME[] = { "-", "Admit", "???", "???" };
+static const char *INCALL_NAME[] = { "-", "Admit", "-", "Admit" };
 
 #ifdef PRINT_RARE_PARAMS
 static const char *REF_FREQUENCY[] = { "Low", "Med", "High" };
