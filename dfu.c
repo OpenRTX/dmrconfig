@@ -126,7 +126,7 @@ static int get_status()
     }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_HOST,
         REQUEST_GETSTATUS, 0, 0, (unsigned char*)&status, 6, 0);
-    if (trace_flag && error == USB_OK) {
+    if (trace_flag && error >= 0) {
         printf("--- Recv ");
         print_hex((unsigned char*)&status, 6);
         printf("\n");
@@ -154,7 +154,7 @@ static int get_state(int *pstate)
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_HOST,
         REQUEST_GETSTATE, 0, 0, &state, 1, 0);
     *pstate = state;
-    if (trace_flag && error == USB_OK) {
+    if (trace_flag && error >= 0) {
         printf("--- Recv ");
         print_hex(&state, 1);
         printf("\n");
@@ -305,7 +305,7 @@ static const char *identify()
             __func__, error, libusb_strerror(error));
         exit(-1);
     }
-    if (trace_flag && error == USB_OK) {
+    if (trace_flag) {
         printf("--- Recv ");
         print_hex(data, 64);
         printf("\n");
@@ -417,7 +417,7 @@ void dfu_read_block(int bno, uint8_t *data, int nbytes)
             __func__, bno, nbytes, error, libusb_strerror(error));
         exit(-1);
     }
-    if (trace_flag && error == USB_OK) {
+    if (trace_flag > 1) {
         printf("--- Recv ");
         print_hex(data, nbytes);
         printf("\n");
@@ -432,7 +432,8 @@ void dfu_write_block(int bno, uint8_t *data, int nbytes)
 
     if (trace_flag) {
         printf("--- Send DNLOAD [%d] ", nbytes);
-        print_hex(data, nbytes);
+        if (trace_flag > 1)
+            print_hex(data, nbytes);
         printf("\n");
     }
     int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_DEVICE,
@@ -445,4 +446,24 @@ void dfu_write_block(int bno, uint8_t *data, int nbytes)
 
     get_status();
     wait_dfu_idle();
+}
+
+void dfu_reboot()
+{
+    unsigned char cmd[2] = { 0x91, 0x05 };
+
+    if (trace_flag) {
+        printf("--- Send DNLOAD [2] ");
+        print_hex(cmd, 2);
+        printf("\n");
+    }
+    wait_dfu_idle();
+    int error = libusb_control_transfer(dev, REQUEST_TYPE_TO_DEVICE,
+        REQUEST_DNLOAD, 0, 0, cmd, 2, 0);
+    if (error < 0) {
+        fprintf(stderr, "%s: cannot send command: %d: %s\n",
+            __func__, error, libusb_strerror(error));
+        exit(-1);
+    }
+    get_status();
 }

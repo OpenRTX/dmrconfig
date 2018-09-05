@@ -338,17 +338,17 @@ typedef struct {
     uint16_t radio_name[16];
 } general_settings_t;
 
-static const char *POWER_NAME[] = { "Low", "???", "Mid", "High" };
-static const char *BANDWIDTH[] = { "12.5", "20", "25" };
+static const char *POWER_NAME[] = { "Low", "Low", "Mid", "High" };
+static const char *BANDWIDTH[] = { "12.5", "20", "25", "25" };
 static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
 static const char *ADMIT_NAME[] = { "-", "Free", "Tone", "Color" };
-static const char *INCALL_NAME[] = { "-", "Admit", "TXInt" };
+static const char *INCALL_NAME[] = { "-", "Admit", "TXInt", "Admit" };
 
 #ifdef PRINT_RARE_PARAMS
 static const char *REF_FREQUENCY[] = { "Low", "Med", "High" };
 static const char *PRIVACY_NAME[] = { "-", "Basic", "Enhanced" };
 static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DTMF-4" };
-static const char *TURNOFF_FREQ[] = { "259.2", "55.2", "???", "-" };
+static const char *TURNOFF_FREQ[] = { "259.2", "55.2", "-", "-" };
 #endif
 
 //
