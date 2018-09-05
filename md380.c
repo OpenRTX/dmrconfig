@@ -892,7 +892,7 @@ static void print_digital_channels(FILE *out, int verbose)
         if (ch->contact_name_index == 0)
             fprintf(out, "-");
         else
-            fprintf(out, "%d", ch->contact_name_index);
+            fprintf(out, "%-4d", ch->contact_name_index);
 
 #ifdef PRINT_RARE_PARAMS
         print_chan_ext(out, ch);
@@ -924,6 +924,14 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "%c   ", "-+"[ch->data_call_conf]);
         fprintf(out, "%c   ", "+-"[ch->uncompressed_udp]);
 #endif
+        // Print contact name as a comment.
+        if (ch->contact_name_index > 0) {
+            contact_t *ct = GET_CONTACT(ch->contact_name_index - 1);
+            if (VALID_CONTACT(ct)) {
+                fprintf(out, " # ");
+                print_unicode(out, ct->name, 16, 0);
+            }
+        }
         fprintf(out, "\n");
     }
 }

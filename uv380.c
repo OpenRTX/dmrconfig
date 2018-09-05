@@ -938,7 +938,7 @@ static void print_digital_channels(FILE *out, int verbose)
         if (ch->contact_name_index == 0)
             fprintf(out, "-");
         else
-            fprintf(out, "%d", ch->contact_name_index);
+            fprintf(out, "%-5d", ch->contact_name_index);
 
 #ifdef PRINT_RARE_PARAMS
         print_chan_ext(out, ch);
@@ -970,10 +970,18 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "%c   ", "-+"[ch->data_call_conf]);
 
         if (ch->dcdm_switch_dis)
-            fprintf(out, "-");
+            fprintf(out, "-     ");
         else
-            fprintf(out, "%s", ch->leader_ms ? "MS" : "Leader");
+            fprintf(out, "%-6s", ch->leader_ms ? "MS" : "Leader");
 #endif
+        // Print contact name as a comment.
+        if (ch->contact_name_index > 0) {
+            contact_t *ct = GET_CONTACT(ch->contact_name_index - 1);
+            if (VALID_CONTACT(ct)) {
+                fprintf(out, " # ");
+                print_unicode(out, ct->name, 16, 0);
+            }
+        }
         fprintf(out, "\n");
     }
 }
