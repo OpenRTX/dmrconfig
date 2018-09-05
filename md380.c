@@ -61,6 +61,8 @@
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*96])
 #define GET_MESSAGE(i)      ((uint16_t*) &radio_mem[OFFSET_MSG + (i)*288])
 
+#define VALID_CONTACT(ct)   ((ct)->type != 0 && (ct)->name[0] != 0 && (ct)->name[0] != 0xffff)
+
 //
 // Channel data.
 //
@@ -137,7 +139,8 @@ typedef struct {
     uint16_t contact_name_index;        // Contact Name: Contact1...
 
     // Bytes 8-9
-    uint8_t tot;                        // TOT x 15sec: 0-Infinite, 1=15s... 37=555s
+    uint8_t tot                 : 6,    // TOT x 15sec: 0-Infinite, 1=15s... 37=555s
+            _unused13           : 2;    // 0
     uint8_t tot_rekey_delay;            // TOT Rekey Delay: 0s...255s
 
     // Bytes 10-11
@@ -645,6 +648,7 @@ static void erase_channel(int i)
 
     // Bytes 8-9
     ch->tot             = 60/15;
+    ch->_unused13       = 0;
     ch->tot_rekey_delay = 0;
 
     // Bytes 10-11
@@ -689,7 +693,7 @@ static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
     // Sort the list before printing.
     memcpy(data, unsorted, nchan * sizeof(uint16_t));
     qsort(data, nchan, sizeof(uint16_t), compare_index);
-    for (n=0; n<=nchan; n++) {
+    for (n=0; n<nchan; n++) {
         int cnum = data[n];
 
         if (cnum == 0)
@@ -1013,7 +1017,7 @@ static int have_contacts()
     for (i=0; i<NCONTACTS; i++) {
         contact_t *ct = GET_CONTACT(i);
 
-        if (ct->name[0] != 0 && ct->name[0] != 0xffff)
+        if (VALID_CONTACT(ct))
             return 1;
     }
     return 0;
@@ -1183,7 +1187,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         for (i=0; i<NCONTACTS; i++) {
             contact_t *ct = GET_CONTACT(i);
 
-            if (ct->name[0] == 0 || ct->name[0] == 0xffff) {
+            if (!VALID_CONTACT(ct)) {
                 // Contact is disabled
                 continue;
             }
@@ -2152,7 +2156,7 @@ static int md380_verify_config(radio_device_t *radio)
         if (ch->contact_name_index != 0) {
             contact_t *ct = GET_CONTACT(ch->contact_name_index - 1);
 
-            if (ct->name[0] == 0 || ct->name[0] == 0xffff) {
+            if (!VALID_CONTACT(ct)) {
                 fprintf(stderr, "Channel %d '", i+1);
                 print_unicode(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': contact %d not found.\n", ch->contact_name_index);
@@ -2233,7 +2237,7 @@ static int md380_verify_config(radio_device_t *radio)
             if (cnum != 0) {
                 contact_t *ct = GET_CONTACT(cnum - 1);
 
-                if (ct->name[0] == 0 || ct->name[0] == 0xffff) {
+                if (!VALID_CONTACT(ct)) {
                     fprintf(stderr, "Grouplist %d '", i+1);
                     print_unicode(stderr, gl->name, 16, 0);
                     fprintf(stderr, "': contact %d not found.\n", cnum);
@@ -2247,10 +2251,8 @@ static int md380_verify_config(radio_device_t *radio)
     for (i=0; i<NCONTACTS; i++) {
         contact_t *ct = GET_CONTACT(i);
 
-        if (ct->name[0] == 0 || ct->name[0] == 0xffff)
-            continue;
-
-        ncontacts++;
+        if (VALID_CONTACT(ct))
+            ncontacts++;
     }
 
     if (nerrors > 0) {
