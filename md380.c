@@ -61,7 +61,12 @@
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*96])
 #define GET_MESSAGE(i)      ((uint16_t*) &radio_mem[OFFSET_MSG + (i)*288])
 
-#define VALID_CONTACT(ct)   ((ct)->type != 0 && (ct)->name[0] != 0 && (ct)->name[0] != 0xffff)
+#define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xffff)
+#define VALID_CHANNEL(ch)   VALID_TEXT((ch)->name)
+#define VALID_ZONE(z)       VALID_TEXT((z)->name)
+#define VALID_SCANLIST(sl)  VALID_TEXT((sl)->name)
+#define VALID_GROUPLIST(gl) VALID_TEXT((gl)->name)
+#define VALID_CONTACT(ct)   ((ct)->type != 0 && VALID_TEXT((ct)->name))
 
 //
 // Channel data.
@@ -724,7 +729,7 @@ static void print_id(FILE *out, int verbose)
     if (verbose)
         fprintf(out, "\n# Unique DMR ID and name of this radio.\n");
     fprintf(out, "ID: %u\nName: ", id);
-    if (gs->radio_name[0] != 0 && gs->radio_name[0] != 0xffff) {
+    if (VALID_TEXT(gs->radio_name)) {
         print_unicode(out, gs->radio_name, 16, 0);
     } else {
         fprintf(out, "-");
@@ -739,13 +744,13 @@ static void print_intro(FILE *out, int verbose)
     if (verbose)
         fprintf(out, "\n# Text displayed when the radio powers up.\n");
     fprintf(out, "Intro Line 1: ");
-    if (gs->intro_line1[0] != 0 && gs->intro_line1[0] != 0xffff) {
+    if (VALID_TEXT(gs->intro_line1)) {
         print_unicode(out, gs->intro_line1, 10, 0);
     } else {
         fprintf(out, "-");
     }
     fprintf(out, "\nIntro Line 2: ");
-    if (gs->intro_line2[0] != 0 && gs->intro_line2[0] != 0xffff) {
+    if (VALID_TEXT(gs->intro_line2)) {
         print_unicode(out, gs->intro_line2, 10, 0);
     } else {
         fprintf(out, "-");
@@ -763,7 +768,7 @@ static int have_channels(int mode)
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = GET_CHANNEL(i);
 
-        if (ch->name[0] != 0 && ch->channel_mode == mode)
+        if (VALID_CHANNEL(ch) && ch->channel_mode == mode)
             return 1;
     }
     return 0;
@@ -864,7 +869,7 @@ static void print_digital_channels(FILE *out, int verbose)
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = GET_CHANNEL(i);
 
-        if (ch->name[0] == 0 || ch->channel_mode != MODE_DIGITAL) {
+        if (!VALID_CHANNEL(ch) || ch->channel_mode != MODE_DIGITAL) {
             // Select digital channels
             continue;
         }
@@ -953,7 +958,7 @@ static void print_analog_channels(FILE *out, int verbose)
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = GET_CHANNEL(i);
 
-        if (ch->name[0] == 0 || ch->channel_mode != MODE_ANALOG) {
+        if (!VALID_CHANNEL(ch) || ch->channel_mode != MODE_ANALOG) {
             // Select analog channels
             continue;
         }
@@ -991,7 +996,7 @@ static int have_zones()
 
     for (i=0; i<NZONES; i++) {
         zone_t *z = GET_ZONE(i);
-        if (z->name[0] != 0 && z->name[0] != 0xffff)
+        if (VALID_ZONE(z))
             return 1;
     }
     return 0;
@@ -1004,7 +1009,7 @@ static int have_scanlists()
     for (i=0; i<NSCANL; i++) {
         scanlist_t *sl = GET_SCANLIST(i);
 
-        if (sl->name[0] != 0 && sl->name[0] != 0xffff)
+        if (VALID_SCANLIST(sl))
             return 1;
     }
     return 0;
@@ -1030,7 +1035,7 @@ static int have_grouplists()
     for (i=0; i<NGLISTS; i++) {
         grouplist_t *gl = GET_GROUPLIST(i);
 
-        if (gl->name[0] != 0 && gl->name[0] != 0xffff)
+        if (VALID_GROUPLIST(gl))
             return 1;
     }
     return 0;
@@ -1043,7 +1048,7 @@ static int have_messages()
     for (i=0; i<NMESSAGES; i++) {
         uint16_t *msg = GET_MESSAGE(i);
 
-        if (msg[0] != 0 && msg[0] != 0xffff)
+        if (VALID_TEXT(msg))
             return 1;
     }
     return 0;
@@ -1088,7 +1093,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         for (i=0; i<NZONES; i++) {
             zone_t *z = GET_ZONE(i);
 
-            if (z->name[0] == 0 || z->name[0] == 0xffff) {
+            if (!VALID_ZONE(z)) {
                 // Zone is disabled.
                 continue;
             }
@@ -1128,7 +1133,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         for (i=0; i<NSCANL; i++) {
             scanlist_t *sl = GET_SCANLIST(i);
 
-            if (sl->name[0] == 0 || sl->name[0] == 0xffff) {
+            if (!VALID_SCANLIST(sl)) {
                 // Scan list is disabled.
                 continue;
             }
@@ -1215,7 +1220,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         for (i=0; i<NGLISTS; i++) {
             grouplist_t *gl = GET_GROUPLIST(i);
 
-            if (gl->name[0] == 0 || gl->name[0] == 0xffff) {
+            if (!VALID_GROUPLIST(gl)) {
                 // Group list is disabled.
                 continue;
             }
@@ -1247,7 +1252,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
         for (i=0; i<NMESSAGES; i++) {
             uint16_t *msg = GET_MESSAGE(i);
 
-            if (msg[0] == 0 || msg[0] == 0xffff) {
+            if (!VALID_TEXT(msg)) {
                 // Message is disabled
                 continue;
             }
@@ -2139,14 +2144,14 @@ static int md380_verify_config(radio_device_t *radio)
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = GET_CHANNEL(i);
 
-        if (ch->name[0] == 0 || ch->name[0] == 0xffff)
+        if (!VALID_CHANNEL(ch))
             continue;
 
         nchannels++;
         if (ch->scan_list_index != 0) {
             scanlist_t *sl = GET_SCANLIST(ch->scan_list_index - 1);
 
-            if (sl->name[0] == 0 || sl->name[0] == 0xffff) {
+            if (!VALID_SCANLIST(sl)) {
                 fprintf(stderr, "Channel %d '", i+1);
                 print_unicode(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': scanlist %d not found.\n", ch->scan_list_index);
@@ -2166,7 +2171,7 @@ static int md380_verify_config(radio_device_t *radio)
         if (ch->group_list_index != 0) {
             grouplist_t *gl = GET_GROUPLIST(ch->group_list_index - 1);
 
-            if (gl->name[0] == 0 || gl->name[0] == 0xffff) {
+            if (!VALID_GROUPLIST(gl)) {
                 fprintf(stderr, "Channel %d '", i+1);
                 print_unicode(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': grouplist %d not found.\n", ch->group_list_index);
@@ -2179,7 +2184,7 @@ static int md380_verify_config(radio_device_t *radio)
     for (i=0; i<NZONES; i++) {
         zone_t *z = GET_ZONE(i);
 
-        if (z->name[0] == 0 || z->name[0] == 0xffff)
+        if (!VALID_ZONE(z))
             continue;
 
         nzones++;
@@ -2189,8 +2194,8 @@ static int md380_verify_config(radio_device_t *radio)
             if (cnum != 0) {
                 channel_t *ch = GET_CHANNEL(cnum - 1);
 
-                if (ch->name[0] == 0 || ch->name[0] == 0xffff) {
-                    fprintf(stderr, "Zone %da '", i+1);
+                if (!VALID_CHANNEL(ch)) {
+                    fprintf(stderr, "Zone %d '", i+1);
                     print_unicode(stderr, z->name, 16, 0);
                     fprintf(stderr, "': channel %d not found.\n", cnum);
                     nerrors++;
@@ -2203,7 +2208,7 @@ static int md380_verify_config(radio_device_t *radio)
     for (i=0; i<NSCANL; i++) {
         scanlist_t *sl = GET_SCANLIST(i);
 
-        if (sl->name[0] == 0 || sl->name[0] == 0xffff)
+        if (!VALID_SCANLIST(sl))
             continue;
 
         nscanlists++;
@@ -2213,7 +2218,7 @@ static int md380_verify_config(radio_device_t *radio)
             if (cnum != 0) {
                 channel_t *ch = GET_CHANNEL(cnum - 1);
 
-                if (ch->name[0] == 0 || ch->name[0] == 0xffff) {
+                if (!VALID_CHANNEL(ch)) {
                     fprintf(stderr, "Scanlist %d '", i+1);
                     print_unicode(stderr, sl->name, 16, 0);
                     fprintf(stderr, "': channel %d not found.\n", cnum);
@@ -2227,7 +2232,7 @@ static int md380_verify_config(radio_device_t *radio)
     for (i=0; i<NGLISTS; i++) {
         grouplist_t *gl = GET_GROUPLIST(i);
 
-        if (gl->name[0] == 0 || gl->name[0] == 0xffff)
+        if (!VALID_GROUPLIST(gl))
             continue;
 
         ngrouplists++;
