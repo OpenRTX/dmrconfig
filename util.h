@@ -60,7 +60,7 @@ void print_hex(const unsigned char *data, int len);
 //
 const char *dfu_init(unsigned vid, unsigned pid);
 void dfu_close(void);
-void dfu_erase(int nbytes);
+void dfu_erase(unsigned start, unsigned finish);
 void dfu_read_block(int bno, unsigned char *data, int nbytes);
 void dfu_write_block(int bno, unsigned char *data, int nbytes);
 void dfu_reboot(void);

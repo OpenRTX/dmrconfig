@@ -52,6 +52,9 @@
 #define OFFSET_CHANNELS 0x40000
 #define OFFSET_CONTACTS 0x70000
 
+#define CALLSIGN_START  0x00200000  // Start of callsign database
+#define CALLSIGN_FINISH 0x01000000  // End of callsign database
+
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_CHANNEL(i)      ((channel_t*) &radio_mem[OFFSET_CHANNELS + (i)*64])
@@ -61,6 +64,7 @@
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*36])
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*96])
 #define GET_MESSAGE(i)      ((uint16_t*) &radio_mem[OFFSET_MSG + (i)*288])
+#define GET_CALLSIGN(m,i)   ((callsign_t*) ((m) + 0x4003 + (i)*120))
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xffff)
 #define VALID_CHANNEL(ch)   VALID_TEXT((ch)->name)
@@ -343,6 +347,16 @@ typedef struct {
     uint16_t radio_name[16];
 } general_settings_t;
 
+//
+// Callsign database (CSV).
+//
+typedef struct {
+    unsigned dmrid   : 24;      // DMR id
+    unsigned _unused : 8;       // 0xff
+    char     callsign[16];      // ascii zero terminated
+    char     name[100];         // name, nickname, city, state, country
+} callsign_t;
+
 static const char *POWER_NAME[] = { "Low", "Low", "Mid", "High" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25", "25" };
 static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
@@ -402,7 +416,7 @@ static void uv380_upload(radio_device_t *radio, int cont_flag)
 {
     int bno;
 
-    dfu_erase(MEMSZ);
+    dfu_erase(0, MEMSZ);
 
     for (bno=0; bno<MEMSZ/1024; bno++) {
         dfu_write_block(bno, &radio_mem[bno*1024], 1024);
@@ -2384,6 +2398,103 @@ static int uv380_verify_config(radio_device_t *radio)
 }
 
 //
+// Write CSV file to contacts database.
+//
+static void uv380_write_csv(radio_device_t *radio, FILE *csv)
+{
+    uint8_t *mem;
+    char line[256], *callsign, *name;
+    int id, bno, nbytes, nrecords = 0;
+    callsign_t *cs;
+
+    // Allocate 14Mbytes of memory.
+    nbytes = CALLSIGN_FINISH - CALLSIGN_START;
+    mem = malloc(nbytes);
+    if (!mem) {
+        fprintf(stderr, "Out of memory!\n");
+        return;
+    }
+    memset(mem, 0xff, nbytes);
+
+    // Parse CSV file.
+    while (fgets(line, sizeof(line), csv)) {
+        if (line[0] < '0' || line[0] > '9') {
+            // Skip header.
+            continue;
+        }
+
+        id = strtoul(line, 0, 10);
+        if (id < 1 || id > 0xffffff) {
+            fprintf(stderr, "Bad id: %d\n", id);
+            fprintf(stderr, "Line: '%s'\n", line);
+            return;
+        }
+
+        callsign = strchr(line, ',');
+        if (! callsign) {
+            fprintf(stderr, "Cannot find callsign!\n");
+            fprintf(stderr, "Line: '%s'\n", line);
+            return;
+        }
+        *callsign++ = 0;
+
+        name = strchr(callsign, ',');
+        if (! name) {
+            fprintf(stderr, "Cannot find name!\n");
+            fprintf(stderr, "Line: '%s,%s'\n", line, callsign);
+            return;
+        }
+        *name++ = 0;
+
+        //printf("%-10d%-10s%s", id, callsign, name);
+        cs = GET_CALLSIGN(mem, nrecords);
+        nrecords++;
+
+        // Fill callsign structure.
+        cs->dmrid = id;
+        strncpy(cs->callsign, callsign, sizeof(cs->callsign));
+        strncpy(cs->name, name, sizeof(cs->name));
+    }
+    fprintf(stderr, "Total %d contacts.\n", nrecords);
+
+    // Preserve 1kbyte at 0x0200000-0x02003ff.
+    //dfu_read_block(CALLSIGN_START/1024, &mem[0], 1024);
+
+    // Number of contacts.
+    mem[0] = nrecords >> 16;
+    mem[1] = nrecords >> 8;
+    mem[2] = nrecords;
+
+    radio_progress = 0;
+    if (! trace_flag) {
+        fprintf(stderr, "Erase contacts: ");
+        fflush(stderr);
+    }
+
+    // Erase whole region.
+    dfu_erase(CALLSIGN_START, CALLSIGN_FINISH);
+    if (! trace_flag) {
+        fprintf(stderr, " done.\n");
+        fprintf(stderr, "Write contacts: ");
+        fflush(stderr);
+    }
+
+    // Write callsigns.
+    for (bno = CALLSIGN_START/1024; bno < CALLSIGN_FINISH/1024; bno++) {
+        dfu_write_block(bno, &mem[bno*1024 - CALLSIGN_START], 1024);
+
+        ++radio_progress;
+        if (radio_progress % 512 == 0) {
+            fprintf(stderr, "#");
+            fflush(stderr);
+        }
+    }
+    if (! trace_flag)
+        fprintf(stderr, " done.\n");
+    free(mem);
+}
+
+//
 // TYT MD-UV380
 //
 radio_device_t radio_uv380 = {
@@ -2400,6 +2511,7 @@ radio_device_t radio_uv380 = {
     uv380_parse_header,
     uv380_parse_row,
     uv380_update_timestamp,
+    uv380_write_csv,
 };
 
 //

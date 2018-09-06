@@ -261,7 +261,7 @@ static void set_address(uint32_t address)
     wait_dfu_idle();
 }
 
-static void erase_block(uint32_t address)
+static void erase_block(uint32_t address, int progress_flag)
 {
     unsigned char cmd[5] = { 0x41,
         (uint8_t)address,
@@ -285,8 +285,10 @@ static void erase_block(uint32_t address)
     get_status();
     wait_dfu_idle();
 
-    fprintf(stderr, "#");
-    fflush(stderr);
+    if (progress_flag) {
+        fprintf(stderr, "#");
+        fflush(stderr);
+    }
 }
 
 static const char *identify()
@@ -369,7 +371,7 @@ void dfu_close()
     }
 }
 
-void dfu_erase(int nbytes)
+void dfu_erase(unsigned start, unsigned finish)
 {
     // Enter Programming Mode.
     get_status();
@@ -377,25 +379,36 @@ void dfu_erase(int nbytes)
     md380_command(0x91, 0x01);
     usleep(100000);
 
-    erase_block(0x00000000);
-    erase_block(0x00010000);
-    erase_block(0x00020000);
-    erase_block(0x00030000);
+    if (start == 0) {
+        // Erase 256kbytes of configuration memory.
+        erase_block(0x00000000, 1);
+        erase_block(0x00010000, 1);
+        erase_block(0x00020000, 1);
+        erase_block(0x00030000, 1);
 
-    if (nbytes > 256*1024) {
-        erase_block(0x00110000);
-        erase_block(0x00120000);
-        erase_block(0x00130000);
-        erase_block(0x00140000);
-        erase_block(0x00150000);
-        erase_block(0x00160000);
-        erase_block(0x00170000);
-        erase_block(0x00180000);
-        erase_block(0x00190000);
-        erase_block(0x001a0000);
-        erase_block(0x001b0000);
-        erase_block(0x001c0000);
-        erase_block(0x001d0000);
+        if (finish > 256*1024) {
+            // Erase 768kbytes of extended configuration memory.
+            erase_block(0x00110000, 1);
+            erase_block(0x00120000, 1);
+            erase_block(0x00130000, 1);
+            erase_block(0x00140000, 1);
+            erase_block(0x00150000, 1);
+            erase_block(0x00160000, 1);
+            erase_block(0x00170000, 1);
+            erase_block(0x00180000, 1);
+            erase_block(0x00190000, 1);
+            erase_block(0x001a0000, 1);
+            erase_block(0x001b0000, 1);
+            erase_block(0x001c0000, 1);
+            erase_block(0x001d0000, 1);
+        }
+    } else {
+        // Erase callsign database.
+        int addr;
+
+        for (addr=start; addr<finish; addr+=0x00010000) {
+            erase_block(addr, (addr & 0x00070000) == 0x00070000);
+        }
     }
 
     // Zero address.
@@ -404,7 +417,7 @@ void dfu_erase(int nbytes)
 
 void dfu_read_block(int bno, uint8_t *data, int nbytes)
 {
-    if (bno >= 256)
+    if (bno >= 256 && bno < 2048)
         bno += 832;
 
     if (trace_flag) {
@@ -427,7 +440,7 @@ void dfu_read_block(int bno, uint8_t *data, int nbytes)
 
 void dfu_write_block(int bno, uint8_t *data, int nbytes)
 {
-    if (bno >= 256)
+    if (bno >= 256 && bno < 2048)
         bno += 832;
 
     if (trace_flag) {

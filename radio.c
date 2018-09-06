@@ -67,7 +67,6 @@ void radio_connect()
 {
     // Only TYT MD family for now.
     const char *ident = dfu_init(0x0483, 0xdf11);
-    fprintf(stderr, "Connect to %s.\n", ident);
 
     if (strcasecmp(ident, "DR780") == 0) {      // TYT MD-380, Retevis RT3, RT8
         device = &radio_md380;
@@ -91,6 +90,7 @@ void radio_connect()
             ident);
         exit(-1);
     }
+    fprintf(stderr, "Connect to %s.\n", device->name);
 }
 
 //
@@ -132,7 +132,7 @@ void radio_upload(int cont_flag)
 //
 // Read firmware image from the binary file.
 //
-void radio_read_image(char *filename)
+void radio_read_image(const char *filename)
 {
     FILE *img;
     struct stat st;
@@ -171,7 +171,7 @@ void radio_read_image(char *filename)
 //
 // Save firmware image to the binary file.
 //
-void radio_save_image(char *filename)
+void radio_save_image(const char *filename)
 {
     FILE *img;
 
@@ -188,7 +188,7 @@ void radio_save_image(char *filename)
 //
 // Read the configuration from text file, and modify the firmware.
 //
-void radio_parse_config(char *filename)
+void radio_parse_config(const char *filename)
 {
     FILE *conf;
     char line [256], *p, *v;
@@ -299,4 +299,27 @@ void radio_verify_config()
         // Message should be already printed.
         exit(-1);
     }
+}
+
+//
+// Update contacts database on the device.
+//
+void radio_write_csv(const char *filename)
+{
+    FILE *csv;
+
+    if (!device->write_csv) {
+        fprintf(stderr, "%s does not support CSV database.\n", device->name);
+        exit(-1);
+    }
+
+    csv = fopen(filename, "rb");
+    if (! csv) {
+        perror(filename);
+        exit(-1);
+    }
+    fprintf(stderr, "Read file '%s'.\n", filename);
+
+    device->write_csv(device, csv);
+    fclose(csv);
 }

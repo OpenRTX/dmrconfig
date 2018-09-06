@@ -384,7 +384,7 @@ static void md380_upload(radio_device_t *radio, int cont_flag)
 {
     int bno;
 
-    dfu_erase(MEMSZ);
+    dfu_erase(0, MEMSZ);
 
     for (bno=0; bno<MEMSZ/1024; bno++) {
         dfu_write_block(bno, &radio_mem[bno*1024], 1024);

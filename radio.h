@@ -60,22 +60,27 @@ void radio_print_config(FILE *out, int verbose);
 //
 // Read firmware image from the binary file.
 //
-void radio_read_image(char *filename);
+void radio_read_image(const char *filename);
 
 //
 // Save firmware image to the binary file.
 //
-void radio_save_image(char *filename);
+void radio_save_image(const char *filename);
 
 //
 // Read the configuration from text file, and modify the firmware.
 //
-void radio_parse_config(char *filename);
+void radio_parse_config(const char *filename);
 
 //
 // Check the configuration.
 //
-void radio_verify_config();
+void radio_verify_config(void);
+
+//
+// Update CSV contacts database.
+//
+void radio_write_csv(const char *filename);
 
 //
 // Device-dependent interface to the radio.
@@ -95,6 +100,7 @@ struct _radio_device_t {
     int (*parse_header)(radio_device_t *radio, char *line);
     int (*parse_row)(radio_device_t *radio, int table_id, int first_row, char *line);
     void (*update_timestamp)(radio_device_t *radio);
+    void (*write_csv)(radio_device_t *radio, FILE *csv);
     int channel_count;
 };
 
