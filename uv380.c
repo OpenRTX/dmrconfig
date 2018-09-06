@@ -54,6 +54,7 @@
 
 #define CALLSIGN_START  0x00200000  // Start of callsign database
 #define CALLSIGN_FINISH 0x01000000  // End of callsign database
+#define CALLSIGN_OFFSET 0x4003
 
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
@@ -64,7 +65,7 @@
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*36])
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*96])
 #define GET_MESSAGE(i)      ((uint16_t*) &radio_mem[OFFSET_MSG + (i)*288])
-#define GET_CALLSIGN(m,i)   ((callsign_t*) ((m) + 0x4003 + (i)*120))
+#define GET_CALLSIGN(m,i)   ((callsign_t*) ((m) + CALLSIGN_OFFSET + (i)*120))
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xffff)
 #define VALID_CHANNEL(ch)   VALID_TEXT((ch)->name)
@@ -2405,6 +2406,7 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
     uint8_t *mem;
     char line[256], *callsign, *name;
     int id, bno, nbytes, nrecords = 0;
+    unsigned finish;
     callsign_t *cs;
 
     // Allocate 14Mbytes of memory.
@@ -2457,13 +2459,19 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
     }
     fprintf(stderr, "Total %d contacts.\n", nrecords);
 
-    // Preserve 1kbyte at 0x0200000-0x02003ff.
-    //dfu_read_block(CALLSIGN_START/1024, &mem[0], 1024);
-
     // Number of contacts.
     mem[0] = nrecords >> 16;
     mem[1] = nrecords >> 8;
     mem[2] = nrecords;
+
+    // Align to 1kbyte.
+    finish = CALLSIGN_START + (CALLSIGN_OFFSET + nrecords*120 + 1023) / 1024 * 1024;
+
+    if (finish > CALLSIGN_FINISH) {
+        // Limit is 122197 contacts.
+        fprintf(stderr, "Too many contacts!\n");
+        return;
+    }
 
     radio_progress = 0;
     if (! trace_flag) {
@@ -2472,15 +2480,16 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
     }
 
     // Erase whole region.
-    dfu_erase(CALLSIGN_START, CALLSIGN_FINISH);
+    // Align finish to 64kbytes.
+    dfu_erase(CALLSIGN_START, (finish + 0xffff) / 0x10000 * 0x10000);
     if (! trace_flag) {
-        fprintf(stderr, " done.\n");
+        fprintf(stderr, "# done.\n");
         fprintf(stderr, "Write contacts: ");
         fflush(stderr);
     }
 
     // Write callsigns.
-    for (bno = CALLSIGN_START/1024; bno < CALLSIGN_FINISH/1024; bno++) {
+    for (bno = CALLSIGN_START/1024; bno < finish/1024; bno++) {
         dfu_write_block(bno, &mem[bno*1024 - CALLSIGN_START], 1024);
 
         ++radio_progress;
@@ -2490,7 +2499,7 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
         }
     }
     if (! trace_flag)
-        fprintf(stderr, " done.\n");
+        fprintf(stderr, "# done.\n");
     free(mem);
 }
 

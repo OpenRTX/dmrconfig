@@ -1,6 +1,6 @@
 CC		= gcc
 
-VERSION         = 0.2
+VERSION         = 0.3
 GITCOUNT        = $(shell git rev-list HEAD --count)
 CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -g
