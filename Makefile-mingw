@@ -5,8 +5,8 @@ GITCOUNT        = $(shell git rev-list HEAD --count)
 CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"' -Ilibusb-win32
 LDFLAGS		= -g -s
 
-OBJS		= main.o util.o radio.o dfu.o uv380.o md380.o
-LIBS            = -Llibusb-win32 -lusb-1.0
+OBJS		= main.o util.o radio.o dfu-windows.o uv380.o md380.o
+LIBS            =
 
 # Compiling Windows binary from Linux
 ifeq (/usr/bin/i586-mingw32msvc-gcc,$(wildcard /usr/bin/i586-mingw32msvc-gcc))
@@ -14,9 +14,6 @@ ifeq (/usr/bin/i586-mingw32msvc-gcc,$(wildcard /usr/bin/i586-mingw32msvc-gcc))
 endif
 ifeq (/usr/bin/i686-w64-mingw32-gcc,$(wildcard /usr/bin/i686-w64-mingw32-gcc))
     CC          = i686-w64-mingw32-gcc
-endif
-ifeq (/usr/bin/i686-w64-mingw32-gcc-win32,$(wildcard /usr/bin/i686-w64-mingw32-gcc-win32))
-    CC          = i686-w64-mingw32-gcc-win32
 endif
 
 all:		dmrconfig.exe
@@ -31,7 +28,7 @@ install:	dmrconfig
 		install -c -s dmrconfig /usr/local/bin/dmrconfig
 
 ###
-dfu.o: dfu.c util.h
+dfu-windows.o: dfu-windows.c util.h
 main.o: main.c radio.h util.h
 md380.o: md380.c radio.h util.h
 radio.o: radio.c radio.h util.h

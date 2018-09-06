@@ -5,7 +5,7 @@ GITCOUNT        = $(shell git rev-list HEAD --count)
 CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -g
 
-OBJS		= main.o util.o radio.o dfu.o uv380.o md380.o
+OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o
 LIBS            = -lusb-1.0
 
 # Mac OS X
@@ -28,7 +28,7 @@ dmrconfig.linux: dmrconfig
 		strip $@
 
 ###
-dfu.o: dfu.c util.h
+dfu-libusb.o: dfu-libusb.c util.h
 main.o: main.c radio.h util.h
 md380.o: md380.c radio.h util.h
 radio.o: radio.c radio.h util.h
