@@ -96,7 +96,7 @@ typedef struct {
     uint8_t _unused2            : 1,    // 0
             rx_only             : 1,    // RX Only Enable
             repeater_slot       : 2,    // Repeater Slot: 1 or 2
-            colorcode           : 4;    // Color Code: 1...15
+            colorcode           : 4;    // Color Code: 0...15
 
     // Byte 2
     uint8_t privacy_no          : 4,    // Privacy No. (+1): 1...16
@@ -915,7 +915,7 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 9) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
         fprintf(out, "# 10) Receive only: -, +\n");
         fprintf(out, "# 11) Admit criteria: -, Free, Color\n");
-        fprintf(out, "# 12) Color code: 1, 2, 3... 15\n");
+        fprintf(out, "# 12) Color code: 0, 1, 2, 3... 15\n");
         fprintf(out, "# 13) Time slot: 1 or 2\n");
         fprintf(out, "# 14) In call criteria: -, Admit, TXInt\n");
         fprintf(out, "# 15) Receive group list: - or index in Grouplist table\n");
@@ -1604,7 +1604,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     colorcode = atoi(colorcode_str);
-    if (colorcode < 1 || colorcode > 15) {
+    if (colorcode < 0 || colorcode > 15) {
         fprintf(stderr, "Bad color code.\n");
         return 0;
     }
