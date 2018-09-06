@@ -771,8 +771,8 @@ static void print_id(FILE *out, int verbose)
     unsigned id = gs->radio_id[0] | (gs->radio_id[1] << 8) | (gs->radio_id[2] << 16);
 
     if (verbose)
-        fprintf(out, "\n# Unique DMR ID and name of this radio.\n");
-    fprintf(out, "ID: %u\nName: ", id);
+        fprintf(out, "\n# Unique DMR ID and name of this radio.");
+    fprintf(out, "\nID: %u\nName: ", id);
     if (VALID_TEXT(gs->radio_name)) {
         print_unicode(out, gs->radio_name, 16, 0);
     } else {
