@@ -18,7 +18,7 @@ dmrconfig:	$(OBJS)
 		$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
 clean:
-		rm -f *~ *.o core dmrconfig
+		rm -f *~ *.o core dmrconfig dmrconfig.exe
 
 install:	dmrconfig
 		install -c -s dmrconfig /usr/local/bin/dmrconfig

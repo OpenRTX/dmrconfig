@@ -33,6 +33,10 @@ Apply configuration from text file to the codeplug file:
 
     dmrconfig -c file.img file.conf
 
+Update database of contacts from CSV file:
+
+    dmrconfig -u [-t] file.csv
+
 Option -t enables tracing of USB protocol.
 
 
