@@ -2540,4 +2540,5 @@ radio_device_t radio_md2017 = {
     uv380_parse_header,
     uv380_parse_row,
     uv380_update_timestamp,
+    uv380_write_csv,
 };
