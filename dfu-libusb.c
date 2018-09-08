@@ -1,5 +1,5 @@
 /*
- * DFU routines.
+ * DFU routines for Linux and MacOS, via libusb-1.0.
  *
  * Copyright (C) 2018 Serge Vakulenko, KK6ABQ
  *
@@ -49,25 +49,6 @@ enum {
 };
 
 enum {
-    statusOK        = 0,
-    errTARGET       = 0x01,
-    errFILE         = 0x02,
-    errWRITE        = 0x03,
-    errERASE        = 0x04,
-    errCHECK_ERASED = 0x05,
-    erPROG          = 0x06,
-    errVERIFY       = 0x07,
-    errADDRESS      = 0x08,
-    errNOTDONE      = 0x09,
-    errFIRMWARE     = 0x0A,
-    errVENDOR       = 0x0B,
-    errUSBR         = 0x0C,
-    errPOR          = 0x0D,
-    errUNKNOWN      = 0x0E,
-    errSTALLEDPK    = 0x0F,
-};
-
-enum {
     appIDLE                 = 0,
     appDETACH               = 1,
     dfuIDLE                 = 2,
@@ -79,23 +60,6 @@ enum {
     dfuMANIFEST_WAIT_RESET  = 8,
     dfuUPLOAD_IDLE          = 9,
     dfuERROR                = 10,
-};
-
-enum {
-    USB_OK              = 0,
-    USB_IO              = -1,
-    USB_INVALID_PARAM   = -2,
-    USB_ACCESS          = -3,
-    USB_NO_DEVICE       = -4,
-    USB_NOT_FOUND       = -5,
-    USB_BUSY            = -6,
-    USB_TIMEOUT         = -7,
-    USB_OVERFLOW        = -8,
-    USB_PIPE            = -9,
-    USB_INTERRUPTED     = -10,
-    USB_NO_MEM          = -11,
-    USB_NOT_SUPPORTED   = -12,
-    USB_OTHER           = -99
 };
 
 typedef struct {
@@ -347,9 +311,8 @@ const char *dfu_init(unsigned vid, unsigned pid)
         exit(-1);
     }
 
-    wait_dfu_idle();
-
     // Enter Programming Mode.
+    wait_dfu_idle();
     md380_command(0x91, 0x01);
 
     // Get device identifier in a static buffer.

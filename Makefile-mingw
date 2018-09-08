@@ -2,11 +2,11 @@ CC		= gcc
 
 VERSION         = 0.3
 GITCOUNT        = $(shell git rev-list HEAD --count)
-CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"' -Ilibusb-win32
+CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -g -s
 
 OBJS		= main.o util.o radio.o dfu-windows.o uv380.o md380.o
-LIBS            =
+LIBS            = -lsetupapi
 
 # Compiling Windows binary from Linux
 ifeq (/usr/bin/i586-mingw32msvc-gcc,$(wildcard /usr/bin/i586-mingw32msvc-gcc))
