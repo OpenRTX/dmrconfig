@@ -141,7 +141,7 @@ static int dev_read(int request, int value, int length, PBYTE buffer)
     rq->Index     = 0;
     rq->Length    = length;
 
-    if (!DeviceIoControl(dev, PU_VENDOR_REQUEST, rq, rqlen + length,
+    if (!DeviceIoControl(dev, PU_VENDOR_REQUEST, rq, rqlen,
                          buffer, length, &nbytes, NULL)) {
         return -1;
     }

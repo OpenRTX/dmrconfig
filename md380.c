@@ -185,7 +185,8 @@ typedef struct {
 //
 typedef struct {
     // Bytes 0-2
-    uint32_t id                 : 24;   // Call ID: 1...16777215
+    uint8_t id[3];                      // Call ID: 1...16777215
+#define CONTACT_ID(ct) ((ct)->id[0] | ((ct)->id[1] << 8) | ((ct)->id[2] << 16))
 
     // Byte 3
     uint8_t type                : 2,    // Call Type: Group Call, Private Call or All Call
@@ -509,7 +510,9 @@ static void setup_contact(int index, const char *name, int type, int id, int rxt
 {
     contact_t *ct = GET_CONTACT(index);
 
-    ct->id           = id;
+    ct->id[0]        = id;
+    ct->id[1]        = id >> 8;
+    ct->id[2]        = id >> 16;
     ct->type         = type;
     ct->receive_tone = rxtone;
 
@@ -1208,7 +1211,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
             fprintf(out, "%5d   ", i+1);
             print_unicode(out, ct->name, 16, 1);
             fprintf(out, " %-7s %-8d %s\n",
-                CONTACT_TYPE[ct->type], ct->id, ct->receive_tone ? "+" : "-");
+                CONTACT_TYPE[ct->type], CONTACT_ID(ct), ct->receive_tone ? "+" : "-");
         }
     }
 
