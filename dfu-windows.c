@@ -88,18 +88,17 @@ static status_t status;
 
 static int dev_request(int request, int value, int index)
 {
-    int rqlen = sizeof(CNTRPIPE_RQ);
-    PCNTRPIPE_RQ rq = alloca(rqlen);
+    CNTRPIPE_RQ rq;
     DWORD nbytes = 0;
 
-    rq->Function  = URB_FUNCTION_CLASS_INTERFACE;
-    rq->Direction = VENDOR_DIRECTION_OUT;
-    rq->Request   = request;
-    rq->Value     = value;
-    rq->Index     = index;
-    rq->Length    = 0;
+    rq.Function  = URB_FUNCTION_CLASS_INTERFACE;
+    rq.Direction = VENDOR_DIRECTION_OUT;
+    rq.Request   = request;
+    rq.Value     = value;
+    rq.Index     = index;
+    rq.Length    = 0;
 
-    if (!DeviceIoControl(dev, PU_VENDOR_REQUEST, rq, rqlen,
+    if (!DeviceIoControl(dev, PU_VENDOR_REQUEST, &rq, sizeof(rq),
                          NULL, 0, &nbytes, NULL)) {
         return -1;
     }
@@ -130,18 +129,17 @@ static int dev_write(int request, int value, int length, PBYTE data)
 
 static int dev_read(int request, int value, int length, PBYTE buffer)
 {
-    int rqlen = sizeof(CNTRPIPE_RQ);
-    PCNTRPIPE_RQ rq = alloca(rqlen);
+    CNTRPIPE_RQ rq;
     DWORD nbytes = 0;
 
-    rq->Function  = URB_FUNCTION_CLASS_INTERFACE;
-    rq->Direction = VENDOR_DIRECTION_IN;
-    rq->Request   = request;
-    rq->Value     = value;
-    rq->Index     = 0;
-    rq->Length    = length;
+    rq.Function  = URB_FUNCTION_CLASS_INTERFACE;
+    rq.Direction = VENDOR_DIRECTION_IN;
+    rq.Request   = request;
+    rq.Value     = value;
+    rq.Index     = 0;
+    rq.Length    = length;
 
-    if (!DeviceIoControl(dev, PU_VENDOR_REQUEST, rq, rqlen,
+    if (!DeviceIoControl(dev, PU_VENDOR_REQUEST, &rq, sizeof(rq),
                          buffer, length, &nbytes, NULL)) {
         return -1;
     }
