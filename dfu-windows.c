@@ -86,7 +86,7 @@ typedef struct {
 static HANDLE dev;
 static status_t status;
 
-static int dev_request(int request, int value, int index)
+static int dev_request(int request, int value)
 {
     CNTRPIPE_RQ rq;
     DWORD nbytes = 0;
@@ -95,7 +95,7 @@ static int dev_request(int request, int value, int index)
     rq.Direction = VENDOR_DIRECTION_OUT;
     rq.Request   = request;
     rq.Value     = value;
-    rq.Index     = index;
+    rq.Index     = 0;
     rq.Length    = 0;
 
     if (!DeviceIoControl(dev, PU_VENDOR_REQUEST, &rq, sizeof(rq),
@@ -154,7 +154,7 @@ static int detach(int timeout)
     if (trace_flag) {
         printf("--- Send DETACH\n");
     }
-    int error = dev_request(REQUEST_DETACH, timeout, 0);
+    int error = dev_request(REQUEST_DETACH, timeout);
     return error;
 }
 
@@ -177,7 +177,7 @@ static int clear_status()
     if (trace_flag) {
         printf("--- Send CLRSTATUS\n");
     }
-    int error = dev_request(REQUEST_CLRSTATUS, 0, 0);
+    int error = dev_request(REQUEST_CLRSTATUS, 0);
     return error;
 }
 
@@ -203,7 +203,7 @@ static int dfu_abort()
     if (trace_flag) {
         printf("--- Send ABORT\n");
     }
-    int error = dev_request(REQUEST_ABORT, 0, 0);
+    int error = dev_request(REQUEST_ABORT, 0);
     return error;
 }
 

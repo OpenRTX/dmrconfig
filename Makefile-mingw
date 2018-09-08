@@ -16,6 +16,11 @@ ifeq (/usr/bin/i686-w64-mingw32-gcc,$(wildcard /usr/bin/i686-w64-mingw32-gcc))
     CC          = i686-w64-mingw32-gcc
 endif
 
+# Compiling Windows binary from Mac OS
+ifeq (/usr/local/bin/i686-w64-mingw32-gcc,$(wildcard /usr/local/bin/i686-w64-mingw32-gcc))
+    CC          = i686-w64-mingw32-gcc
+endif
+
 all:		dmrconfig.exe
 
 dmrconfig.exe:	$(OBJS)
