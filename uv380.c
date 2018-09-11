@@ -908,15 +908,14 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
         fprintf(out, "# 6) Scan list: - or index in Scanlist table\n");
         fprintf(out, "# 7) Autoscan flag: -, +\n");
-        fprintf(out, "# 8) Squelch level: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9\n");
-        fprintf(out, "# 9) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
-        fprintf(out, "# 10) Receive only: -, +\n");
-        fprintf(out, "# 11) Admit criteria: -, Free, Color\n");
-        fprintf(out, "# 12) Color code: 0, 1, 2, 3... 15\n");
-        fprintf(out, "# 13) Time slot: 1 or 2\n");
-        fprintf(out, "# 14) In call criteria: -, Admit, TXInt\n");
-        fprintf(out, "# 15) Receive group list: - or index in Grouplist table\n");
-        fprintf(out, "# 16) Contact for transmit: - or index in Contacts table\n");
+        fprintf(out, "# 8) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 9) Receive only: -, +\n");
+        fprintf(out, "# 10) Admit criteria: -, Free, Color\n");
+        fprintf(out, "# 11) Color code: 0, 1, 2, 3... 15\n");
+        fprintf(out, "# 12) Time slot: 1 or 2\n");
+        fprintf(out, "# 13) In call criteria: -, Admit, TXInt\n");
+        fprintf(out, "# 14) Receive group list: - or index in Grouplist table\n");
+        fprintf(out, "# 15) Contact for transmit: - or index in Contacts table\n");
         fprintf(out, "#\n");
     }
     fprintf(out, "Digital Name             Receive   Transmit Power Scan AS TOT RO Admit  Color Slot InCall RxGL TxContact");
@@ -1010,10 +1009,10 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 5) Transmit power: High, Mid, Low\n");
         fprintf(out, "# 6) Scan list: - or index\n");
         fprintf(out, "# 7) Autoscan flag: -, +\n");
-        fprintf(out, "# 8) Squelch level: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9\n");
-        fprintf(out, "# 9) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
-        fprintf(out, "# 10) Receive only: -, +\n");
-        fprintf(out, "# 11) Admit criteria: -, Free, Tone\n");
+        fprintf(out, "# 8) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 9) Receive only: -, +\n");
+        fprintf(out, "# 10) Admit criteria: -, Free, Tone\n");
+        fprintf(out, "# 11) Squelch level: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9\n");
         fprintf(out, "# 12) Guard tone for receive, or '-' to disable\n");
         fprintf(out, "# 13) Guard tone for transmit, or '-' to disable\n");
         fprintf(out, "# 14) Bandwidth in kHz: 12.5, 20, 25\n");
