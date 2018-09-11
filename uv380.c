@@ -1506,18 +1506,18 @@ static void uv380_parse_parameter(radio_device_t *radio, char *param, char *valu
 static int parse_digital_channel(radio_device_t *radio, int first_row, char *line)
 {
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
-    char power_str[256], scanlist_str[256], autoscan_str[256], squelch_str[256];
+    char power_str[256], scanlist_str[256], autoscan_str[256];
     char tot_str[256], rxonly_str[256], admit_str[256], colorcode_str[256];
     char slot_str[256], incall_str[256], grouplist_str[256], contact_str[256];
-    int num, power, scanlist, autoscan, squelch, tot, rxonly, admit;
+    int num, power, scanlist, autoscan, tot, rxonly, admit;
     int colorcode, timeslot, incall, grouplist, contact;
     double rx_mhz, tx_mhz;
 
-    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
+    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
         num_str, name_str, rxfreq_str, offset_str,
-        power_str, scanlist_str, autoscan_str, squelch_str,
+        power_str, scanlist_str, autoscan_str,
         tot_str, rxonly_str, admit_str, colorcode_str,
-        slot_str, incall_str, grouplist_str, contact_str) != 16)
+        slot_str, incall_str, grouplist_str, contact_str) != 15)
         return 0;
 
     num = atoi(num_str);
@@ -1567,12 +1567,6 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         autoscan = 1;
     } else {
         fprintf(stderr, "Bad autoscan flag.\n");
-        return 0;
-    }
-
-    squelch = atoi(squelch_str);
-    if (squelch > 9) {
-        fprintf(stderr, "Bad squelch level.\n");
         return 0;
     }
 
@@ -1654,8 +1648,8 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
-        power, scanlist, autoscan, squelch, tot, rxonly, admit,
-        colorcode, timeslot, incall, grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
+        power, scanlist, autoscan, 1, tot, rxonly, admit, colorcode,
+        timeslot, incall, grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
 
     radio->channel_count++;
     return 1;
@@ -1678,8 +1672,8 @@ static int parse_analog_channel(radio_device_t *radio, int first_row, char *line
 
     if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s %s",
         num_str, name_str, rxfreq_str, offset_str,
-        power_str, scanlist_str, autoscan_str, squelch_str,
-        tot_str, rxonly_str, admit_str,
+        power_str, scanlist_str, autoscan_str,
+        tot_str, rxonly_str, admit_str, squelch_str,
         rxtone_str, txtone_str, width_str) != 14)
         return 0;
 
