@@ -60,6 +60,7 @@ void usage()
     fprintf(stderr, _("    -w           Write codeplug to the radio.\n"));
     fprintf(stderr, _("    -c           Configure the radio from a text script.\n"));
     fprintf(stderr, _("    -u           Update contacts database.\n"));
+    fprintf(stderr, _("    -l           List all supported radios.\n"));
     fprintf(stderr, _("    -t           Trace USB protocol.\n"));
     exit(-1);
 }
@@ -67,6 +68,7 @@ void usage()
 int main(int argc, char **argv)
 {
     int read_flag = 0, write_flag = 0, config_flag = 0, csv_flag = 0;
+    int list_flag = 0;
 
     // Set locale and message catalogs.
     setlocale(LC_ALL, "");
@@ -82,12 +84,13 @@ int main(int argc, char **argv)
     copyright = _("Copyright (C) 2018 Serge Vakulenko KK6ABQ");
     trace_flag = 0;
     for (;;) {
-        switch (getopt(argc, argv, "tcwru")) {
+        switch (getopt(argc, argv, "tcwrul")) {
         case 't': ++trace_flag;  continue;
         case 'r': ++read_flag;   continue;
         case 'w': ++write_flag;  continue;
         case 'c': ++config_flag; continue;
         case 'u': ++csv_flag;    continue;
+        case 'l': ++list_flag;   continue;
         default:
             usage();
         case EOF:
@@ -97,6 +100,10 @@ int main(int argc, char **argv)
     }
     argc -= optind;
     argv += optind;
+    if (list_flag) {
+        radio_list();
+        exit(0);
+    }
     if (read_flag + write_flag + config_flag + csv_flag > 1) {
         fprintf(stderr, "Only one of -r, -w, -c or -u options is allowed.\n");
         usage();

@@ -2527,10 +2527,50 @@ radio_device_t radio_uv380 = {
 };
 
 //
+// TYT MD-UV390
+//
+radio_device_t radio_uv390 = {
+    "TYT MD-UV390",
+    uv380_download,
+    uv380_upload,
+    uv380_is_compatible,
+    uv380_read_image,
+    uv380_save_image,
+    uv380_print_version,
+    uv380_print_config,
+    uv380_verify_config,
+    uv380_parse_parameter,
+    uv380_parse_header,
+    uv380_parse_row,
+    uv380_update_timestamp,
+    uv380_write_csv,
+};
+
+//
 // TYT MD-2017
 //
 radio_device_t radio_md2017 = {
     "TYT MD-2017",
+    uv380_download,
+    uv380_upload,
+    uv380_is_compatible,
+    uv380_read_image,
+    uv380_save_image,
+    uv380_print_version,
+    uv380_print_config,
+    uv380_verify_config,
+    uv380_parse_parameter,
+    uv380_parse_header,
+    uv380_parse_row,
+    uv380_update_timestamp,
+    uv380_write_csv,
+};
+
+//
+// TYT MD-9600
+//
+radio_device_t radio_md9600 = {
+    "TYT MD-9600",
     uv380_download,
     uv380_upload,
     uv380_is_compatible,

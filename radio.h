@@ -83,6 +83,11 @@ void radio_verify_config(void);
 void radio_write_csv(const char *filename);
 
 //
+// List all supported radios.
+//
+void radio_list(void);
+
+//
 // Device-dependent interface to the radio.
 //
 typedef struct _radio_device_t radio_device_t;
@@ -107,6 +112,8 @@ struct _radio_device_t {
 extern radio_device_t radio_md380;      // TYT MD-380
 extern radio_device_t radio_md2017;     // TYT MD-2017
 extern radio_device_t radio_uv380;      // TYT MD-UV380
+extern radio_device_t radio_uv390;      // TYT MD-UV390
+extern radio_device_t radio_md9600;     // TYT MD-9600
 extern radio_device_t radio_d900;       // Zastone D900
 extern radio_device_t radio_dp880;      // Zastone DP880
 extern radio_device_t radio_rt27d;      // Radtel RT-27D

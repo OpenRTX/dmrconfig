@@ -35,6 +35,21 @@
 #include "radio.h"
 #include "util.h"
 
+static struct {
+    char *ident;
+    radio_device_t *device;
+} radio_tab[] = {
+    { "DR780",      &radio_md380 },     // TYT MD-380, Retevis RT3, RT8
+    { "MD-UV380",   &radio_uv380 },     // TYT MD-UV380
+    { "MD-UV390",   &radio_uv390 },     // TYT MD-UV390, Retevis RT3S
+    { "2017",       &radio_md2017 },    // TYT MD-2017, Retevis RT82
+    { "MD9600",     &radio_md9600 },    // TYT MD-9600
+    { "ZD3688",     &radio_d900 },      // Zastone D900
+    { "TP660",      &radio_dp880 },     // Zastone DP880
+    { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
+    { 0, 0 }
+};
+
 unsigned char radio_mem [1024*1024];    // Radio memory contents, up to 1Mbyte
 int radio_progress;                     // Read/write progress counter
 
@@ -67,30 +82,32 @@ void radio_connect()
 {
     // Only TYT MD family for now.
     const char *ident = dfu_init(0x0483, 0xdf11);
+    int i;
 
-    if (strcasecmp(ident, "DR780") == 0) {      // TYT MD-380, Retevis RT3, RT8
-        device = &radio_md380;
-    } else
-    if (strcasecmp(ident, "ZD3688") == 0) {     // Zastone D900
-        device = &radio_d900;
-    } else
-    if (strcasecmp(ident, "TP660") == 0) {      // Zastone DP880
-        device = &radio_dp880;
-    } else
-    if (strcasecmp(ident, "ZN><:") == 0) {      // Radtel RT-27D
-        device = &radio_rt27d;
-    } else
-    if (strcasecmp(ident, "2017") == 0) {       // TYT MD-2017, Retevis RT82
-        device = &radio_md2017;
-    } else
-    if (strcasecmp(ident, "MD-UV380") == 0) {   // TYT MD-UV380
-        device = &radio_uv380;
-    } else {
-        fprintf(stderr, "Unrecognized radio '%s'.\n",
-            ident);
+    for (i=0; radio_tab[i].ident; i++) {
+        if (strcasecmp(ident, radio_tab[i].ident) == 0) {
+            device = radio_tab[i].device;
+            break;
+        }
+    }
+    if (! device) {
+        fprintf(stderr, "Unrecognized radio '%s'.\n", ident);
         exit(-1);
     }
     fprintf(stderr, "Connect to %s.\n", device->name);
+}
+
+//
+// List all supported radios.
+//
+void radio_list()
+{
+    int i;
+
+    printf("Supported radios:\n");
+    for (i=0; radio_tab[i].ident; i++) {
+        printf("    %s\n", radio_tab[i].device->name);
+    }
 }
 
 //
