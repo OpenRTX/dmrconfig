@@ -2402,6 +2402,58 @@ static int uv380_verify_config(radio_device_t *radio)
 }
 
 //
+// Build search index of callsign table.
+// Callsigns are supposed to be sorted by id.
+//
+// Region 0x200003-0x204002 of configuration memory contains a search helper
+// for the ContactsCSV table. The helper is organized as a list
+// of pairs <idbase, index>:
+//      idbase - high bits 23:12 of DMR ID
+//      index - number in ContactsCSV table, starting from 1 (20 bits)
+//
+// For example:
+//               id[23:12]
+//        Ncontacts  |   index[19:0]
+//         vvvvvvvv //\  /||\\.
+// 200000  00 40 00 5a d0 00 01 5a e0 10 00 5a f0 20 00 5b  .@.Z...Z...Z. .[
+// 200010  00 30 00 5b 10 40 00 ff ff ff ff ff ff ff ff ff  .0.[.@..........
+// 200020  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff  ................
+// *
+// 204000  ff ff ff
+//
+static void build_callsign_index(uint8_t *mem, int nrecords)
+{
+    uint8_t *p;
+    int index;
+
+    // Number of contacts.
+    mem[0] = nrecords >> 16;
+    mem[1] = nrecords >> 8;
+    mem[2] = nrecords;
+
+    // Callsign index starting from 1.
+    index = 1;
+
+    p = &mem[3];
+    for (;;) {
+        int id = GET_CALLSIGN(mem, index-1)->dmrid;
+
+        // Add index item.
+        *p++ = id >> 16;
+        *p++ = ((id >> 8) & 0xf0) | (index >> 16);
+        *p++ = index >> 8;
+        *p++ = index;
+
+        // Skip callsigns with the same id[23:12].
+        do {
+            index++;
+            if (index > nrecords)
+                return;
+        } while ((GET_CALLSIGN(mem, index-1)->dmrid >> 12) == (id >> 12));
+    }
+}
+
+//
 // Write CSV file to contacts database.
 //
 static void uv380_write_csv(radio_device_t *radio, FILE *csv)
@@ -2462,10 +2514,11 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
     }
     fprintf(stderr, "Total %d contacts.\n", nrecords);
 
-    // Number of contacts.
-    mem[0] = nrecords >> 16;
-    mem[1] = nrecords >> 8;
-    mem[2] = nrecords;
+    build_callsign_index(mem, nrecords);
+#if 0
+    print_hex(mem, 0x4003);
+    exit(0);
+#endif
 
     // Align to 1kbyte.
     finish = CALLSIGN_START + (CALLSIGN_OFFSET + nrecords*120 + 1023) / 1024 * 1024;
