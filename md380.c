@@ -1373,7 +1373,11 @@ static void md380_parse_parameter(radio_device_t *radio, char *param, char *valu
     general_settings_t *gs = GET_SETTINGS();
 
     if (strcasecmp("Radio", param) == 0) {
-        if (strcasecmp(radio->name, value) != 0) {
+        // Accept any of compatible identifiers.
+        if (strcasecmp("TYT MD-380", value) != 0 &&
+            strcasecmp("Zastone D900", value) != 0 &&
+            strcasecmp("Zastone DP880", value) != 0 &&
+            strcasecmp("Radtel RT-27D", value) != 0) {
             fprintf(stderr, "Bad value for %s: %s\n", param, value);
             exit(-1);
         }
