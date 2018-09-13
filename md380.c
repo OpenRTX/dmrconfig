@@ -1206,7 +1206,7 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
             fprintf(out, "%5d   ", i+1);
             print_unicode(out, ct->name, 16, 1);
             fprintf(out, " %-7s %-8d %s\n",
-                CONTACT_TYPE[ct->type], CONTACT_ID(ct), ct->receive_tone ? "+" : "-");
+                CONTACT_TYPE[ct->type & 3], CONTACT_ID(ct), ct->receive_tone ? "+" : "-");
         }
     }
 

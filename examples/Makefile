@@ -12,7 +12,7 @@ VPATH = ../../dmrconfig.wiki/files
 all:    $(CONF)
 
 clean:
-	rm -f *.conf
+	rm -f $(CONF)
 
 .SUFFIXES: .conf .rdt
 
