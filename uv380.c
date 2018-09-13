@@ -34,6 +34,8 @@
 #include "radio.h"
 #include "util.h"
 
+//#define PRINT_EXTENDED_PARAMS
+
 #define NCHAN           3000
 #define NCONTACTS       10000
 #define NZONES          250
@@ -204,12 +206,11 @@ typedef struct {
 #define CONTACT_ID(ct) ((ct)->id[0] | ((ct)->id[1] << 8) | ((ct)->id[2] << 16))
 
     // Byte 3
-    uint8_t type                : 2,    // Call Type: Group Call, Private Call or All Call
+    uint8_t type                : 5,    // Call Type: Group Call, Private Call or All Call
 #define CALL_GROUP      1
 #define CALL_PRIVATE    2
 #define CALL_ALL        3
 
-            _unused1            : 3,    // 0
             receive_tone        : 1,    // Call Receive Tone: No or yes
             _unused2            : 2;    // 0b11
 
@@ -365,7 +366,7 @@ static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
 static const char *ADMIT_NAME[] = { "-", "Free", "Tone", "Color" };
 static const char *INCALL_NAME[] = { "-", "Admit", "TXInt", "Admit" };
 
-#ifdef PRINT_RARE_PARAMS
+#ifdef PRINT_EXTENDED_PARAMS
 static const char *REF_FREQUENCY[] = { "Low", "Med", "High" };
 static const char *PRIVACY_NAME[] = { "-", "Basic", "Enhanced" };
 static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DTMF-4" };
@@ -876,7 +877,7 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
     fprintf(out, "%-6s ", ADMIT_NAME[ch->admit_criteria]);
 }
 
-#ifdef PRINT_RARE_PARAMS
+#ifdef PRINT_EXTENDED_PARAMS
 //
 // Print extended parameters of the channel:
 //      TOT Rekey Delay
@@ -919,8 +920,8 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "#\n");
     }
     fprintf(out, "Digital Name             Receive   Transmit Power Scan AS TOT RO Admit  Color Slot InCall RxGL TxContact");
-#ifdef PRINT_RARE_PARAMS
-    fprintf(out, " Dly RxRef TxRef LW VOX EmSys Privacy  PN PCC EAA DCC DCDM");
+#ifdef PRINT_EXTENDED_PARAMS
+    fprintf(out, "Sq Dly RxRef TxRef LW VOX EmSys Privacy  PN PCC EAA DCC DCDM");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
@@ -951,10 +952,11 @@ static void print_digital_channels(FILE *out, int verbose)
         else
             fprintf(out, "%-5d", ch->contact_name_index);
 
-#ifdef PRINT_RARE_PARAMS
+#ifdef PRINT_EXTENDED_PARAMS
         print_chan_ext(out, ch);
 
         // Extended digital parameters of the channel:
+        //      Squelch
         //      Emergency System
         //      Privacy
         //      Privacy No. (+1)
@@ -963,6 +965,11 @@ static void print_digital_channels(FILE *out, int verbose)
         //      Data Call Confirmed
         //      DCDM switch (inverted)
         //      Leader/MS
+        if (ch->squelch <= 9)
+            fprintf(out, "%1d  ", ch->squelch);
+        else
+            fprintf(out, "1  ");
+
         if (ch->emergency_system_index == 0)
             fprintf(out, "-     ");
         else
@@ -1019,7 +1026,7 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "#\n");
     }
     fprintf(out, "Analog  Name             Receive   Transmit Power Scan AS TOT RO Admit  Sq RxTone TxTone Width");
-#ifdef PRINT_RARE_PARAMS
+#ifdef PRINT_EXTENDED_PARAMS
     fprintf(out, " Dly RxRef TxRef LW VOX RxSign TxSign ID TOFreq");
 #endif
     fprintf(out, "\n");
@@ -1047,7 +1054,7 @@ static void print_analog_channels(FILE *out, int verbose)
         print_tone(out, ch->ctcss_dcs_transmit);
         fprintf(out, "  %s", BANDWIDTH[ch->bandwidth]);
 
-#ifdef PRINT_RARE_PARAMS
+#ifdef PRINT_EXTENDED_PARAMS
         print_chan_ext(out, ch);
 
         // Extended analog parameters of the channel:
@@ -1213,7 +1220,7 @@ static void uv380_print_config(radio_device_t *radio, FILE *out, int verbose)
             fprintf(out, "#\n");
         }
         fprintf(out, "Scanlist Name             PCh1 PCh2 TxCh ");
-#ifdef PRINT_RARE_PARAMS
+#ifdef PRINT_EXTENDED_PARAMS
         fprintf(out, "Hold Smpl ");
 #endif
         fprintf(out, "Channels\n");
@@ -1248,7 +1255,7 @@ static void uv380_print_config(radio_device_t *radio, FILE *out, int verbose)
             } else {
                 fprintf(out, "%-4d ", sl->tx_designated_ch);
             }
-#ifdef PRINT_RARE_PARAMS
+#ifdef PRINT_EXTENDED_PARAMS
             fprintf(out, "%-4d %-4d ",
                 sl->sign_hold_time * 25, sl->prio_sample_time * 250);
 #endif
