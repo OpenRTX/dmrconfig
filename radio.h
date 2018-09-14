@@ -88,6 +88,11 @@ void radio_write_csv(const char *filename);
 void radio_list(void);
 
 //
+// Check for compatible radio model.
+//
+int radio_is_compatible(const char *ident);
+
+//
 // Device-dependent interface to the radio.
 //
 typedef struct _radio_device_t radio_device_t;

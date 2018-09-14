@@ -340,3 +340,20 @@ void radio_write_csv(const char *filename)
     device->write_csv(device, csv);
     fclose(csv);
 }
+
+//
+// Check for compatible radio model.
+//
+int radio_is_compatible(const char *name)
+{
+    int i;
+
+    for (i=0; radio_tab[i].ident; i++) {
+        // Radio is compatible when it has the same parse routine.
+        if (device->parse_parameter == radio_tab[i].device->parse_parameter &&
+            strcasecmp(name, radio_tab[i].device->name) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}

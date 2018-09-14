@@ -1466,12 +1466,8 @@ static void uv380_parse_parameter(radio_device_t *radio, char *param, char *valu
     general_settings_t *gs = GET_SETTINGS();
 
     if (strcasecmp("Radio", param) == 0) {
-        // Accept any of compatible identifiers.
-        if (strcasecmp("TYT MD-2017", value) != 0 &&
-            strcasecmp("TYT MD-UV380", value) != 0 &&
-            strcasecmp("TYT MD-UV390", value) != 0 &&
-            strcasecmp("TYT MD-9600", value) != 0) {
-            fprintf(stderr, "Bad value for %s: %s\n", param, value);
+        if (!radio_is_compatible(value)) {
+            fprintf(stderr, "Incompatible model: %s\n", value);
             exit(-1);
         }
         return;
