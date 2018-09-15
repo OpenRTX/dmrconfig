@@ -47,6 +47,7 @@ static struct {
     { "ZD3688",     &radio_d900 },      // Zastone D900
     { "TP660",      &radio_dp880 },     // Zastone DP880
     { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
+    { "BF-5R",      &radio_rd5r },      // Baofengl RD-5R
     { 0, 0 }
 };
 
@@ -180,6 +181,9 @@ void radio_read_image(const char *filename)
     case 262144:
     case 262709:
         device = &radio_md380;
+        break;
+    case 131072:
+        device = &radio_rd5r;
         break;
     default:
         fprintf(stderr, "%s: Unrecognized file size %u bytes.\n",
