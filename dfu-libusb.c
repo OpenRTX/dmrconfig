@@ -430,6 +430,8 @@ void dfu_reboot()
 {
     unsigned char cmd[2] = { 0x91, 0x05 };
 
+    if (! ctx)
+        return;
     if (trace_flag) {
         printf("--- Send DNLOAD [2] ");
         print_hex(cmd, 2);

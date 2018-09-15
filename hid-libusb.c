@@ -32,10 +32,19 @@
 #include <libusb-1.0/libusb.h>
 #include "util.h"
 
+static const unsigned char CMD_PRG[]  = "\2PROGRA";
+static const unsigned char CMD_PRG2[] = "M\2";
+static const unsigned char CMD_ACK[]  = "A";
+static const unsigned char CMD_READ[] = "Raan";
+static const unsigned char CMD_ENDR[] = "ENDR";
+static const unsigned char CMD_CWB0[] = "CWB\4\0\0\0\0";
+static const unsigned char CMD_CWB1[] = "CWB\4\0\1\0\0";
+
 static libusb_context *ctx = NULL;          // libusb context
 static libusb_device_handle *dev;           // libusb device
 static unsigned char receive_buf[42];       // receive buffer
 static volatile int nbytes_received = 0;    // receive result
+static unsigned offset = 0;                 // CWD offset
 
 #define HID_INTERFACE   0                   // interface index
 #define TIMEOUT_MSEC    500                 // receive timeout
@@ -226,30 +235,28 @@ const char *hid_init(unsigned vid, unsigned pid)
         exit(-1);
     }
 
-    static const unsigned char CMD_PRG[]  = "\2PROGRA";
-    static const unsigned char CMD_PRG2[] = "M\2";
-    static const unsigned char CMD_ACK    = 0x41;
     static unsigned char reply[38];
+    unsigned char ack;
 
-    hid_send_recv(CMD_PRG, 7, reply, 1);
-    if (reply[0] != CMD_ACK) {
-        fprintf(stderr, "Wrong reply %#x, expected %#x\n", reply[0], CMD_ACK);
+    hid_send_recv(CMD_PRG, 7, &ack, 1);
+    if (ack != CMD_ACK[0]) {
+        fprintf(stderr, "%s: Wrong PRD acknowledge %#x, expected %#x\n",
+            __func__, ack, CMD_ACK[0]);
         return 0;
     }
 
     hid_send_recv(CMD_PRG2, 2, reply, 16);
 
-// ---Send 01 00 07 00 02 50 52 4f 47 52 41
-// ---Recv 03 00 01 00 41 00 00 00 00 00 00 00 00 00 00 00
-//         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-//         00 00 00 00 00 00 00 00 00 00
-// ---Send 01 00 02 00 4d 02
-// ---Recv 03 00 10 00 42 46 2d 35 52 ff ff ff 56 32 31 30
-//         00 04 80 04 00 00 00 00 00 00 00 00 00 00 00 00
-//         00 00 00 00 00 00 00 00 00 00
+    hid_send_recv(CMD_ACK, 1, &ack, 1);
+    if (ack != CMD_ACK[0]) {
+        fprintf(stderr, "%s: Wrong PRG2 acknowledge %#x, expected %#x\n",
+            __func__, ack, CMD_ACK[0]);
+        return 0;
+    }
 
-// 42 46 2d 35 52 ff ff ff 56 32 31 30 00 04 80 04
-//  B  F  -  5  R           V  2  1  0
+    // Reply:
+    // 42 46 2d 35 52 ff ff ff 56 32 31 30 00 04 80 04
+    //  B  F  -  5  R           V  2  1  0
 
     // Terminate the string.
     char *p = memchr(reply, 0xff, sizeof(reply));
@@ -260,10 +267,56 @@ const char *hid_init(unsigned vid, unsigned pid)
 
 void hid_close()
 {
-    if (ctx) {
-        libusb_release_interface(dev, HID_INTERFACE);
-        libusb_close(dev);
-        libusb_exit(ctx);
-        ctx = 0;
+    if (!ctx)
+        return;
+
+    libusb_release_interface(dev, HID_INTERFACE);
+    libusb_close(dev);
+    libusb_exit(ctx);
+    ctx = 0;
+}
+
+void hid_read_block(int bno, uint8_t *data, int nbytes)
+{
+    unsigned addr = bno * nbytes;
+    unsigned char ack, cmd[4], reply[32+4];
+    int n;
+
+    if (addr < 0x10000 && offset != 0) {
+        offset = 0;
+        hid_send_recv(CMD_CWB0, 8, &ack, 1);
+        if (ack != CMD_ACK[0]) {
+            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
+                __func__, ack, CMD_ACK[0]);
+            exit(-1);
+        }
+    } else if (addr >= 0x10000 && offset == 0) {
+        offset = 0x00010000;
+        hid_send_recv(CMD_CWB1, 8, &ack, 1);
+        if (ack != CMD_ACK[0]) {
+            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
+                __func__, ack, CMD_ACK[0]);
+            exit(-1);
+        }
+    }
+
+    for (n=0; n<nbytes; n+=32) {
+        cmd[0] = CMD_READ[0];
+        cmd[1] = (addr + n) >> 8;
+        cmd[2] = addr + n;
+        cmd[3] = 32;
+        hid_send_recv(cmd, 4, reply, sizeof(reply));
+        memcpy(data + n, reply + 4, 32);
+    }
+}
+
+void hid_read_finish()
+{
+    unsigned char ack;
+
+    hid_send_recv(CMD_ENDR, 4, &ack, 1);
+    if (ack != CMD_ACK[0]) {
+        fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
+            __func__, ack, CMD_ACK[0]);
     }
 }

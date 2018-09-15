@@ -365,20 +365,18 @@ static void rd5r_print_version(radio_device_t *radio, FILE *out)
 //
 static void rd5r_download(radio_device_t *radio)
 {
-    //TODO
-#if 0
     int bno;
 
     for (bno=0; bno<MEMSZ/1024; bno++) {
-        dfu_read_block(bno, &radio_mem[bno*1024], 1024);
+        hid_read_block(bno, &radio_mem[bno*1024], 1024);
 
         ++radio_progress;
-        if (radio_progress % 32 == 0) {
+        if (radio_progress % 4 == 0) {
             fprintf(stderr, "#");
             fflush(stderr);
         }
     }
-#endif
+    hid_read_finish();
 }
 
 //

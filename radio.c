@@ -66,6 +66,7 @@ void radio_disconnect()
     // Restore the normal radio mode.
     dfu_reboot();
     dfu_close();
+    hid_close();
 }
 
 //

@@ -71,6 +71,8 @@ void dfu_reboot(void);
 const char *hid_init(unsigned vid, unsigned pid);
 void hid_close(void);
 int hid_write_read(const unsigned char *data, unsigned length, unsigned char *reply, unsigned rlength);
+void hid_read_block(int bno, unsigned char *data, int nbytes);
+void hid_read_finish(void);
 
 //
 // Delay in milliseconds.
