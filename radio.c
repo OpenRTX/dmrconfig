@@ -80,9 +80,20 @@ void radio_print_version(FILE *out)
 //
 void radio_connect()
 {
-    // Only TYT MD family for now.
-    const char *ident = dfu_init(0x0483, 0xdf11);
+    const char *ident;
     int i;
+
+    // Try TYT MD family.
+    ident = dfu_init(0x0483, 0xdf11);
+    if (! ident) {
+        // Try RD-5R.
+        ident = hid_init(0x15a2, 0x0073);
+    }
+    if (! ident) {
+        fprintf(stderr, "No radio detected.\n");
+        fprintf(stderr, "Check your USB cable!\n");
+        exit(-1);
+    }
 
     for (i=0; radio_tab[i].ident; i++) {
         if (strcasecmp(ident, radio_tab[i].ident) == 0) {

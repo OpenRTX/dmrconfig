@@ -2,15 +2,17 @@ CC		= gcc
 
 VERSION         = 0.7
 GITCOUNT        = $(shell git rev-list HEAD --count)
+UNAME           = $(shell uname)
 CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -g
 
 OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o
 LIBS            = -lusb-1.0
 
-# Mac OS X
-#CFLAGS          += -I/usr/local/opt/gettext/include
-#LIBS            += -L/usr/local/opt/gettext/lib -lintl
+# Linux
+ifeq ($(UNAME),Linux)
+    OBJS        += hid-libusb.o
+endif
 
 all:		dmrconfig
 

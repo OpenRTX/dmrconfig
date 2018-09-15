@@ -66,6 +66,13 @@ void dfu_write_block(int bno, unsigned char *data, int nbytes);
 void dfu_reboot(void);
 
 //
+// HID functions.
+//
+const char *hid_init(unsigned vid, unsigned pid);
+void hid_close(void);
+int hid_write_read(const unsigned char *data, unsigned length, unsigned char *reply, unsigned rlength);
+
+//
 // Delay in milliseconds.
 //
 void mdelay(unsigned msec);

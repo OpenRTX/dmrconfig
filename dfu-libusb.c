@@ -291,11 +291,13 @@ const char *dfu_init(unsigned vid, unsigned pid)
 
     dev = libusb_open_device_with_vid_pid(ctx, vid, pid);
     if (!dev) {
-        fprintf(stderr, "Cannot find USB device %04x:%04x\n",
-            vid, pid);
+        if (trace_flag) {
+            fprintf(stderr, "Cannot find USB device %04x:%04x\n",
+                vid, pid);
+        }
         libusb_exit(ctx);
         ctx = 0;
-        exit(-1);
+        return 0;
     }
     if (libusb_kernel_driver_active(dev, 0)) {
         libusb_detach_kernel_driver(dev, 0);
