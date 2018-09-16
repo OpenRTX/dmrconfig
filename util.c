@@ -245,6 +245,29 @@ void print_unicode(FILE *out, const unsigned short *text, unsigned nchars, int f
 }
 
 //
+// Print ASCII text until 0xff.
+// For short texts, replace space with underscore.
+//
+void print_ascii(FILE *out, const unsigned char *text, unsigned nchars, int fill_flag)
+{
+    unsigned i, ch;
+
+    for (i=0; i<nchars && *text != 0xff; i++) {
+        ch = *text++;
+        if (ch == '\t')
+            ch = ' ';
+        if (nchars <= 16 && ch == ' ')
+            ch = '_';
+        putc(ch, out);
+    }
+    if (fill_flag) {
+        for (; i<nchars; i++) {
+            putc(' ', out);
+        }
+    }
+}
+
+//
 // Get local time in format: YYYYMMDDhhmmss
 //
 void get_timestamp(char p[16])

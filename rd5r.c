@@ -35,38 +35,40 @@
 #include "util.h"
 
 #define NCHAN           1000    //TODO
-#define NCONTACTS       1000    //TODO
+#define NCONTACTS       256
 #define NZONES          250     //TODO
 #define NGLISTS         250     //TODO
 #define NSCANL          250     //TODO
-#define NMESSAGES       50      //TODO
+#define NMESSAGES       32
 
 #define MEMSZ           0x20000
-#define OFFSET_TIMESTMP 0x02001 //TODO
-#define OFFSET_SETTINGS 0x02040 //TODO
-#define OFFSET_MSG      0x02180 //TODO
-#define OFFSET_CONTACTS 0x05f80 //TODO
+#define OFFSET_TIMESTMP 0x00088
+#define OFFSET_SETTINGS 0x000e0
+#define OFFSET_INTRO    0x07540
+#define OFFSET_MSG      0x00170
+#define OFFSET_CONTACTS 0x01788
 #define OFFSET_GLISTS   0x0ec20 //TODO
 #define OFFSET_ZONES    0x149e0 //TODO
-#define OFFSET_SCANL    0x18860 //TODO
+#define OFFSET_SCANL    0x1ccb8
 #define OFFSET_CHANNELS 0x1ee00 //TODO
 
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
+#define GET_INTRO()         ((intro_text_t*) &radio_mem[OFFSET_INTRO])
 #define GET_CHANNEL(i)      ((channel_t*) &radio_mem[OFFSET_CHANNELS + (i)*64])
 #define GET_ZONE(i)         ((zone_t*) &radio_mem[OFFSET_ZONES + (i)*64])
 #define GET_ZONEXT(i)       ((zone_ext_t*) &radio_mem[OFFSET_ZONEXT + (i)*224])
 #define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANL + (i)*104])
-#define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*36])
+#define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*24])
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*96])
-#define GET_MESSAGE(i)      ((uint16_t*) &radio_mem[OFFSET_MSG + (i)*288])
+#define GET_MESSAGE(i)      (&radio_mem[OFFSET_MSG + (i)*144])
 
-#define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xffff)
+#define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
 #define VALID_CHANNEL(ch)   VALID_TEXT((ch)->name)
 #define VALID_ZONE(z)       VALID_TEXT((z)->name)
 #define VALID_SCANLIST(sl)  VALID_TEXT((sl)->name)
 #define VALID_GROUPLIST(gl) VALID_TEXT((gl)->name)
-#define VALID_CONTACT(ct)   ((ct)->type != 0 && VALID_TEXT((ct)->name))
+#define VALID_CONTACT(ct)   VALID_TEXT((ct)->name)
 
 //
 // Channel data.
@@ -184,21 +186,32 @@ typedef struct {
 // Contact data.
 //
 typedef struct {
-    // Bytes 0-2
-    uint8_t id[3];                      // Call ID: 1...16777215
-#define CONTACT_ID(ct) ((ct)->id[0] | ((ct)->id[1] << 8) | ((ct)->id[2] << 16))
+    // Bytes 0-15
+    uint8_t name[16];                   // Contact Name, ff terminated
 
-    // Byte 3
-    uint8_t type                : 5,    // Call Type: Group Call, Private Call or All Call
-#define CALL_GROUP      1
-#define CALL_PRIVATE    2
-#define CALL_ALL        3
+    // Bytes 16-19
+    uint8_t id[4];                      // BCD coded 8 digits
+#define GET_ID(x) (((x)[0] >> 4) * 10000000 +\
+                   ((x)[0] & 15) * 1000000 +\
+                   ((x)[1] >> 4) * 100000 +\
+                   ((x)[1] & 15) * 10000 +\
+                   ((x)[2] >> 4) * 1000 +\
+                   ((x)[2] & 15) * 100 +\
+                   ((x)[3] >> 4) * 10 +\
+                   ((x)[3] & 15))
+#define CONTACT_ID(ct) GET_ID((ct)->id)
 
-            receive_tone        : 1,    // Call Receive Tone: No or yes
-            _unused2            : 2;    // 0b11
+    // Byte 20
+    uint8_t type;                       // Call Type: Group Call, Private Call or All Call
+#define CALL_GROUP      0
+#define CALL_PRIVATE    1
+#define CALL_ALL        2
 
-    // Bytes 4-19
-    uint16_t name[16];                  // Contact Name (Unicode)
+    // Bytes 21-23
+    uint8_t receive_tone;               // Call Receive Tone: 0=Off, 1=On
+    uint8_t ring_style;                 // Ring style: 0-10
+    uint8_t _unused;                    // 0xff for used contact, 0 for blank entry
+
 } contact_t;
 
 //
@@ -250,85 +263,29 @@ typedef struct {
 // TODO: verify the general settings with official CPS
 //
 typedef struct {
+    // Bytes e0-e7
+    uint8_t radio_name[8];
 
-    // Bytes 0-19
-    uint16_t intro_line1[10];
-
-    // Bytes 20-39
-    uint16_t intro_line2[10];
-
-    // Bytes 40-63
-    uint8_t  _unused40[24];
-
-    // Byte 64
-    uint8_t  _unused64_0                : 3,
-             monitor_type               : 1,
-             _unused64_4                : 1,
-             disable_all_leds           : 1,
-             _unused64_6                : 2;
-
-    // Byte 65
-    uint8_t  talk_permit_tone           : 2,
-             pw_and_lock_enable         : 1,
-             ch_free_indication_tone    : 1,
-             _unused65_4                : 1,
-             disable_all_tones          : 1,
-             save_mode_receive          : 1,
-             save_preamble              : 1;
-
-    // Byte 66
-    uint8_t  _unused66_0                : 2,
-             keypad_tones               : 1,
-             intro_picture              : 1,
-             _unused66_4                : 4;
-
-    // Byte 67
-    uint8_t  _unused67;
-
-    // Bytes 68-71
+    // Bytes e8-eb
     uint8_t  radio_id[3];
-    uint8_t  _unused71;
-
-    // Bytes 72-84
-    uint8_t  tx_preamble_duration;
-    uint8_t  group_call_hang_time;
-    uint8_t  private_call_hang_time;
-    uint8_t  vox_sensitivity;
-    uint8_t  _unused76[2];
-    uint8_t  rx_low_battery_interval;
-    uint8_t  call_alert_tone_duration;
-    uint8_t  lone_worker_response_time;
-    uint8_t  lone_worker_reminder_time;
-    uint8_t  _unused82;
-    uint8_t  scan_digital_hang_time;
-    uint8_t  scan_analog_hang_time;
-
-    // Byte 85
-    uint8_t  _unused85_0                : 6,
-             backlight_time             : 2;
-
-    // Bytes 86-87
-    uint8_t  set_keypad_lock_time;
-    uint8_t  mode;
-
-    // Bytes 88-95
-    uint32_t power_on_password;
-    uint32_t radio_prog_password;
-
-    // Bytes 96-103
-    uint8_t  pc_prog_password[8];
-
-    // Bytes 104-111
-    uint8_t  _unused104[8];
-
-    // Bytes 112-143
-    uint16_t radio_name[16];
 } general_settings_t;
+
+//
+// General settings.
+// TODO: verify the general settings with official CPS
+//
+typedef struct {
+    // Bytes 7540-754f
+    uint8_t intro_line1[16];
+
+    // Bytes 7550-755f
+    uint8_t intro_line2[16];
+} intro_text_t;
 
 static const char *POWER_NAME[] = { "Low", "High" };
 static const char *SQUELCH_NAME[] = { "Tight", "Normal" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25", "25" };
-static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
+static const char *CONTACT_TYPE[] = {"Group", "Private", "All", "???" };
 static const char *ADMIT_NAME[] = { "-", "Free", "Tone", "Color" };
 static const char *INCALL_NAME[] = { "-", "Admit", "-", "Admit" };
 
@@ -343,20 +300,14 @@ static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DT
 //
 static void rd5r_print_version(radio_device_t *radio, FILE *out)
 {
-    //TODO
     unsigned char *timestamp = GET_TIMESTAMP();
-    static const char charmap[16] = "0123456789:;<=>?";
 
     if (*timestamp != 0xff) {
         fprintf(out, "Last Programmed Date: %d%d%d%d-%d%d-%d%d",
             timestamp[0] >> 4, timestamp[0] & 15, timestamp[1] >> 4, timestamp[1] & 15,
             timestamp[2] >> 4, timestamp[2] & 15, timestamp[3] >> 4, timestamp[3] & 15);
-        fprintf(out, " %d%d:%d%d:%d%d\n",
-            timestamp[4] >> 4, timestamp[4] & 15, timestamp[5] >> 4, timestamp[5] & 15,
-            timestamp[6] >> 4, timestamp[6] & 15);
-        fprintf(out, "CPS Software Version: V%c%c.%c%c\n",
-            charmap[timestamp[7] & 15], charmap[timestamp[8] & 15],
-            charmap[timestamp[9] & 15], charmap[timestamp[10] & 15]);
+        fprintf(out, " %d%d:%d%d\n",
+            timestamp[4] >> 4, timestamp[4] & 15, timestamp[5] >> 4, timestamp[5] & 15);
     }
 }
 
@@ -547,21 +498,24 @@ static void erase_contact(int index)
 {
     contact_t *ct = GET_CONTACT(index);
 
-    memset(ct, 0, 36);
-    *(uint32_t*)ct = 0xffffffff;
+    memset(ct->name, 0xff, 16);
+    memset(ct->id, 0, 8);
 }
 
 static void setup_contact(int index, const char *name, int type, int id, int rxtone)
 {
     contact_t *ct = GET_CONTACT(index);
+    int len = strlen(name);
 
     ct->id[0]        = id;
     ct->id[1]        = id >> 8;
     ct->id[2]        = id >> 16;
     ct->type         = type;
     ct->receive_tone = rxtone;
+    ct->ring_style   = 0; // TODO
+    ct->_unused      = 0xff;
 
-    utf8_decode(ct->name, name, 16);
+    memcpy(ct->name, name, len < 16 ? len : 16);
 }
 
 static void setup_grouplist(int index, const char *name)
@@ -596,12 +550,14 @@ static int grouplist_append(int index, int cnum)
 //
 static void setup_message(int index, const char *text)
 {
-    uint16_t *msg = GET_MESSAGE(index);
+    uint8_t *msg = GET_MESSAGE(index);
+    int len;
 
     // Skip spaces and tabs.
     while (*text == ' ' || *text == '\t')
         text++;
-    utf8_decode(msg, text, 144);
+    len = strlen(text);
+    memcpy(msg, text, len < 144 ? len : 144);
 }
 
 //
@@ -772,13 +728,13 @@ static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
 static void print_id(FILE *out, int verbose)
 {
     general_settings_t *gs = GET_SETTINGS();
-    unsigned id = gs->radio_id[0] | (gs->radio_id[1] << 8) | (gs->radio_id[2] << 16);
+    unsigned id = GET_ID(gs->radio_id);
 
     if (verbose)
         fprintf(out, "\n# Unique DMR ID and name of this radio.");
     fprintf(out, "\nID: %u\nName: ", id);
     if (VALID_TEXT(gs->radio_name)) {
-        print_unicode(out, gs->radio_name, 16, 0);
+        print_ascii(out, gs->radio_name, 8, 0);
     } else {
         fprintf(out, "-");
     }
@@ -787,19 +743,19 @@ static void print_id(FILE *out, int verbose)
 
 static void print_intro(FILE *out, int verbose)
 {
-    general_settings_t *gs = GET_SETTINGS();
+    intro_text_t *it = GET_INTRO();
 
     if (verbose)
         fprintf(out, "\n# Text displayed when the radio powers up.\n");
     fprintf(out, "Intro Line 1: ");
-    if (VALID_TEXT(gs->intro_line1)) {
-        print_unicode(out, gs->intro_line1, 10, 0);
+    if (VALID_TEXT(it->intro_line1)) {
+        print_ascii(out, it->intro_line1, 16, 0);
     } else {
         fprintf(out, "-");
     }
     fprintf(out, "\nIntro Line 2: ");
-    if (VALID_TEXT(gs->intro_line2)) {
-        print_unicode(out, gs->intro_line2, 10, 0);
+    if (VALID_TEXT(it->intro_line2)) {
+        print_ascii(out, it->intro_line2, 16, 0);
     } else {
         fprintf(out, "-");
     }
@@ -972,7 +928,7 @@ static void print_digital_channels(FILE *out, int verbose)
             contact_t *ct = GET_CONTACT(ch->contact_name_index - 1);
             if (VALID_CONTACT(ct)) {
                 fprintf(out, " # ");
-                print_unicode(out, ct->name, 16, 0);
+                print_ascii(out, ct->name, 16, 0);
             }
         }
         fprintf(out, "\n");
@@ -1098,7 +1054,7 @@ static int have_messages()
     int i;
 
     for (i=0; i<NMESSAGES; i++) {
-        uint16_t *msg = GET_MESSAGE(i);
+        uint8_t *msg = GET_MESSAGE(i);
 
         if (VALID_TEXT(msg))
             return 1;
@@ -1250,7 +1206,7 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
             }
 
             fprintf(out, "%5d   ", i+1);
-            print_unicode(out, ct->name, 16, 1);
+            print_ascii(out, ct->name, 16, 1);
             fprintf(out, " %-7s %-8d %s\n",
                 CONTACT_TYPE[ct->type & 3], CONTACT_ID(ct), ct->receive_tone ? "+" : "-");
         }
@@ -1302,7 +1258,7 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Message Text\n");
         for (i=0; i<NMESSAGES; i++) {
-            uint16_t *msg = GET_MESSAGE(i);
+            uint8_t *msg = GET_MESSAGE(i);
 
             if (!VALID_TEXT(msg)) {
                 // Message is disabled
@@ -1310,7 +1266,7 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
             }
 
             fprintf(out, "%5d   ", i+1);
-            print_unicode(out, msg, 144, 0);
+            print_ascii(out, msg, 144, 0);
             fprintf(out, "\n");
         }
     }
@@ -1407,8 +1363,6 @@ static void erase_contacts()
 //
 static void rd5r_parse_parameter(radio_device_t *radio, char *param, char *value)
 {
-    general_settings_t *gs = GET_SETTINGS();
-
     if (strcasecmp("Radio", param) == 0) {
         if (!radio_is_compatible(value)) {
             fprintf(stderr, "Incompatible model: %s\n", value);
@@ -1416,6 +1370,8 @@ static void rd5r_parse_parameter(radio_device_t *radio, char *param, char *value
         }
         return;
     }
+#if 0
+    general_settings_t *gs = GET_SETTINGS();
     if (strcasecmp ("Name", param) == 0) {
         utf8_decode(gs->radio_name, value, 16);
         return;
@@ -1443,6 +1399,7 @@ static void rd5r_parse_parameter(radio_device_t *radio, char *param, char *value
         utf8_decode(gs->intro_line2, value, 10);
         return;
     }
+#endif
     fprintf(stderr, "Unknown parameter: %s = %s\n", param, value);
     exit(-1);
 }

@@ -135,6 +135,7 @@ void putc_utf8(unsigned short ch, FILE *out);
 // Print utf16 text as utf8.
 //
 void print_unicode(FILE *out, const unsigned short *text, unsigned nchars, int fill_flag);
+void print_ascii(FILE *out, const unsigned char *text, unsigned nchars, int fill_flag);
 
 //
 // Fetch Unicode symbol from UTF-8 string.
