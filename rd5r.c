@@ -367,16 +367,29 @@ static void rd5r_download(radio_device_t *radio)
 {
     int bno;
 
-    for (bno=0; bno<MEMSZ/1024; bno++) {
-        hid_read_block(bno, &radio_mem[bno*1024], 1024);
+    // Read range 0x80...0x1e29f.
+    for (bno=1; bno<966; bno++) {
+        if (bno >= 248 && bno < 256) {
+            // Skip range 0x7c00...0x8000.
+            continue;
+        }
+        hid_read_block(bno, &radio_mem[bno*128], 128);
 
         ++radio_progress;
-        if (radio_progress % 4 == 0) {
+        if (radio_progress % 32 == 0) {
             fprintf(stderr, "#");
             fflush(stderr);
         }
     }
     hid_read_finish();
+
+    // Add header.
+    memset(&radio_mem[0], 0xff, 128);
+    memcpy(&radio_mem[0], "BF-5R", 5);
+
+    // Clear footer.
+    memset(&radio_mem[966*128], 0xff, MEMSZ - 966*128);
+    memset(&radio_mem[248*128], 0xff, 8*128);
 }
 
 //
@@ -407,7 +420,7 @@ static void rd5r_upload(radio_device_t *radio, int cont_flag)
 //
 static int rd5r_is_compatible(radio_device_t *radio)
 {
-    return 1;
+    return strncmp("BF-5R", (char*)&radio_mem[0], 5) == 0;
 }
 
 //

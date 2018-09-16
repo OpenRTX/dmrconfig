@@ -129,8 +129,10 @@ void radio_list()
 void radio_download()
 {
     radio_progress = 0;
-    if (! trace_flag)
+    if (! trace_flag) {
         fprintf(stderr, "Read device: ");
+        fflush(stderr);
+    }
 
     device->download(device);
 
