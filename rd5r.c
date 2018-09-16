@@ -363,7 +363,7 @@ static void rd5r_print_version(radio_device_t *radio, FILE *out)
 //
 // Read memory image from the device.
 //
-static void rd5r_download(radio_device_t *radio)
+static void download(radio_device_t *radio)
 {
     int bno;
 
@@ -383,13 +383,32 @@ static void rd5r_download(radio_device_t *radio)
     }
     //hid_read_finish();
 
-    // Add header.
+    // Clear header and footer.
     memset(&radio_mem[0], 0xff, 128);
-    memcpy(&radio_mem[0], "BF-5R", 5);
-
-    // Clear footer.
     memset(&radio_mem[966*128], 0xff, MEMSZ - 966*128);
     memset(&radio_mem[248*128], 0xff, 8*128);
+}
+
+//
+// Baofeng RD-5R: read memory image.
+//
+static void rd5r_download(radio_device_t *radio)
+{
+    download(radio);
+
+    // Add header.
+    memcpy(&radio_mem[0], "BF-5R", 5);
+}
+
+//
+// Radioddity GD-77: read memory image.
+//
+static void gd77_download(radio_device_t *radio)
+{
+    download(radio);
+
+    // Add header.
+    memcpy(&radio_mem[0], "MD-760P", 7);
 }
 
 //
@@ -422,6 +441,14 @@ static void rd5r_upload(radio_device_t *radio, int cont_flag)
 static int rd5r_is_compatible(radio_device_t *radio)
 {
     return strncmp("BF-5R", (char*)&radio_mem[0], 5) == 0;
+}
+
+//
+// Check whether the memory image is compatible with this device.
+//
+static int gd77_is_compatible(radio_device_t *radio)
+{
+    return strncmp("MD-760P", (char*)&radio_mem[0], 7) == 0;
 }
 
 //
@@ -2284,6 +2311,25 @@ radio_device_t radio_rd5r = {
     rd5r_download,
     rd5r_upload,
     rd5r_is_compatible,
+    rd5r_read_image,
+    rd5r_save_image,
+    rd5r_print_version,
+    rd5r_print_config,
+    rd5r_verify_config,
+    rd5r_parse_parameter,
+    rd5r_parse_header,
+    rd5r_parse_row,
+    rd5r_update_timestamp,
+};
+
+//
+// Radioddity GD-77
+//
+radio_device_t radio_gd77 = {
+    "Radioddity GD-77",
+    gd77_download,
+    rd5r_upload,
+    gd77_is_compatible,
     rd5r_read_image,
     rd5r_save_image,
     rd5r_print_version,

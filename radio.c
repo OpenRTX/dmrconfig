@@ -47,7 +47,8 @@ static struct {
     { "ZD3688",     &radio_d900 },      // Zastone D900
     { "TP660",      &radio_dp880 },     // Zastone DP880
     { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
-    { "BF-5R",      &radio_rd5r },      // Baofengl RD-5R
+    { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R
+    { "MD-760P",    &radio_gd77 },      // Radioddity GD-77
     { 0, 0 }
 };
 
@@ -168,8 +169,14 @@ void radio_read_image(const char *filename)
 {
     FILE *img;
     struct stat st;
+    char ident[8];
 
     fprintf(stderr, "Read codeplug from file '%s'.\n", filename);
+    img = fopen(filename, "rb");
+    if (! img) {
+        perror(filename);
+        exit(-1);
+    }
 
     // Guess device type by file size.
     if (stat(filename, &st) < 0) {
@@ -186,7 +193,20 @@ void radio_read_image(const char *filename)
         device = &radio_md380;
         break;
     case 131072:
-        device = &radio_rd5r;
+        if (fread(ident, 1, 8, img) != 8) {
+            fprintf(stderr, "%s: Cannot read header.\n", filename);
+            exit(-1);
+        }
+        fseek(img, 0, SEEK_SET);
+        if (memcmp(ident, "BF-5R", 5) == 0) {
+            device = &radio_rd5r;
+        } else if (memcmp(ident, "MD-760P", 7) == 0) {
+            device = &radio_gd77;
+        } else {
+            fprintf(stderr, "%s: Unrecognized header '%.6s'\n",
+                filename, ident);
+            exit(-1);
+        }
         break;
     default:
         fprintf(stderr, "%s: Unrecognized file size %u bytes.\n",
@@ -194,11 +214,6 @@ void radio_read_image(const char *filename)
         exit(-1);
     }
 
-    img = fopen(filename, "rb");
-    if (! img) {
-        perror(filename);
-        exit(-1);
-    }
     device->read_image(device, img);
     fclose(img);
 }
