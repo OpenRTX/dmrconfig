@@ -36,9 +36,9 @@
 
 #define NCHAN           1000    //TODO
 #define NCONTACTS       256
-#define NZONES          250     //TODO
-#define NGLISTS         250     //TODO
-#define NSCANL          250     //TODO
+#define NZONES          250
+#define NGLISTS         128
+#define NSCANL          250
 #define NMESSAGES       32
 
 #define MEMSZ           0x20000
@@ -47,8 +47,8 @@
 #define OFFSET_INTRO    0x07540
 #define OFFSET_MSG      0x00170
 #define OFFSET_CONTACTS 0x01788
-#define OFFSET_GLISTS   0x0ec20 //TODO
-#define OFFSET_ZONES    0x149e0 //TODO
+#define OFFSET_GLISTS   0x1d6a0
+#define OFFSET_ZONES    0x08030
 #define OFFSET_SCANL    0x17720
 #define OFFSET_CHANNELS 0x1ee00 //TODO
 
@@ -56,11 +56,11 @@
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_INTRO()         ((intro_text_t*) &radio_mem[OFFSET_INTRO])
 #define GET_CHANNEL(i)      ((channel_t*) &radio_mem[OFFSET_CHANNELS + (i)*64])
-#define GET_ZONE(i)         ((zone_t*) &radio_mem[OFFSET_ZONES + (i)*64])
+#define GET_ZONE(i)         ((zone_t*) &radio_mem[OFFSET_ZONES + (i)*48])
 #define GET_ZONEXT(i)       ((zone_ext_t*) &radio_mem[OFFSET_ZONEXT + (i)*224])
 #define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANL + (i)*88])
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*24])
-#define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*96])
+#define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*48])
 #define GET_MESSAGE(i)      (&radio_mem[OFFSET_MSG + (i)*144])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
@@ -179,7 +179,7 @@ typedef struct {
     uint8_t _unused11;                  // 0xff
 
     // Bytes 32-63
-    uint16_t name[16];                  // Channel Name (Unicode)
+    uint8_t name[16];                   // Channel Name
 } channel_t;
 
 //
@@ -218,10 +218,10 @@ typedef struct {
 // Zone data.
 //
 typedef struct {
-    // Bytes 0-31
-    uint16_t name[16];                  // Zone Name (Unicode)
+    // Bytes 0-15
+    uint8_t name[16];                   // Zone Name
 
-    // Bytes 32-63
+    // Bytes 16-47
     uint16_t member[16];                // Member: channels 1...16
 } zone_t;
 
@@ -229,11 +229,11 @@ typedef struct {
 // Group list data.
 //
 typedef struct {
-    // Bytes 0-31
-    uint16_t name[16];                  // Group List Name (Unicode)
+    // Bytes 0-15
+    uint8_t name[16];                   // Group List Name
 
-    // Bytes 32-95
-    uint16_t member[32];                // Contacts
+    // Bytes 16-47
+    uint16_t member[16];                // Contacts
 } grouplist_t;
 
 //
@@ -241,7 +241,7 @@ typedef struct {
 //
 typedef struct {
     // Bytes 0-14
-    uint8_t name[15];                   // Scan List Name (Unicode)
+    uint8_t name[15];                   // Scan List Name
 
     // Byte 15
     uint8_t _unused             : 4,    // 0
@@ -419,8 +419,10 @@ static int gd77_is_compatible(radio_device_t *radio)
 static void setup_zone(int index, const char *name)
 {
     zone_t *z = GET_ZONE(index);
+    int len = strlen(name);
 
-    utf8_decode(z->name, name, 16);
+    memset(z->name, 0xff, 16);
+    memcpy(z->name, name, len<16 ? len : 16);
 }
 
 //
@@ -447,7 +449,8 @@ static void erase_zone(int index)
 {
     zone_t *z = GET_ZONE(index);
 
-    memset(z, 0, 64);
+    memset(z->name, 0xff, 16);
+    memset(z->member, 0, 32);
 }
 
 //
@@ -534,8 +537,10 @@ static void setup_contact(int index, const char *name, int type, int id, int rxt
 static void setup_grouplist(int index, const char *name)
 {
     grouplist_t *gl = GET_GROUPLIST(index);
+    int len = strlen(name);
 
-    utf8_decode(gl->name, name, 16);
+    memset(gl->name, 0xff, 16);
+    memcpy(gl->name, name, len < 16 ? len : 16);
 }
 
 //
@@ -615,7 +620,9 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->ctcss_dcs_receive   = rxtone;
     ch->ctcss_dcs_transmit  = txtone;
 
-    utf8_decode(ch->name, name, 16);
+    int len = strlen(name);
+    memset(ch->name, 0xff, 16);
+    memcpy(ch->name, name, len<16 ? len : 16);
 }
 
 //
@@ -702,40 +709,41 @@ static void erase_channel(int i)
     ch->_unused11 = 0xff;
 
     // Bytes 32-63
-    utf8_decode(ch->name, "", 16);
+    memset(ch->name, 0xff, 16);
 }
 
-static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
+static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan, int scanlist_flag)
 {
     int last  = -1;
     int range = 0;
     int n;
     uint16_t data[nchan];
+#define CNUM(n) (scanlist_flag ? n-1 : n)
 
     // Sort the list before printing.
     memcpy(data, unsorted, nchan * sizeof(uint16_t));
     qsort(data, nchan, sizeof(uint16_t), compare_index);
     for (n=0; n<nchan; n++) {
-        int cnum = data[n];
+        int item = data[n];
 
-        if (cnum == 0)
+        if (item == 0)
             break;
 
-        if (cnum == last+1) {
+        if (item == last+1) {
             range = 1;
         } else {
             if (range) {
-                fprintf(out, "-%d", last-1);
+                fprintf(out, "-%d", CNUM(last));
                 range = 0;
             }
             if (n > 0)
                 fprintf(out, ",");
-            fprintf(out, "%d", cnum-1);
+            fprintf(out, "%d", CNUM(item));
         }
-        last = cnum;
+        last = item;
     }
     if (range)
-        fprintf(out, "-%d", last-1);
+        fprintf(out, "-%d", CNUM(last));
 }
 
 static void print_id(FILE *out, int verbose)
@@ -808,7 +816,7 @@ static int have_channels(int mode)
 static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 {
     fprintf(out, "%5d   ", cnum);
-    print_unicode(out, ch->name, 16, 1);
+    print_ascii(out, ch->name, 16, 1);
     fprintf(out, " ");
     print_freq(out, ch->rx_frequency);
     fprintf(out, " ");
@@ -1089,14 +1097,14 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
 
             if (!VALID_ZONE(z)) {
                 // Zone is disabled.
-                continue;
+                break;
             }
 
             fprintf(out, "%4d    ", i + 1);
-            print_unicode(out, z->name, 16, 1);
+            print_ascii(out, z->name, 16, 1);
             fprintf(out, " ");
             if (z->member[0]) {
-                print_chanlist(out, z->member, 16);
+                print_chanlist(out, z->member, 16, 0);
             } else {
                 fprintf(out, "-");
             }
@@ -1160,7 +1168,7 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
                 sl->sign_hold_time * 25, sl->prio_sample_time * 250);
 #endif
             if (sl->member[1]) {
-                print_chanlist(out, sl->member + 1, 31);
+                print_chanlist(out, sl->member + 1, 31, 1);
             } else {
                 fprintf(out, "Sel");
             }
@@ -1216,14 +1224,14 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
 
             if (!VALID_GROUPLIST(gl)) {
                 // Group list is disabled.
-                continue;
+                break;
             }
 
             fprintf(out, "%5d     ", i + 1);
-            print_unicode(out, gl->name, 16, 1);
+            print_ascii(out, gl->name, 16, 1);
             fprintf(out, " ");
             if (gl->member[0]) {
-                print_chanlist(out, gl->member, 32);
+                print_chanlist(out, gl->member, 16, 0);
             } else {
                 fprintf(out, "-");
             }
@@ -2130,7 +2138,7 @@ static int rd5r_verify_config(radio_device_t *radio)
 
             if (!VALID_SCANLIST(sl)) {
                 fprintf(stderr, "Channel %d '", i+1);
-                print_unicode(stderr, ch->name, 16, 0);
+                print_ascii(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': scanlist %d not found.\n", ch->scan_list_index);
                 nerrors++;
             }
@@ -2140,7 +2148,7 @@ static int rd5r_verify_config(radio_device_t *radio)
 
             if (!VALID_CONTACT(ct)) {
                 fprintf(stderr, "Channel %d '", i+1);
-                print_unicode(stderr, ch->name, 16, 0);
+                print_ascii(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': contact %d not found.\n", ch->contact_name_index);
                 nerrors++;
             }
@@ -2150,7 +2158,7 @@ static int rd5r_verify_config(radio_device_t *radio)
 
             if (!VALID_GROUPLIST(gl)) {
                 fprintf(stderr, "Channel %d '", i+1);
-                print_unicode(stderr, ch->name, 16, 0);
+                print_ascii(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': grouplist %d not found.\n", ch->group_list_index);
                 nerrors++;
             }
@@ -2162,7 +2170,7 @@ static int rd5r_verify_config(radio_device_t *radio)
         zone_t *z = GET_ZONE(i);
 
         if (!VALID_ZONE(z))
-            continue;
+            break;
 
         nzones++;
         for (k=0; k<16; k++) {
@@ -2173,7 +2181,7 @@ static int rd5r_verify_config(radio_device_t *radio)
 
                 if (!VALID_CHANNEL(ch)) {
                     fprintf(stderr, "Zone %d '", i+1);
-                    print_unicode(stderr, z->name, 16, 0);
+                    print_ascii(stderr, z->name, 16, 0);
                     fprintf(stderr, "': channel %d not found.\n", cnum);
                     nerrors++;
                 }
@@ -2210,7 +2218,7 @@ static int rd5r_verify_config(radio_device_t *radio)
         grouplist_t *gl = GET_GROUPLIST(i);
 
         if (!VALID_GROUPLIST(gl))
-            continue;
+            break;
 
         ngrouplists++;
         for (k=0; k<32; k++) {
@@ -2221,7 +2229,7 @@ static int rd5r_verify_config(radio_device_t *radio)
 
                 if (!VALID_CONTACT(ct)) {
                     fprintf(stderr, "Grouplist %d '", i+1);
-                    print_unicode(stderr, gl->name, 16, 0);
+                    print_ascii(stderr, gl->name, 16, 0);
                     fprintf(stderr, "': contact %d not found.\n", cnum);
                     nerrors++;
                 }
