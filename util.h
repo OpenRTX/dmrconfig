@@ -73,6 +73,8 @@ void hid_close(void);
 int hid_write_read(const unsigned char *data, unsigned length, unsigned char *reply, unsigned rlength);
 void hid_read_block(int bno, unsigned char *data, int nbytes);
 void hid_read_finish(void);
+void hid_write_block(int bno, unsigned char *data, int nbytes);
+void hid_write_finish(void);
 
 //
 // Delay in milliseconds.

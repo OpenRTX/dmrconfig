@@ -381,7 +381,7 @@ static void rd5r_download(radio_device_t *radio)
             fflush(stderr);
         }
     }
-    hid_read_finish();
+    //hid_read_finish();
 
     // Add header.
     memset(&radio_mem[0], 0xff, 128);
@@ -397,14 +397,15 @@ static void rd5r_download(radio_device_t *radio)
 //
 static void rd5r_upload(radio_device_t *radio, int cont_flag)
 {
-    //TODO
-#if 0
     int bno;
 
-    dfu_erase(0, MEMSZ);
-
-    for (bno=0; bno<MEMSZ/1024; bno++) {
-        dfu_write_block(bno, &radio_mem[bno*1024], 1024);
+    // Write range 0x80...0x1e29f.
+    for (bno=1; bno<966; bno++) {
+        if (bno >= 248 && bno < 256) {
+            // Skip range 0x7c00...0x8000.
+            continue;
+        }
+        hid_write_block(bno, &radio_mem[bno*128], 128);
 
         ++radio_progress;
         if (radio_progress % 32 == 0) {
@@ -412,7 +413,7 @@ static void rd5r_upload(radio_device_t *radio, int cont_flag)
             fflush(stderr);
         }
     }
-#endif
+    hid_write_finish();
 }
 
 //
