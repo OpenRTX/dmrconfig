@@ -49,7 +49,7 @@
 #define OFFSET_CONTACTS 0x01788
 #define OFFSET_GLISTS   0x0ec20 //TODO
 #define OFFSET_ZONES    0x149e0 //TODO
-#define OFFSET_SCANL    0x1ccb8
+#define OFFSET_SCANL    0x17720
 #define OFFSET_CHANNELS 0x1ee00 //TODO
 
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
@@ -58,7 +58,7 @@
 #define GET_CHANNEL(i)      ((channel_t*) &radio_mem[OFFSET_CHANNELS + (i)*64])
 #define GET_ZONE(i)         ((zone_t*) &radio_mem[OFFSET_ZONES + (i)*64])
 #define GET_ZONEXT(i)       ((zone_ext_t*) &radio_mem[OFFSET_ZONEXT + (i)*224])
-#define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANL + (i)*104])
+#define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANL + (i)*88])
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*24])
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*96])
 #define GET_MESSAGE(i)      (&radio_mem[OFFSET_MSG + (i)*144])
@@ -240,22 +240,33 @@ typedef struct {
 // Scan list data.
 //
 typedef struct {
-    // Bytes 0-31
-    uint16_t name[16];                  // Scan List Name (Unicode)
+    // Bytes 0-14
+    uint8_t name[15];                   // Scan List Name (Unicode)
 
-    // Bytes 32-37
-    uint16_t priority_ch1;              // Priority Channel 1 or ffff
-    uint16_t priority_ch2;              // Priority Channel 2 or ffff
-    uint16_t tx_designated_ch;          // Tx Designated Channel or ffff
+    // Byte 15
+    uint8_t _unused             : 4,    // 0
+            channel_mark        : 1,    // Channel Mark, default 1
+            pl_type             : 2,    // PL Type, default 3
+#define PL_NONPRI       0               // Non-Priority Channel
+#define PL_DISABLE      1               // Disable
+#define PL_PRI          2               // Priority Channel
+#define PL_PRI_NONPRI   3               // Priority and Non-Priority Channels
 
-    // Bytes 38-41
-    uint8_t _unused1;                   // 0xf1
-    uint8_t sign_hold_time;             // Signaling Hold Time (x25 = msec)
-    uint8_t prio_sample_time;           // Priority Sample Time (x250 = msec)
-    uint8_t _unused2;                   // 0xff
+            talkback            : 1;    // Talkback, default 1
 
-    // Bytes 42-103
-    uint16_t member[31];                // Channels
+    // Bytes 16-79
+    uint16_t member[32];                // Channels (+1)
+#define CHAN_SELECTED   1               // Selected
+
+    // Bytes 80-85
+    uint16_t priority_ch1;              // Priority Channel 1, chan+1 or 0=None, 1=Selected
+    uint16_t priority_ch2;              // Priority Channel 2
+    uint16_t tx_designated_ch;          // Tx Designated Channel, chan+1 or 0=Last Active Channel
+
+    // Bytes 86-87
+    uint8_t sign_hold_time;             // Signaling Hold Time (x25 = msec) default 40=1000ms
+    uint8_t prio_sample_time;           // Priority Sample Time (x250 = msec) default 8=2000ms
+
 } scanlist_t;
 
 //
@@ -446,9 +457,11 @@ static void setup_scanlist(int index, const char *name,
     int prio1, int prio2, int txchan)
 {
     scanlist_t *sl = GET_SCANLIST(index);
+    int len = strlen(name);
 
     // Bytes 0-31
-    utf8_decode(sl->name, name, 16);
+    memset(sl->name, 0xff, sizeof(sl->name));
+    memcpy(sl->name, name, len < sizeof(sl->name) ? len : sizeof(sl->name));
 
     // Bytes 32-37
     sl->priority_ch1     = prio1;
@@ -460,18 +473,14 @@ static void erase_scanlist(int index)
 {
     scanlist_t *sl = GET_SCANLIST(index);
 
-    memset(sl, 0, 104);
+    memset(sl, 0, 88);
+    memset(sl->name, 0xff, sizeof(sl->name));
 
-    // Bytes 32-37
-    sl->priority_ch1     = 0xffff;
-    sl->priority_ch2     = 0xffff;
-    sl->tx_designated_ch = 0xffff;
-
-    // Bytes 38-41
-    sl->_unused1         = 0xf1;
-    sl->sign_hold_time   = 500 / 25;    // 500 msec
+    sl->talkback         = 1;
+    sl->channel_mark     = 1;
+    sl->pl_type          = PL_PRI_NONPRI;
+    sl->sign_hold_time   = 0xff;
     sl->prio_sample_time = 2000 / 250;  // 2 sec
-    sl->_unused2         = 0xff;
 }
 
 //
@@ -483,11 +492,15 @@ static int scanlist_append(int index, int cnum)
     scanlist_t *sl = GET_SCANLIST(index);
     int i;
 
-    for (i=0; i<31; i++) {
+    // First element is always Selected.
+    if (sl->member[0] == 0)
+        sl->member[0] = CHAN_SELECTED;
+
+    for (i=0; i<32; i++) {
         if (sl->member[i] == cnum)
             return 1;
         if (sl->member[i] == 0) {
-            sl->member[i] = cnum;
+            sl->member[i] = cnum + 1;
             return 1;
         }
     }
@@ -712,17 +725,17 @@ static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
             range = 1;
         } else {
             if (range) {
-                fprintf(out, "-%d", last);
+                fprintf(out, "-%d", last-1);
                 range = 0;
             }
             if (n > 0)
                 fprintf(out, ",");
-            fprintf(out, "%d", cnum);
+            fprintf(out, "%d", cnum-1);
         }
         last = cnum;
     }
     if (range)
-        fprintf(out, "-%d", last);
+        fprintf(out, "-%d", last-1);
 }
 
 static void print_id(FILE *out, int verbose)
@@ -772,7 +785,9 @@ static int have_channels(int mode)
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = GET_CHANNEL(i);
 
-        if (VALID_CHANNEL(ch) && ch->channel_mode == mode)
+        if (!VALID_CHANNEL(ch))
+            return 0;
+        if (ch->channel_mode == mode)
             return 1;
     }
     return 0;
@@ -1000,66 +1015,37 @@ static void print_analog_channels(FILE *out, int verbose)
 
 static int have_zones()
 {
-    int i;
+    zone_t *z = GET_ZONE(0);
 
-    for (i=0; i<NZONES; i++) {
-        zone_t *z = GET_ZONE(i);
-        if (VALID_ZONE(z))
-            return 1;
-    }
-    return 0;
+    return VALID_ZONE(z);
 }
 
 static int have_scanlists()
 {
-    int i;
+    scanlist_t *sl = GET_SCANLIST(0);
 
-    for (i=0; i<NSCANL; i++) {
-        scanlist_t *sl = GET_SCANLIST(i);
-
-        if (VALID_SCANLIST(sl))
-            return 1;
-    }
-    return 0;
+    return VALID_SCANLIST(sl);
 }
 
 static int have_contacts()
 {
-    int i;
+    contact_t *ct = GET_CONTACT(0);
 
-    for (i=0; i<NCONTACTS; i++) {
-        contact_t *ct = GET_CONTACT(i);
-
-        if (VALID_CONTACT(ct))
-            return 1;
-    }
-    return 0;
+    return VALID_CONTACT(ct);
 }
 
 static int have_grouplists()
 {
-    int i;
+    grouplist_t *gl = GET_GROUPLIST(0);
 
-    for (i=0; i<NGLISTS; i++) {
-        grouplist_t *gl = GET_GROUPLIST(i);
-
-        if (VALID_GROUPLIST(gl))
-            return 1;
-    }
-    return 0;
+    return VALID_GROUPLIST(gl);
 }
 
 static int have_messages()
 {
-    int i;
+    uint8_t *msg = GET_MESSAGE(0);
 
-    for (i=0; i<NMESSAGES; i++) {
-        uint8_t *msg = GET_MESSAGE(i);
-
-        if (VALID_TEXT(msg))
-            return 1;
-    }
-    return 0;
+    return VALID_TEXT(msg);
 }
 
 //
@@ -1133,7 +1119,7 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
             fprintf(out, "# 6) List of channels: numbers and ranges (N-M) separated by comma\n");
             fprintf(out, "#\n");
         }
-        fprintf(out, "Scanlist Name             PCh1 PCh2 TxCh ");
+        fprintf(out, "Scanlist Name            PCh1 PCh2 TxCh ");
 #ifdef PRINT_RARE_PARAMS
         fprintf(out, "Hold Smpl ");
 #endif
@@ -1143,40 +1129,40 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
 
             if (!VALID_SCANLIST(sl)) {
                 // Scan list is disabled.
-                continue;
+                break;
             }
 
             fprintf(out, "%5d    ", i + 1);
-            print_unicode(out, sl->name, 16, 1);
-            if (sl->priority_ch1 == 0xffff) {
+            print_ascii(out, sl->name, 15, 1);
+            if (sl->priority_ch1 == 0) {
                 fprintf(out, " -    ");
-            } else if (sl->priority_ch1 == 0) {
+            } else if (sl->priority_ch1 == 1) {
                 fprintf(out, " Sel  ");
             } else {
-                fprintf(out, " %-4d ", sl->priority_ch1);
+                fprintf(out, " %-4d ", sl->priority_ch1 - 1);
             }
-            if (sl->priority_ch2 == 0xffff) {
+            if (sl->priority_ch2 == 0) {
                 fprintf(out, "-    ");
-            } else if (sl->priority_ch2 == 0) {
+            } else if (sl->priority_ch2 == 1) {
                 fprintf(out, "Sel  ");
             } else {
-                fprintf(out, "%-4d ", sl->priority_ch2);
+                fprintf(out, "%-4d ", sl->priority_ch2 - 1);
             }
-            if (sl->tx_designated_ch == 0xffff) {
+            if (sl->tx_designated_ch == 0) {
                 fprintf(out, "Last ");
-            } else if (sl->tx_designated_ch == 0) {
+            } else if (sl->tx_designated_ch == 1) {
                 fprintf(out, "Sel  ");
             } else {
-                fprintf(out, "%-4d ", sl->tx_designated_ch);
+                fprintf(out, "%-4d ", sl->tx_designated_ch - 1);
             }
 #ifdef PRINT_RARE_PARAMS
             fprintf(out, "%-4d %-4d ",
                 sl->sign_hold_time * 25, sl->prio_sample_time * 250);
 #endif
-            if (sl->member[0]) {
-                print_chanlist(out, sl->member, 31);
+            if (sl->member[1]) {
+                print_chanlist(out, sl->member + 1, 31);
             } else {
-                fprintf(out, "-");
+                fprintf(out, "Sel");
             }
             fprintf(out, "\n");
         }
@@ -1202,7 +1188,7 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
 
             if (!VALID_CONTACT(ct)) {
                 // Contact is disabled
-                continue;
+                break;
             }
 
             fprintf(out, "%5d   ", i+1);
@@ -2200,7 +2186,7 @@ static int rd5r_verify_config(radio_device_t *radio)
         scanlist_t *sl = GET_SCANLIST(i);
 
         if (!VALID_SCANLIST(sl))
-            continue;
+            break;
 
         nscanlists++;
         for (k=0; k<31; k++) {
@@ -2211,7 +2197,7 @@ static int rd5r_verify_config(radio_device_t *radio)
 
                 if (!VALID_CHANNEL(ch)) {
                     fprintf(stderr, "Scanlist %d '", i+1);
-                    print_unicode(stderr, sl->name, 16, 0);
+                    print_ascii(stderr, sl->name, 15, 0);
                     fprintf(stderr, "': channel %d not found.\n", cnum);
                     nerrors++;
                 }
@@ -2247,8 +2233,9 @@ static int rd5r_verify_config(radio_device_t *radio)
     for (i=0; i<NCONTACTS; i++) {
         contact_t *ct = GET_CONTACT(i);
 
-        if (VALID_CONTACT(ct))
-            ncontacts++;
+        if (!VALID_CONTACT(ct))
+            break;
+        ncontacts++;
     }
 
     if (nerrors > 0) {
