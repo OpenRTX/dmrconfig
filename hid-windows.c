@@ -1,5 +1,5 @@
 /*
- * HID routines for Mac OS X.
+ * HID routines for Windows.
  *
  * Copyright (C) 2018 Serge Vakulenko, KK6ABQ
  *
@@ -29,7 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <IOKit/hid/IOHIDManager.h>
+#include <stdint.h>
 #include "util.h"
 
 static const unsigned char CMD_PRG[]   = "\2PROGRA";
@@ -42,8 +42,6 @@ static const unsigned char CMD_ENDW[]  = "ENDW";
 static const unsigned char CMD_CWB0[]  = "CWB\4\0\0\0\0";
 static const unsigned char CMD_CWB1[]  = "CWB\4\0\1\0\0";
 
-static volatile IOHIDDeviceRef dev;         // device handle
-static unsigned char transfer_buf[42];      // device buffer
 static unsigned char receive_buf[42];       // receive buffer
 static volatile int nbytes_received = 0;    // receive result
 static unsigned offset = 0;                 // CWD offset
@@ -78,7 +76,8 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
     }
     nbytes_received = 0;
     memset(receive_buf, 0, sizeof(receive_buf));
-
+#if 0
+    //TODO
     // Write to HID device.
     IOReturn result = IOHIDDeviceSetReport(dev, kIOHIDReportTypeOutput, 0, buf, sizeof(buf));
     if (result != kIOReturnSuccess) {
@@ -97,7 +96,7 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
         }
         usleep(10000);
     }
-
+#endif
     if (nbytes_received != sizeof(receive_buf)) {
         fprintf(stderr, "Short read: %d bytes instead of %d!\n",
             nbytes_received, (int)sizeof(receive_buf));
@@ -125,107 +124,15 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
 }
 
 //
-// Callback: data is received from the HID device
-//
-static void callback_input(void *context,
-    IOReturn result, void *sender, IOHIDReportType type,
-    uint32_t reportID, uint8_t *data, CFIndex nbytes)
-{
-    if (result != kIOReturnSuccess) {
-        fprintf(stderr, "HID input error: %d!\n", result);
-        exit(-1);
-    }
-
-    if (nbytes > sizeof(receive_buf)) {
-        fprintf(stderr, "Too large HID input: %d bytes!\n", (int)nbytes);
-        exit(-1);
-    }
-
-    nbytes_received = nbytes;
-    if (nbytes > 0)
-        memcpy(receive_buf, data, nbytes);
-}
-
-//
-// Callback: device specified in the matching dictionary has been added
-//
-static void callback_open(void *context,
-    IOReturn result, void *sender, IOHIDDeviceRef deviceRef)
-{
-    IOReturn o = IOHIDDeviceOpen(deviceRef, kIOHIDOptionsTypeSeizeDevice);
-    if (o != kIOReturnSuccess) {
-        fprintf(stderr, "Cannot open HID device!\n");
-        exit(-1);
-    }
-
-    // Register input callback.
-    IOHIDDeviceRegisterInputReportCallback(deviceRef,
-        transfer_buf, sizeof(transfer_buf), callback_input, 0);
-
-    dev = deviceRef;
-}
-
-//
-// Callback: device specified in the matching dictionary has been removed
-//
-static void callback_close(void *ontext,
-    IOReturn result, void *sender, IOHIDDeviceRef deviceRef)
-{
-    // De-register input callback.
-    IOHIDDeviceRegisterInputReportCallback(deviceRef, transfer_buf, sizeof(transfer_buf), NULL, NULL);
-}
-
-//
 // Launch the IOHIDManager.
 //
 const char *hid_init(int vid, int pid)
 {
-    // Create the USB HID Manager.
-    IOHIDManagerRef HIDManager = IOHIDManagerCreate(kCFAllocatorDefault,
-                                                    kIOHIDOptionsTypeNone);
-
-    // Create an empty matching dictionary for filtering USB devices in our HID manager.
-    CFMutableDictionaryRef matchDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
-        2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-
-    // Specify the USB device manufacturer and product in our matching dictionary.
-    CFDictionarySetValue(matchDict, CFSTR(kIOHIDVendorIDKey), CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &vid));
-    CFDictionarySetValue(matchDict, CFSTR(kIOHIDProductIDKey), CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &pid));
-
-    // Apply the matching to our HID manager.
-    IOHIDManagerSetDeviceMatching(HIDManager, matchDict);
-    CFRelease(matchDict);
-
-    // The HID manager will use callbacks when specified USB devices are connected/disconnected.
-    IOHIDManagerRegisterDeviceMatchingCallback(HIDManager, &callback_open, NULL);
-    IOHIDManagerRegisterDeviceRemovalCallback(HIDManager, &callback_close, NULL);
-
-    // Add the HID manager to the main run loop
-    IOHIDManagerScheduleWithRunLoop(HIDManager, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
-
-    // Open the HID mangager
-    IOReturn IOReturn = IOHIDManagerOpen(HIDManager, kIOHIDOptionsTypeNone);
-    if (IOReturn != kIOReturnSuccess) {
-        if (trace_flag) {
-            fprintf(stderr, "Cannot find USB device %04x:%04x\n", vid, pid);
-        }
-        return 0;
+    //TODO
+    if (trace_flag) {
+        fprintf(stderr, "Cannot find USB device %04x:%04x\n", vid, pid);
     }
-
-    // Run main application loop until device found.
-    int k;
-    for (k=0; ; k++) {
-        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, 0);
-        if (dev)
-            break;
-        if (k >= 3) {
-            if (trace_flag) {
-                fprintf(stderr, "Cannot find USB device %04x:%04x\n", vid, pid);
-            }
-            return 0;
-        }
-        usleep(10000);
-    }
+    return 0;
 
     static unsigned char reply[38];
     unsigned char ack;
@@ -262,11 +169,7 @@ const char *hid_init(int vid, int pid)
 //
 void hid_close()
 {
-    if (!dev)
-        return;
-
-    IOHIDDeviceClose(dev, kIOHIDOptionsTypeNone);
-    dev = 0;
+    //TODO
 }
 
 void hid_read_block(int bno, uint8_t *data, int nbytes)
