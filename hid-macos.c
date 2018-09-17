@@ -1,5 +1,5 @@
 /*
- * HID routines for Linux, via libusb-1.0.
+ * HID routines for Mac OS X.
  *
  * Copyright (C) 2018 Serge Vakulenko, KK6ABQ
  *
@@ -29,7 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <libusb-1.0/libusb.h>
+#include <IOKit/hid/IOHIDManager.h>
 #include "util.h"
 
 static const unsigned char CMD_PRG[]   = "\2PROGRA";
@@ -42,102 +42,11 @@ static const unsigned char CMD_ENDW[]  = "ENDW";
 static const unsigned char CMD_CWB0[]  = "CWB\4\0\0\0\0";
 static const unsigned char CMD_CWB1[]  = "CWB\4\0\1\0\0";
 
-static libusb_context *ctx = NULL;          // libusb context
-static libusb_device_handle *dev;           // libusb device
+static volatile IOHIDDeviceRef dev;         // device handle
+static unsigned char transfer_buf[42];      // device buffer
 static unsigned char receive_buf[42];       // receive buffer
 static volatile int nbytes_received = 0;    // receive result
 static unsigned offset = 0;                 // CWD offset
-
-#define HID_INTERFACE   0                   // interface index
-#define TIMEOUT_MSEC    500                 // receive timeout
-
-//
-// Callback function for asynchronous receive.
-// Needs to fill the receive_buf and set nbytes_received.
-//
-static void read_callback(struct libusb_transfer *transfer)
-{
-    switch (transfer->status) {
-    case LIBUSB_TRANSFER_COMPLETED:
-        //fprintf(stderr, "%s: Transfer complete, %d bytes\n", __func__, transfer->actual_length);
-        memcpy(receive_buf, transfer->buffer, transfer->actual_length);
-        nbytes_received = transfer->actual_length;
-        break;
-
-    case LIBUSB_TRANSFER_CANCELLED:
-        //fprintf(stderr, "%s: Transfer cancelled\n", __func__);
-        nbytes_received = LIBUSB_ERROR_INTERRUPTED;
-        return;
-
-    case LIBUSB_TRANSFER_NO_DEVICE:
-        //fprintf(stderr, "%s: No device\n", __func__);
-        nbytes_received = LIBUSB_ERROR_NO_DEVICE;
-        return;
-
-    case LIBUSB_TRANSFER_TIMED_OUT:
-        //fprintf(stderr, "%s: Timeout (normal)\n", __func__);
-        nbytes_received = LIBUSB_ERROR_TIMEOUT;
-        break;
-
-    default:
-        //fprintf(stderr, "%s: Unknown transfer code: %d\n", __func__, transfer->status);
-        nbytes_received = LIBUSB_ERROR_IO;
-   }
-}
-
-//
-// Write data to the device and receive reply.
-// Return negative status on error.
-// Return received byte count of success.
-// On timeout, repeat the transaction.
-// Need to use callback for receive interrupt transfer.
-//
-static int write_read(const unsigned char *data, unsigned length, unsigned char *reply, unsigned rlength)
-{
-    struct libusb_transfer *transfer = libusb_alloc_transfer(0);
-again:
-    nbytes_received = 0;
-    libusb_fill_interrupt_transfer(transfer, dev,
-        LIBUSB_RECIPIENT_INTERFACE|LIBUSB_ENDPOINT_IN,
-        reply, rlength, read_callback, 0, TIMEOUT_MSEC);
-    libusb_submit_transfer(transfer);
-
-    int result = libusb_control_transfer(dev,
-        LIBUSB_REQUEST_TYPE_CLASS|LIBUSB_RECIPIENT_INTERFACE|LIBUSB_ENDPOINT_OUT,
-        0x09/*HID Set_Report*/, (2/*HID output*/ << 8) | 0,
-        HID_INTERFACE, (unsigned char*)data, length, TIMEOUT_MSEC);
-
-    if (result < 0) {
-        fprintf(stderr, "Error %d transmitting data via control transfer: %s\n",
-            result, libusb_strerror(result));
-        libusb_cancel_transfer(transfer);
-        libusb_free_transfer(transfer);
-        return -1;
-    }
-
-    while (nbytes_received == 0) {
-        result = libusb_handle_events(ctx);
-        if (result < 0) {
-            /* Break out of this loop only on fatal error.*/
-            if (result != LIBUSB_ERROR_BUSY &&
-                result != LIBUSB_ERROR_TIMEOUT &&
-                result != LIBUSB_ERROR_OVERFLOW &&
-                result != LIBUSB_ERROR_INTERRUPTED) {
-                fprintf(stderr, "Error %d receiving data via interrupt transfer: %s\n",
-                    result, libusb_strerror(result));
-                libusb_free_transfer(transfer);
-                return result;
-            }
-        }
-    }
-
-    if (nbytes_received == LIBUSB_ERROR_TIMEOUT) {
-        //fprintf(stderr, "Timed out!\n");
-        goto again;
-    }
-    libusb_free_transfer(transfer);
-    return nbytes_received;
-}
 
 //
 // Send a request to the device.
@@ -147,9 +56,7 @@ again:
 void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rdata, unsigned rlength)
 {
     unsigned char buf[42];
-    unsigned char reply[42];
     unsigned k;
-    int reply_len;
 
     memset(buf, 0, sizeof(buf));
     buf[0] = 1;
@@ -169,72 +76,141 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
         }
         fprintf(stderr, "\n");
     }
-    reply_len = write_read(buf, sizeof(buf), reply, sizeof(reply));
-    if (reply_len < 0) {
+    nbytes_received = 0;
+    memset(receive_buf, 0, sizeof(receive_buf));
+
+    // Write to HID device.
+    IOReturn result = IOHIDDeviceSetReport(dev, kIOHIDReportTypeOutput, 0, buf, sizeof(buf));
+    if (result != kIOReturnSuccess) {
+        fprintf(stderr, "HID output error: %d!\n", result);
         exit(-1);
     }
-    if (reply_len != sizeof(reply)) {
+
+    // Run main application loop until reply received.
+    while (nbytes_received == 0) {
+        //TODO: timeout
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, 0);
+    }
+
+    if (nbytes_received != sizeof(receive_buf)) {
         fprintf(stderr, "Short read: %d bytes instead of %d!\n",
-            reply_len, (int)sizeof(reply));
+            nbytes_received, (int)sizeof(receive_buf));
         exit(-1);
     }
     if (trace_flag > 0) {
         fprintf(stderr, "---Recv");
-        for (k=0; k<reply_len; ++k) {
+        for (k=0; k<nbytes_received; ++k) {
             if (k != 0 && (k & 15) == 0)
                 fprintf(stderr, "\n       ");
-            fprintf(stderr, " %02x", reply[k]);
+            fprintf(stderr, " %02x", receive_buf[k]);
         }
         fprintf(stderr, "\n");
     }
-    if (reply[0] != 3 || reply[1] != 0 || reply[3] != 0) {
+    if (receive_buf[0] != 3 || receive_buf[1] != 0 || receive_buf[3] != 0) {
         fprintf(stderr, "incorrect reply\n");
         exit(-1);
     }
-    if (reply[2] != rlength) {
+    if (receive_buf[2] != rlength) {
         fprintf(stderr, "incorrect reply length %d, expected %d\n",
-            reply[2], rlength);
+            receive_buf[2], rlength);
         exit(-1);
     }
-    memcpy(rdata, reply+4, rlength);
+    memcpy(rdata, receive_buf+4, rlength);
 }
 
 //
-// Connect to the specified device.
-// Initiate the programming session.
-// Query and return the device identification string.
+// Callback: data is received from the HID device
 //
-const char *hid_init(int vid, int pid)
+static void callback_input(void *context,
+    IOReturn result, void *sender, IOHIDReportType type,
+    uint32_t reportID, uint8_t *data, CFIndex nbytes)
 {
-    int error = libusb_init(&ctx);
-    if (error < 0) {
-        fprintf(stderr, "libusb init failed: %d: %s\n",
-            error, libusb_strerror(error));
+    if (result != kIOReturnSuccess) {
+        fprintf(stderr, "HID input error: %d!\n", result);
         exit(-1);
     }
 
-    dev = libusb_open_device_with_vid_pid(ctx, vid, pid);
-    if (!dev) {
+    if (nbytes > sizeof(receive_buf)) {
+        fprintf(stderr, "Too large HID input: %d bytes!\n", (int)nbytes);
+        exit(-1);
+    }
+
+    nbytes_received = nbytes;
+    if (nbytes > 0)
+        memcpy(receive_buf, data, nbytes);
+}
+
+//
+// Callback: device specified in the matching dictionary has been added
+//
+static void callback_open(void *context,
+    IOReturn result, void *sender, IOHIDDeviceRef deviceRef)
+{
+    IOReturn o = IOHIDDeviceOpen(deviceRef, kIOHIDOptionsTypeSeizeDevice);
+    if (o != kIOReturnSuccess) {
+        fprintf(stderr, "Cannot open HID device!\n");
+        exit(-1);
+    }
+
+    // Register input callback.
+    IOHIDDeviceRegisterInputReportCallback(deviceRef,
+        transfer_buf, sizeof(transfer_buf), callback_input, 0);
+
+    dev = deviceRef;
+}
+
+//
+// Callback: device specified in the matching dictionary has been removed
+//
+static void callback_close(void *ontext,
+    IOReturn result, void *sender, IOHIDDeviceRef deviceRef)
+{
+    // De-register input callback.
+    IOHIDDeviceRegisterInputReportCallback(deviceRef, transfer_buf, sizeof(transfer_buf), NULL, NULL);
+}
+
+//
+// Launch the IOHIDManager.
+//
+const char *hid_init(int vid, int pid)
+{
+    // Create the USB HID Manager.
+    IOHIDManagerRef HIDManager = IOHIDManagerCreate(kCFAllocatorDefault,
+                                                    kIOHIDOptionsTypeNone);
+
+    // Create an empty matching dictionary for filtering USB devices in our HID manager.
+    CFMutableDictionaryRef matchDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
+        2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    // Specify the USB device manufacturer and product in our matching dictionary.
+    CFDictionarySetValue(matchDict, CFSTR(kIOHIDVendorIDKey), CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &vid));
+    CFDictionarySetValue(matchDict, CFSTR(kIOHIDProductIDKey), CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &pid));
+
+    // Apply the matching to our HID manager.
+    IOHIDManagerSetDeviceMatching(HIDManager, matchDict);
+    CFRelease(matchDict);
+
+    // The HID manager will use callbacks when specified USB devices are connected/disconnected.
+    IOHIDManagerRegisterDeviceMatchingCallback(HIDManager, &callback_open, NULL);
+    IOHIDManagerRegisterDeviceRemovalCallback(HIDManager, &callback_close, NULL);
+
+    // Add the HID manager to the main run loop
+    IOHIDManagerScheduleWithRunLoop(HIDManager, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
+
+    // Open the HID mangager
+    IOReturn IOReturn = IOHIDManagerOpen(HIDManager, kIOHIDOptionsTypeNone);
+    if (IOReturn != kIOReturnSuccess) {
         if (trace_flag) {
             fprintf(stderr, "Cannot find USB device %04x:%04x\n",
                 vid, pid);
         }
-        libusb_exit(ctx);
-        ctx = 0;
         return 0;
     }
-    if (libusb_kernel_driver_active(dev, 0)) {
-        libusb_detach_kernel_driver(dev, 0);
-    }
 
-    error = libusb_claim_interface(dev, HID_INTERFACE);
-    if (error < 0) {
-        fprintf(stderr, "Failed to claim USB interface: %d: %s\n",
-            error, libusb_strerror(error));
-        libusb_close(dev);
-        libusb_exit(ctx);
-        ctx = 0;
-        exit(-1);
+    // Run main application loop until device found.
+    while (!dev) {
+        //TODO: timeout
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, 0);
     }
 
     static unsigned char reply[38];
@@ -267,15 +243,16 @@ const char *hid_init(int vid, int pid)
     return (char*)reply;
 }
 
+//
+// Close HID device.
+//
 void hid_close()
 {
-    if (!ctx)
+    if (!dev)
         return;
 
-    libusb_release_interface(dev, HID_INTERFACE);
-    libusb_close(dev);
-    libusb_exit(ctx);
-    ctx = 0;
+    IOHIDDeviceClose(dev, kIOHIDOptionsTypeNone);
+    dev = 0;
 }
 
 void hid_read_block(int bno, uint8_t *data, int nbytes)

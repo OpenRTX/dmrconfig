@@ -14,6 +14,12 @@ ifeq ($(UNAME),Linux)
     OBJS        += hid-libusb.o
 endif
 
+# Mac OS X
+ifeq ($(UNAME),Darwin)
+    OBJS        += hid-macos.o
+    LIBS        += -framework IOKit -framework CoreFoundation
+endif
+
 all:		dmrconfig
 
 dmrconfig:	$(OBJS)

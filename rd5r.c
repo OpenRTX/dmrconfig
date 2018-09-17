@@ -279,7 +279,7 @@ typedef struct {
     uint8_t radio_name[8];
 
     // Bytes e8-eb
-    uint8_t  radio_id[3];
+    uint8_t  radio_id[4];
 } general_settings_t;
 
 //
