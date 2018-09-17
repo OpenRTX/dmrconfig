@@ -12,6 +12,7 @@ LIBS            = -lusb-1.0
 # Linux
 ifeq ($(UNAME),Linux)
     OBJS        += hid-libusb.o
+    LIBS        = -Wl,-Bstatic -lusb-1.0 -Wl,-Bdynamic -lpthread -ludev
 endif
 
 # Mac OS X
@@ -39,6 +40,8 @@ dmrconfig.linux: dmrconfig
 dfu-libusb.o: dfu-libusb.c util.h
 dfu-windows.o: dfu-windows.c util.h
 hid-libusb.o: hid-libusb.c util.h
+hid-macos.o: hid-macos.c util.h
+hid-windows.o: hid-windows.c util.h
 main.o: main.c radio.h util.h
 md380.o: md380.c radio.h util.h
 radio.o: radio.c radio.h util.h
