@@ -34,7 +34,7 @@
 #include "radio.h"
 #include "util.h"
 
-#define NCHAN           1000    //TODO
+#define NCHAN           1024
 #define NCONTACTS       256
 #define NZONES          250
 #define NGLISTS         128
@@ -44,18 +44,19 @@
 #define MEMSZ           0x20000
 #define OFFSET_TIMESTMP 0x00088
 #define OFFSET_SETTINGS 0x000e0
-#define OFFSET_INTRO    0x07540
 #define OFFSET_MSG      0x00170
 #define OFFSET_CONTACTS 0x01788
-#define OFFSET_GLISTS   0x1d6a0
+#define OFFSET_CHANLO   0x03790 // Channels 1-128
+#define OFFSET_INTRO    0x07540
 #define OFFSET_ZONES    0x08030
+#define OFFSET_CHANHI   0x0b1c0 // Channels 129-1024
 #define OFFSET_SCANL    0x17720
-#define OFFSET_CHANNELS 0x1ee00 //TODO
+#define OFFSET_GLISTS   0x1d6a0
 
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_INTRO()         ((intro_text_t*) &radio_mem[OFFSET_INTRO])
-#define GET_CHANNEL(i)      ((channel_t*) &radio_mem[OFFSET_CHANNELS + (i)*64])
+#define GET_CHANNEL(i)      ((channel_t*) &radio_mem[(i)*56 + ((i)<128 ? OFFSET_CHANLO : OFFSET_CHANHI)])
 #define GET_ZONE(i)         ((zone_t*) &radio_mem[OFFSET_ZONES + (i)*48])
 #define GET_ZONEXT(i)       ((zone_ext_t*) &radio_mem[OFFSET_ZONEXT + (i)*224])
 #define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANL + (i)*88])
@@ -74,6 +75,9 @@
 // Channel data.
 //
 typedef struct {
+    // Bytes 0-15
+    uint8_t name[16];                   // Channel Name
+
     // Byte 0
     uint8_t channel_mode        : 2,    // Mode: Analog or Digital
 #define MODE_ANALOG     1
@@ -177,9 +181,6 @@ typedef struct {
     // Bytes 30-31
     uint8_t _unused10;                  // 0xff
     uint8_t _unused11;                  // 0xff
-
-    // Bytes 32-63
-    uint8_t name[16];                   // Channel Name
 } channel_t;
 
 //
@@ -2099,21 +2100,6 @@ static void rd5r_update_timestamp(radio_device_t *radio)
     timestamp[3] = ((p[6]  & 0xf) << 4) | (p[7]  & 0xf); // day
     timestamp[4] = ((p[8]  & 0xf) << 4) | (p[9]  & 0xf); // hour
     timestamp[5] = ((p[10] & 0xf) << 4) | (p[11] & 0xf); // minute
-    timestamp[6] = ((p[12] & 0xf) << 4) | (p[13] & 0xf); // second
-
-    // CPS Software Version: Vdx.xx
-    const char *dot = strchr(VERSION, '.');
-    if (dot) {
-        timestamp[7] = 0x0d; // Prints as '='
-        timestamp[8] = dot[-1] & 0x0f;
-        if (dot[2] == '.') {
-            timestamp[9] = 0;
-            timestamp[10] = dot[1] & 0x0f;
-        } else {
-            timestamp[9] = dot[1] & 0x0f;
-            timestamp[10] = dot[2] & 0x0f;
-        }
-    }
 }
 
 //
