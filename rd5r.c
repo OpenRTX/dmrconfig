@@ -272,19 +272,17 @@ typedef struct {
 
 //
 // General settings.
-// TODO: verify the general settings with official CPS
 //
 typedef struct {
     // Bytes e0-e7
     uint8_t radio_name[8];
 
     // Bytes e8-eb
-    uint8_t  radio_id[4];
+    uint8_t radio_id[4];
 } general_settings_t;
 
 //
-// General settings.
-// TODO: verify the general settings with official CPS
+// Intro messages.
 //
 typedef struct {
     // Bytes 7540-754f

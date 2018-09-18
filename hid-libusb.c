@@ -38,6 +38,9 @@ static struct libusb_transfer *transfer;    // async transfer descriptor
 static unsigned char receive_buf[42];       // receive buffer
 static volatile int nbytes_received = 0;    // receive result
 
+#define HID_INTERFACE   0                   // interface index
+#define TIMEOUT_MSEC    500                 // receive timeout
+
 //
 // Callback function for asynchronous receive.
 // Needs to fill the receive_buf and set nbytes_received.
