@@ -406,12 +406,14 @@ static int rd5r_is_compatible(radio_device_t *radio)
     return strncmp("BF-5R", (char*)&radio_mem[0], 5) == 0;
 }
 
-//
-// Check whether the memory image is compatible with this device.
-//
 static int gd77_is_compatible(radio_device_t *radio)
 {
-    return strncmp("MD-760P", (char*)&radio_mem[0], 7) == 0;
+    return strncmp("MD-760", (char*)&radio_mem[0], 7) == 0;
+}
+
+static int gd77old_is_compatible(radio_device_t *radio)
+{
+    return strncmp("MD-760", (char*)&radio_mem[0], 6) == 0;
 }
 
 //
@@ -2268,6 +2270,25 @@ radio_device_t radio_gd77 = {
     gd77_download,
     rd5r_upload,
     gd77_is_compatible,
+    rd5r_read_image,
+    rd5r_save_image,
+    rd5r_print_version,
+    rd5r_print_config,
+    rd5r_verify_config,
+    rd5r_parse_parameter,
+    rd5r_parse_header,
+    rd5r_parse_row,
+    rd5r_update_timestamp,
+};
+
+//
+// Radioddity GD-77, older versions up to 2.6.6
+//
+radio_device_t radio_gd77_old = {
+    "Radioddity GD-77 (old)",
+    gd77_download,
+    rd5r_upload,
+    gd77old_is_compatible,
     rd5r_read_image,
     rd5r_save_image,
     rd5r_print_version,

@@ -256,7 +256,7 @@ void print_ascii(FILE *out, const unsigned char *text, unsigned nchars, int fill
         ch = *text++;
         if (ch == '\t')
             ch = ' ';
-        if (nchars <= 16 && ch == ' ')
+        if (fill_flag && ch == ' ')
             ch = '_';
         putc(ch, out);
     }

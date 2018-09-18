@@ -49,6 +49,7 @@ static struct {
     { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
     { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R
     { "MD-760P",    &radio_gd77 },      // Radioddity GD-77
+    { "MD-760",     &radio_gd77_old },  // Radioddity GD-77, older versions up to 2.6.6
     { 0, 0 }
 };
 
@@ -202,6 +203,8 @@ void radio_read_image(const char *filename)
             device = &radio_rd5r;
         } else if (memcmp(ident, "MD-760P", 7) == 0) {
             device = &radio_gd77;
+        } else if (memcmp(ident, "MD-760", 6) == 0) {
+            device = &radio_gd77_old;
         } else {
             fprintf(stderr, "%s: Unrecognized header '%.6s'\n",
                 filename, ident);
