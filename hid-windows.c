@@ -35,19 +35,8 @@
 #include <stdint.h>
 #include "util.h"
 
-static const unsigned char CMD_PRG[]   = "\2PROGRA";
-static const unsigned char CMD_PRG2[]  = "M\2";
-static const unsigned char CMD_ACK[]   = "A";
-static const unsigned char CMD_READ[]  = "Raan";
-static const unsigned char CMD_WRITE[] = "Waan...";
-static const unsigned char CMD_ENDR[]  = "ENDR";
-static const unsigned char CMD_ENDW[]  = "ENDW";
-static const unsigned char CMD_CWB0[]  = "CWB\4\0\0\0\0";
-static const unsigned char CMD_CWB1[]  = "CWB\4\0\1\0\0";
-
 HANDLE dev = INVALID_HANDLE_VALUE;;         // HID device
 static unsigned char receive_buf[42];       // receive buffer
-static unsigned offset = 0;                 // CWD offset
 
 //
 // Send a request to the device.
@@ -120,24 +109,25 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
 }
 
 //
+// Open the radio in programming mode.
 // Find a HID device with given GUID, vendor ID and product ID.
-// Return an opened file descriptor.
+// Setup `dev' file descriptor.
 //
-HANDLE find_hid_device(int vid, int pid)
+int hid_init(int vid, int pid)
 {
     static GUID guid = { 0x4d1e55b2, 0xf16f, 0x11cf, { 0x88, 0xcb, 0x00, 0x11, 0x11, 0x00, 0x00, 0x30 } };
-    HANDLE h = INVALID_HANDLE_VALUE;
 
     HDEVINFO devinfo = SetupDiGetClassDevs(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_INTERFACEDEVICE);
     if (devinfo == INVALID_HANDLE_VALUE) {
         printf("Cannot get devinfo!\n");
-        return 0;
+        return -1;
     }
 
     // Loop through available devices with a given GUID.
     int index;
     SP_INTERFACE_DEVICE_DATA iface;
     iface.cbSize = sizeof(iface);
+    dev = INVALID_HANDLE_VALUE;
     for (index=0; SetupDiEnumDeviceInterfaces(devinfo, NULL, &guid, index, &iface); ++index) {
 
         // Obtain a required size of device detail structure.
@@ -156,22 +146,22 @@ HANDLE find_hid_device(int vid, int pid)
         }
         //printf("Device %d: path %s\n", index, detail->DevicePath);
 
-        h = CreateFile(detail->DevicePath, GENERIC_WRITE | GENERIC_READ,
+        dev = CreateFile(detail->DevicePath, GENERIC_WRITE | GENERIC_READ,
             0, NULL, OPEN_EXISTING, 0, NULL);
-        if (h == INVALID_HANDLE_VALUE) {
+        if (dev == INVALID_HANDLE_VALUE) {
             continue;
         }
 
         // Get the Vendor ID and Product ID for this device.
         HIDD_ATTRIBUTES attrib;
         attrib.Size = sizeof(HIDD_ATTRIBUTES);
-        HidD_GetAttributes(h, &attrib);
+        HidD_GetAttributes(dev, &attrib);
         //printf("Vendor/Product: %04x %04x\n", attrib.VendorID, attrib.ProductID);
 
         // Check the VID/PID.
         if (attrib.VendorID != vid || attrib.ProductID != pid) {
-            CloseHandle(h);
-            h = INVALID_HANDLE_VALUE;
+            CloseHandle(dev);
+            dev = INVALID_HANDLE_VALUE;
             continue;
         }
 
@@ -179,51 +169,14 @@ HANDLE find_hid_device(int vid, int pid)
         break;
     }
     SetupDiDestroyDeviceInfoList(devinfo);
-    return h;
-}
 
-//
-// Open the radio in programming mode.
-//
-const char *hid_init(int vid, int pid)
-{
-    // Find HID device.
-    dev = find_hid_device(vid, pid);
     if (dev == INVALID_HANDLE_VALUE) {
         if (trace_flag) {
             fprintf(stderr, "Cannot find HID device %04x:%04x\n", vid, pid);
         }
-        return 0;
+        return -1;
     }
-
-    static unsigned char reply[38];
-    unsigned char ack;
-
-    hid_send_recv(CMD_PRG, 7, &ack, 1);
-    if (ack != CMD_ACK[0]) {
-        fprintf(stderr, "%s: Wrong PRD acknowledge %#x, expected %#x\n",
-            __func__, ack, CMD_ACK[0]);
-        return 0;
-    }
-
-    hid_send_recv(CMD_PRG2, 2, reply, 16);
-
-    hid_send_recv(CMD_ACK, 1, &ack, 1);
-    if (ack != CMD_ACK[0]) {
-        fprintf(stderr, "%s: Wrong PRG2 acknowledge %#x, expected %#x\n",
-            __func__, ack, CMD_ACK[0]);
-        return 0;
-    }
-
-    // Reply:
-    // 42 46 2d 35 52 ff ff ff 56 32 31 30 00 04 80 04
-    //  B  F  -  5  R           V  2  1  0
-
-    // Terminate the string.
-    char *p = memchr(reply, 0xff, sizeof(reply));
-    if (p)
-        *p = 0;
-    return (char*)reply;
+    return 0;
 }
 
 //
@@ -234,100 +187,5 @@ void hid_close()
     if (dev != INVALID_HANDLE_VALUE) {
         CloseHandle(dev);
         dev = INVALID_HANDLE_VALUE;
-    }
-}
-
-void hid_read_block(int bno, uint8_t *data, int nbytes)
-{
-    unsigned addr = bno * nbytes;
-    unsigned char ack, cmd[4], reply[32+4];
-    int n;
-
-    if (addr < 0x10000 && offset != 0) {
-        offset = 0;
-        hid_send_recv(CMD_CWB0, 8, &ack, 1);
-        if (ack != CMD_ACK[0]) {
-            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-                __func__, ack, CMD_ACK[0]);
-            exit(-1);
-        }
-    } else if (addr >= 0x10000 && offset == 0) {
-        offset = 0x00010000;
-        hid_send_recv(CMD_CWB1, 8, &ack, 1);
-        if (ack != CMD_ACK[0]) {
-            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-                __func__, ack, CMD_ACK[0]);
-            exit(-1);
-        }
-    }
-
-    for (n=0; n<nbytes; n+=32) {
-        cmd[0] = CMD_READ[0];
-        cmd[1] = (addr + n) >> 8;
-        cmd[2] = addr + n;
-        cmd[3] = 32;
-        hid_send_recv(cmd, 4, reply, sizeof(reply));
-        memcpy(data + n, reply + 4, 32);
-    }
-}
-
-void hid_write_block(int bno, uint8_t *data, int nbytes)
-{
-    unsigned addr = bno * nbytes;
-    unsigned char ack, cmd[4+32];
-    int n;
-
-    if (addr < 0x10000 && offset != 0) {
-        offset = 0;
-        hid_send_recv(CMD_CWB0, 8, &ack, 1);
-        if (ack != CMD_ACK[0]) {
-            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-                __func__, ack, CMD_ACK[0]);
-            exit(-1);
-        }
-    } else if (addr >= 0x10000 && offset == 0) {
-        offset = 0x00010000;
-        hid_send_recv(CMD_CWB1, 8, &ack, 1);
-        if (ack != CMD_ACK[0]) {
-            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-                __func__, ack, CMD_ACK[0]);
-            exit(-1);
-        }
-    }
-
-    for (n=0; n<nbytes; n+=32) {
-        cmd[0] = CMD_WRITE[0];
-        cmd[1] = (addr + n) >> 8;
-        cmd[2] = addr + n;
-        cmd[3] = 32;
-        memcpy(cmd + 4, data + n, 32);
-        hid_send_recv(cmd, 4+32, &ack, 1);
-        if (ack != CMD_ACK[0]) {
-            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-                __func__, ack, CMD_ACK[0]);
-            exit(-1);
-        }
-    }
-}
-
-void hid_read_finish()
-{
-    unsigned char ack;
-
-    hid_send_recv(CMD_ENDR, 4, &ack, 1);
-    if (ack != CMD_ACK[0]) {
-        fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-            __func__, ack, CMD_ACK[0]);
-    }
-}
-
-void hid_write_finish()
-{
-    unsigned char ack;
-
-    hid_send_recv(CMD_ENDW, 4, &ack, 1);
-    if (ack != CMD_ACK[0]) {
-        fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-            __func__, ack, CMD_ACK[0]);
     }
 }

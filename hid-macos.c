@@ -32,21 +32,10 @@
 #include <IOKit/hid/IOHIDManager.h>
 #include "util.h"
 
-static const unsigned char CMD_PRG[]   = "\2PROGRA";
-static const unsigned char CMD_PRG2[]  = "M\2";
-static const unsigned char CMD_ACK[]   = "A";
-static const unsigned char CMD_READ[]  = "Raan";
-static const unsigned char CMD_WRITE[] = "Waan...";
-static const unsigned char CMD_ENDR[]  = "ENDR";
-static const unsigned char CMD_ENDW[]  = "ENDW";
-static const unsigned char CMD_CWB0[]  = "CWB\4\0\0\0\0";
-static const unsigned char CMD_CWB1[]  = "CWB\4\0\1\0\0";
-
 static volatile IOHIDDeviceRef dev;         // device handle
 static unsigned char transfer_buf[42];      // device buffer
 static unsigned char receive_buf[42];       // receive buffer
 static volatile int nbytes_received = 0;    // receive result
-static unsigned offset = 0;                 // CWD offset
 
 //
 // Send a request to the device.
@@ -57,6 +46,7 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
 {
     unsigned char buf[42];
     unsigned k;
+    IOReturn result;
 
     memset(buf, 0, sizeof(buf));
     buf[0] = 1;
@@ -80,7 +70,7 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
     memset(receive_buf, 0, sizeof(receive_buf));
 again:
     // Write to HID device.
-    IOReturn result = IOHIDDeviceSetReport(dev, kIOHIDReportTypeOutput, 0, buf, sizeof(buf));
+    result = IOHIDDeviceSetReport(dev, kIOHIDReportTypeOutput, 0, buf, sizeof(buf));
     if (result != kIOReturnSuccess) {
         fprintf(stderr, "HID output error: %d!\n", result);
         exit(-1);
@@ -89,9 +79,9 @@ again:
     // Run main application loop until reply received.
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, 0);
     for (k = 0; nbytes_received <= 0; k++) {
-        usleep(10000);
+        usleep(100);
         CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, 0);
-        if (k >= 10) {
+        if (k >= 1000) {
             if (trace_flag > 0) {
                 fprintf(stderr, "No response from HID device!\n");
             }
@@ -179,7 +169,7 @@ static void callback_close(void *ontext,
 //
 // Launch the IOHIDManager.
 //
-const char *hid_init(int vid, int pid)
+int hid_init(int vid, int pid)
 {
     // Create the USB HID Manager.
     IOHIDManagerRef HIDManager = IOHIDManagerCreate(kCFAllocatorDefault,
@@ -210,7 +200,7 @@ const char *hid_init(int vid, int pid)
         if (trace_flag) {
             fprintf(stderr, "Cannot find USB device %04x:%04x\n", vid, pid);
         }
-        return 0;
+        return -1;
     }
 
     // Run main application loop until device found.
@@ -218,44 +208,16 @@ const char *hid_init(int vid, int pid)
     for (k=0; ; k++) {
         CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, 0);
         if (dev)
-            break;
+            return 0;
+
         if (k >= 3) {
             if (trace_flag) {
                 fprintf(stderr, "Cannot find USB device %04x:%04x\n", vid, pid);
             }
-            return 0;
+            return -1;
         }
         usleep(10000);
     }
-
-    static unsigned char reply[38];
-    unsigned char ack;
-
-    hid_send_recv(CMD_PRG, 7, &ack, 1);
-    if (ack != CMD_ACK[0]) {
-        fprintf(stderr, "%s: Wrong PRD acknowledge %#x, expected %#x\n",
-            __func__, ack, CMD_ACK[0]);
-        return 0;
-    }
-
-    hid_send_recv(CMD_PRG2, 2, reply, 16);
-
-    hid_send_recv(CMD_ACK, 1, &ack, 1);
-    if (ack != CMD_ACK[0]) {
-        fprintf(stderr, "%s: Wrong PRG2 acknowledge %#x, expected %#x\n",
-            __func__, ack, CMD_ACK[0]);
-        return 0;
-    }
-
-    // Reply:
-    // 42 46 2d 35 52 ff ff ff 56 32 31 30 00 04 80 04
-    //  B  F  -  5  R           V  2  1  0
-
-    // Terminate the string.
-    char *p = memchr(reply, 0xff, sizeof(reply));
-    if (p)
-        *p = 0;
-    return (char*)reply;
 }
 
 //
@@ -268,99 +230,4 @@ void hid_close()
 
     IOHIDDeviceClose(dev, kIOHIDOptionsTypeNone);
     dev = 0;
-}
-
-void hid_read_block(int bno, uint8_t *data, int nbytes)
-{
-    unsigned addr = bno * nbytes;
-    unsigned char ack, cmd[4], reply[32+4];
-    int n;
-
-    if (addr < 0x10000 && offset != 0) {
-        offset = 0;
-        hid_send_recv(CMD_CWB0, 8, &ack, 1);
-        if (ack != CMD_ACK[0]) {
-            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-                __func__, ack, CMD_ACK[0]);
-            exit(-1);
-        }
-    } else if (addr >= 0x10000 && offset == 0) {
-        offset = 0x00010000;
-        hid_send_recv(CMD_CWB1, 8, &ack, 1);
-        if (ack != CMD_ACK[0]) {
-            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-                __func__, ack, CMD_ACK[0]);
-            exit(-1);
-        }
-    }
-
-    for (n=0; n<nbytes; n+=32) {
-        cmd[0] = CMD_READ[0];
-        cmd[1] = (addr + n) >> 8;
-        cmd[2] = addr + n;
-        cmd[3] = 32;
-        hid_send_recv(cmd, 4, reply, sizeof(reply));
-        memcpy(data + n, reply + 4, 32);
-    }
-}
-
-void hid_write_block(int bno, uint8_t *data, int nbytes)
-{
-    unsigned addr = bno * nbytes;
-    unsigned char ack, cmd[4+32];
-    int n;
-
-    if (addr < 0x10000 && offset != 0) {
-        offset = 0;
-        hid_send_recv(CMD_CWB0, 8, &ack, 1);
-        if (ack != CMD_ACK[0]) {
-            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-                __func__, ack, CMD_ACK[0]);
-            exit(-1);
-        }
-    } else if (addr >= 0x10000 && offset == 0) {
-        offset = 0x00010000;
-        hid_send_recv(CMD_CWB1, 8, &ack, 1);
-        if (ack != CMD_ACK[0]) {
-            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-                __func__, ack, CMD_ACK[0]);
-            exit(-1);
-        }
-    }
-
-    for (n=0; n<nbytes; n+=32) {
-        cmd[0] = CMD_WRITE[0];
-        cmd[1] = (addr + n) >> 8;
-        cmd[2] = addr + n;
-        cmd[3] = 32;
-        memcpy(cmd + 4, data + n, 32);
-        hid_send_recv(cmd, 4+32, &ack, 1);
-        if (ack != CMD_ACK[0]) {
-            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-                __func__, ack, CMD_ACK[0]);
-            exit(-1);
-        }
-    }
-}
-
-void hid_read_finish()
-{
-    unsigned char ack;
-
-    hid_send_recv(CMD_ENDR, 4, &ack, 1);
-    if (ack != CMD_ACK[0]) {
-        fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-            __func__, ack, CMD_ACK[0]);
-    }
-}
-
-void hid_write_finish()
-{
-    unsigned char ack;
-
-    hid_send_recv(CMD_ENDW, 4, &ack, 1);
-    if (ack != CMD_ACK[0]) {
-        fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
-            __func__, ack, CMD_ACK[0]);
-    }
 }

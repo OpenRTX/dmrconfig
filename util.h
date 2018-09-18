@@ -68,9 +68,10 @@ void dfu_reboot(void);
 //
 // HID functions.
 //
-const char *hid_init(int vid, int pid);
+int hid_init(int vid, int pid);
+const char *hid_identify(void);
 void hid_close(void);
-int hid_write_read(const unsigned char *data, unsigned length, unsigned char *reply, unsigned rlength);
+void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rdata, unsigned rlength);
 void hid_read_block(int bno, unsigned char *data, int nbytes);
 void hid_read_finish(void);
 void hid_write_block(int bno, unsigned char *data, int nbytes);

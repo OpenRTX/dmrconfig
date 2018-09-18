@@ -91,7 +91,8 @@ void radio_connect()
     ident = dfu_init(0x0483, 0xdf11);
     if (! ident) {
         // Try RD-5R.
-        ident = hid_init(0x15a2, 0x0073);
+        if (hid_init(0x15a2, 0x0073) >= 0)
+            ident = hid_identify();
     }
     if (! ident) {
         fprintf(stderr, "No radio detected.\n");
