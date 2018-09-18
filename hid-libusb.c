@@ -44,6 +44,7 @@ static const unsigned char CMD_CWB1[]  = "CWB\4\0\1\0\0";
 
 static libusb_context *ctx = NULL;          // libusb context
 static libusb_device_handle *dev;           // libusb device
+static struct libusb_transfer *transfer;    // async transfer descriptor
 static unsigned char receive_buf[42];       // receive buffer
 static volatile int nbytes_received = 0;    // receive result
 static unsigned offset = 0;                 // CWD offset
@@ -55,13 +56,13 @@ static unsigned offset = 0;                 // CWD offset
 // Callback function for asynchronous receive.
 // Needs to fill the receive_buf and set nbytes_received.
 //
-static void read_callback(struct libusb_transfer *transfer)
+static void read_callback(struct libusb_transfer *t)
 {
-    switch (transfer->status) {
+    switch (t->status) {
     case LIBUSB_TRANSFER_COMPLETED:
-        //fprintf(stderr, "%s: Transfer complete, %d bytes\n", __func__, transfer->actual_length);
-        memcpy(receive_buf, transfer->buffer, transfer->actual_length);
-        nbytes_received = transfer->actual_length;
+        //fprintf(stderr, "%s: Transfer complete, %d bytes\n", __func__, t->actual_length);
+        memcpy(receive_buf, t->buffer, t->actual_length);
+        nbytes_received = t->actual_length;
         break;
 
     case LIBUSB_TRANSFER_CANCELLED:
@@ -80,7 +81,7 @@ static void read_callback(struct libusb_transfer *transfer)
         break;
 
     default:
-        //fprintf(stderr, "%s: Unknown transfer code: %d\n", __func__, transfer->status);
+        //fprintf(stderr, "%s: Unknown transfer code: %d\n", __func__, t->status);
         nbytes_received = LIBUSB_ERROR_IO;
    }
 }
@@ -94,12 +95,15 @@ static void read_callback(struct libusb_transfer *transfer)
 //
 static int write_read(const unsigned char *data, unsigned length, unsigned char *reply, unsigned rlength)
 {
-    struct libusb_transfer *transfer = libusb_alloc_transfer(0);
+    if (! transfer) {
+        // Allocate transfer descriptor on first invocation.
+        transfer = libusb_alloc_transfer(0);
+        libusb_fill_interrupt_transfer(transfer, dev,
+            LIBUSB_RECIPIENT_INTERFACE|LIBUSB_ENDPOINT_IN,
+            reply, rlength, read_callback, 0, TIMEOUT_MSEC);
+    }
 again:
     nbytes_received = 0;
-    libusb_fill_interrupt_transfer(transfer, dev,
-        LIBUSB_RECIPIENT_INTERFACE|LIBUSB_ENDPOINT_IN,
-        reply, rlength, read_callback, 0, TIMEOUT_MSEC);
     libusb_submit_transfer(transfer);
 
     int result = libusb_control_transfer(dev,
@@ -111,7 +115,6 @@ again:
         fprintf(stderr, "Error %d transmitting data via control transfer: %s\n",
             result, libusb_strerror(result));
         libusb_cancel_transfer(transfer);
-        libusb_free_transfer(transfer);
         return -1;
     }
 
@@ -125,17 +128,17 @@ again:
                 result != LIBUSB_ERROR_INTERRUPTED) {
                 fprintf(stderr, "Error %d receiving data via interrupt transfer: %s\n",
                     result, libusb_strerror(result));
-                libusb_free_transfer(transfer);
                 return result;
             }
         }
     }
 
     if (nbytes_received == LIBUSB_ERROR_TIMEOUT) {
-        //fprintf(stderr, "Timed out!\n");
+        if (trace_flag > 0) {
+            fprintf(stderr, "No response from HID device!\n");
+        }
         goto again;
     }
-    libusb_free_transfer(transfer);
     return nbytes_received;
 }
 
@@ -272,6 +275,10 @@ void hid_close()
     if (!ctx)
         return;
 
+    if (transfer) {
+        libusb_free_transfer(transfer);
+        transfer = 0;
+    }
     libusb_release_interface(dev, HID_INTERFACE);
     libusb_close(dev);
     libusb_exit(ctx);

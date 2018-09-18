@@ -78,7 +78,7 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
     }
     nbytes_received = 0;
     memset(receive_buf, 0, sizeof(receive_buf));
-
+again:
     // Write to HID device.
     IOReturn result = IOHIDDeviceSetReport(dev, kIOHIDReportTypeOutput, 0, buf, sizeof(buf));
     if (result != kIOReturnSuccess) {
@@ -87,15 +87,16 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
     }
 
     // Run main application loop until reply received.
-    for (k=0; ; k++) {
-        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, 0);
-        if (nbytes_received > 0)
-            break;
-        if (k >= 5) {
-            fprintf(stderr, "HID device stopped responding!\n");
-            exit(-1);
-        }
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, 0);
+    for (k = 0; nbytes_received <= 0; k++) {
         usleep(10000);
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, 0);
+        if (k >= 10) {
+            if (trace_flag > 0) {
+                fprintf(stderr, "No response from HID device!\n");
+            }
+            goto again;
+        }
     }
 
     if (nbytes_received != sizeof(receive_buf)) {
