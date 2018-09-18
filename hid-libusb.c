@@ -98,10 +98,10 @@ static int write_read(const unsigned char *data, unsigned length, unsigned char 
     if (! transfer) {
         // Allocate transfer descriptor on first invocation.
         transfer = libusb_alloc_transfer(0);
-        libusb_fill_interrupt_transfer(transfer, dev,
-            LIBUSB_RECIPIENT_INTERFACE|LIBUSB_ENDPOINT_IN,
-            reply, rlength, read_callback, 0, TIMEOUT_MSEC);
     }
+    libusb_fill_interrupt_transfer(transfer, dev,
+        LIBUSB_RECIPIENT_INTERFACE|LIBUSB_ENDPOINT_IN,
+        reply, rlength, read_callback, 0, TIMEOUT_MSEC);
 again:
     nbytes_received = 0;
     libusb_submit_transfer(transfer);

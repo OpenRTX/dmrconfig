@@ -25,6 +25,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include <windows.h>
+#include <setupapi.h>
+#include <hidsdi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,8 +45,8 @@ static const unsigned char CMD_ENDW[]  = "ENDW";
 static const unsigned char CMD_CWB0[]  = "CWB\4\0\0\0\0";
 static const unsigned char CMD_CWB1[]  = "CWB\4\0\1\0\0";
 
+HANDLE dev = INVALID_HANDLE_VALUE;;         // HID device
 static unsigned char receive_buf[42];       // receive buffer
-static volatile int nbytes_received = 0;    // receive result
 static unsigned offset = 0;                 // CWD offset
 
 //
@@ -55,6 +58,7 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
 {
     unsigned char buf[42];
     unsigned k;
+    DWORD nbytes_received;
 
     memset(buf, 0, sizeof(buf));
     buf[0] = 1;
@@ -76,30 +80,22 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
     }
     nbytes_received = 0;
     memset(receive_buf, 0, sizeof(receive_buf));
-#if 0
-    //TODO
+
     // Write to HID device.
-    IOReturn result = IOHIDDeviceSetReport(dev, kIOHIDReportTypeOutput, 0, buf, sizeof(buf));
-    if (result != kIOReturnSuccess) {
-        fprintf(stderr, "HID output error: %d!\n", result);
+    if (!WriteFile(dev, buf, sizeof(buf), NULL, NULL)) {
+        fprintf(stderr, "Error %#lx sending to HID device!\n", GetLastError());
         exit(-1);
     }
 
-    // Run main application loop until reply received.
-    for (k=0; ; k++) {
-        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, 0);
-        if (nbytes_received > 0)
-            break;
-        if (k >= 5) {
-            fprintf(stderr, "HID device stopped responding!\n");
-            exit(-1);
-        }
-        usleep(10000);
+    // Receive reply.
+    if (!ReadFile(dev, receive_buf, sizeof(receive_buf), &nbytes_received, NULL)) {
+        fprintf(stderr, "Error %#lx receiving from HID device!\n", GetLastError());
+        exit(-1);
     }
-#endif
+
     if (nbytes_received != sizeof(receive_buf)) {
-        fprintf(stderr, "Short read: %d bytes instead of %d!\n",
-            nbytes_received, (int)sizeof(receive_buf));
+        fprintf(stderr, "Short read: %u bytes instead of %u!\n",
+            (unsigned)nbytes_received, (unsigned)sizeof(receive_buf));
         exit(-1);
     }
     if (trace_flag > 0) {
@@ -124,15 +120,81 @@ void hid_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rd
 }
 
 //
-// Launch the IOHIDManager.
+// Find a HID device with given GUID, vendor ID and product ID.
+// Return an opened file descriptor.
+//
+HANDLE find_hid_device(int vid, int pid)
+{
+    static GUID guid = { 0x4d1e55b2, 0xf16f, 0x11cf, { 0x88, 0xcb, 0x00, 0x11, 0x11, 0x00, 0x00, 0x30 } };
+    HANDLE h = INVALID_HANDLE_VALUE;
+
+    HDEVINFO devinfo = SetupDiGetClassDevs(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_INTERFACEDEVICE);
+    if (devinfo == INVALID_HANDLE_VALUE) {
+        printf("Cannot get devinfo!\n");
+        return 0;
+    }
+
+    // Loop through available devices with a given GUID.
+    int index;
+    SP_INTERFACE_DEVICE_DATA iface;
+    iface.cbSize = sizeof(iface);
+    for (index=0; SetupDiEnumDeviceInterfaces(devinfo, NULL, &guid, index, &iface); ++index) {
+
+        // Obtain a required size of device detail structure.
+        DWORD needed;
+        SetupDiGetDeviceInterfaceDetail(devinfo, &iface, NULL, 0, &needed, NULL);
+
+        // Allocate the device detail structure.
+        PSP_INTERFACE_DEVICE_DETAIL_DATA detail = (PSP_INTERFACE_DEVICE_DETAIL_DATA)alloca(needed);
+        detail->cbSize = sizeof(SP_INTERFACE_DEVICE_DETAIL_DATA);
+        SP_DEVINFO_DATA did = { sizeof(SP_DEVINFO_DATA) };
+
+        // Get device information.
+        if (!SetupDiGetDeviceInterfaceDetail(devinfo, &iface, detail, needed, NULL, &did)) {
+            printf("Device %d: cannot get path!\n", index);
+            continue;
+        }
+        printf("Device %d: path %s\n", index, detail->DevicePath);
+
+        h = CreateFile(detail->DevicePath, GENERIC_WRITE | GENERIC_READ,
+            0, NULL, OPEN_EXISTING, 0, NULL);
+        if (h == INVALID_HANDLE_VALUE) {
+            continue;
+        }
+
+        // Get the Vendor ID and Product ID for this device.
+        HIDD_ATTRIBUTES attrib;
+        attrib.Size = sizeof(HIDD_ATTRIBUTES);
+        HidD_GetAttributes(h, &attrib);
+        printf("Product/Vendor: %x %x\n", attrib.ProductID, attrib.VendorID);
+
+        // Check the VID/PID.
+        if (attrib.VendorID != vid || attrib.ProductID != pid) {
+            CloseHandle(h);
+            h = INVALID_HANDLE_VALUE;
+            continue;
+        }
+
+        // Required device found.
+        break;
+    }
+    SetupDiDestroyDeviceInfoList(devinfo);
+    return h;
+}
+
+//
+// Open the radio in programming mode.
 //
 const char *hid_init(int vid, int pid)
 {
-    //TODO
-    if (trace_flag) {
-        fprintf(stderr, "Cannot find USB device %04x:%04x\n", vid, pid);
+    // Find HID device.
+    dev = find_hid_device(vid, pid);
+    if (dev == INVALID_HANDLE_VALUE) {
+        if (trace_flag) {
+            fprintf(stderr, "Cannot find HID device %04x:%04x\n", vid, pid);
+        }
+        return 0;
     }
-    return 0;
 
     static unsigned char reply[38];
     unsigned char ack;
@@ -169,7 +231,10 @@ const char *hid_init(int vid, int pid)
 //
 void hid_close()
 {
-    //TODO
+    if (dev != INVALID_HANDLE_VALUE) {
+        CloseHandle(dev);
+        dev = INVALID_HANDLE_VALUE;
+    }
 }
 
 void hid_read_block(int bno, uint8_t *data, int nbytes)

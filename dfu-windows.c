@@ -399,8 +399,10 @@ const char *dfu_init(unsigned vid, unsigned pid)
     }
 
     if (!path) {
-        fprintf(stderr, "Cannot find USB device %04x:%04x\n", vid, pid);
-        exit(-1);
+        if (trace_flag) {
+            fprintf(stderr, "Cannot find DFU device %04x:%04x\n", vid, pid);
+        }
+        return 0;
     }
 
     // Open the device.
