@@ -154,7 +154,7 @@ HANDLE find_hid_device(int vid, int pid)
             printf("Device %d: cannot get path!\n", index);
             continue;
         }
-        printf("Device %d: path %s\n", index, detail->DevicePath);
+        //printf("Device %d: path %s\n", index, detail->DevicePath);
 
         h = CreateFile(detail->DevicePath, GENERIC_WRITE | GENERIC_READ,
             0, NULL, OPEN_EXISTING, 0, NULL);
@@ -166,7 +166,7 @@ HANDLE find_hid_device(int vid, int pid)
         HIDD_ATTRIBUTES attrib;
         attrib.Size = sizeof(HIDD_ATTRIBUTES);
         HidD_GetAttributes(h, &attrib);
-        printf("Product/Vendor: %x %x\n", attrib.ProductID, attrib.VendorID);
+        //printf("Vendor/Product: %04x %04x\n", attrib.VendorID, attrib.ProductID);
 
         // Check the VID/PID.
         if (attrib.VendorID != vid || attrib.ProductID != pid) {
