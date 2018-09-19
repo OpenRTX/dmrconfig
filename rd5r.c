@@ -37,9 +37,10 @@
 #define NCHAN           1024
 #define NCONTACTS       256
 #define NZONES          250
-#define NGLISTS         128
+#define NGLISTS         64
 #define NSCANL          250
 #define NMESSAGES       32
+//TODO: bitmaps for channels and zones
 
 #define MEMSZ           0x20000
 #define OFFSET_TIMESTMP 0x00088
@@ -56,7 +57,9 @@
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_INTRO()         ((intro_text_t*) &radio_mem[OFFSET_INTRO])
-#define GET_CHANNEL(i)      ((channel_t*) &radio_mem[(i)*56 + ((i)<128 ? OFFSET_CHANLO : OFFSET_CHANHI)])
+#define GET_CHANNEL_LO(i)   ((channel_t*) &radio_mem[(i)*56 + OFFSET_CHANLO])
+#define GET_CHANNEL_HI(i)   ((channel_t*) &radio_mem[((i)-128)*56 + OFFSET_CHANHI])
+#define GET_CHANNEL(i)      ((i)<128 ? GET_CHANNEL_LO(i) : GET_CHANNEL_HI(i))
 #define GET_ZONE(i)         ((zone_t*) &radio_mem[OFFSET_ZONES + (i)*48])
 #define GET_ZONEXT(i)       ((zone_ext_t*) &radio_mem[OFFSET_ZONEXT + (i)*224])
 #define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANL + (i)*88])
@@ -605,7 +608,6 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->ctcss_dcs_transmit  = txtone;
 
     int len = strlen(name);
-    memset(ch->name, 0xff, sizeof(ch->name));
     memcpy(ch->name, name, (len < sizeof(ch->name)) ? len : sizeof(ch->name));
 }
 
