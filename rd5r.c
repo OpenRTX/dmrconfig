@@ -485,7 +485,7 @@ static int scanlist_append(int index, int cnum)
         sl->member[0] = CHAN_SELECTED;
 
     for (i=0; i<32; i++) {
-        if (sl->member[i] == cnum)
+        if (sl->member[i] == cnum + 1)
             return 1;
         if (sl->member[i] == 0) {
             sl->member[i] = cnum + 1;
@@ -1743,44 +1743,52 @@ static int parse_scanlist(int first_row, char *line)
     }
 
     if (*prio1_str == '-') {
-        prio1 = 0xffff;
-    } else if (strcasecmp("Sel", prio1_str) == 0) {
         prio1 = 0;
+    } else if (strcasecmp("Sel", prio1_str) == 0) {
+        prio1 = 1;
     } else {
         prio1 = atoi(prio1_str);
         if (prio1 < 1 || prio1 > NCHAN) {
             fprintf(stderr, "Bad priority channel 1.\n");
             return 0;
         }
+        prio1++;
     }
 
     if (*prio2_str == '-') {
-        prio2 = 0xffff;
-    } else if (strcasecmp("Sel", prio2_str) == 0) {
         prio2 = 0;
+    } else if (strcasecmp("Sel", prio2_str) == 0) {
+        prio2 = 1;
     } else {
         prio2 = atoi(prio2_str);
         if (prio2 < 1 || prio2 > NCHAN) {
             fprintf(stderr, "Bad priority channel 2.\n");
             return 0;
         }
+        prio2++;
     }
 
     if (strcasecmp("Last", tx_str) == 0) {
-        txchan = 0xffff;
-    } else if (strcasecmp("Sel", tx_str) == 0) {
         txchan = 0;
+    } else if (strcasecmp("Sel", tx_str) == 0) {
+        txchan = 1;
     } else {
         txchan = atoi(tx_str);
         if (txchan < 1 || txchan > NCHAN) {
             fprintf(stderr, "Bad transmit channel.\n");
             return 0;
         }
+        txchan++;
     }
 
     setup_scanlist(snum-1, name_str, prio1, prio2, txchan);
 
-    if (*chan_str != '-') {
+    if (*chan_str == '-') {
+        // Empty.
+    } else if (strcasecmp("Sel", chan_str) == 0) {
+        // Selected channel only.
+        scanlist_append(snum-1, 0);
+    } else {
         char *str   = chan_str;
         int   nchan = 0;
         int   range = 0;
