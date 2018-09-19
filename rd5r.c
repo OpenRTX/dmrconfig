@@ -78,109 +78,93 @@ typedef struct {
     // Bytes 0-15
     uint8_t name[16];                   // Channel Name
 
-    // Byte 0
-    uint8_t channel_mode        : 2,    // Mode: Analog or Digital
-#define MODE_ANALOG     1
-#define MODE_DIGITAL    2
-
-            bandwidth           : 2,    // Bandwidth: 12.5 or 20 or 25 kHz
-#define BW_12_5_KHZ     0
-#define BW_20_KHZ       1
-#define BW_25_KHZ       2
-
-            autoscan            : 1,    // Autoscan Enable
-            squelch             : 1,    // Squelch
-#define SQ_TIGHT        0
-#define SQ_NORMAL       1
-
-            _unused1            : 1,    // 1
-            lone_worker         : 1;    // Lone Worker
-
-    // Byte 1
-    uint8_t talkaround          : 1,    // Allow Talkaround
-            rx_only             : 1,    // RX Only Enable
-            repeater_slot       : 2,    // Repeater Slot: 1 or 2
-            colorcode           : 4;    // Color Code: 0...15
-
-    // Byte 2
-    uint8_t privacy_no          : 4,    // Privacy No. (+1): 1...16
-            privacy             : 2,    // Privacy: None, Basic or Enhanced
-#define PRIV_NONE       0
-#define PRIV_BASIC      1
-#define PRIV_ENHANCED   2
-
-            private_call_conf   : 1,    // Private Call Confirmed
-            data_call_conf      : 1;    // Data Call Confirmed
-
-    // Byte 3
-    uint8_t rx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
-#define REF_LOW         0
-#define REF_MEDIUM      1
-#define REF_HIGH        2
-
-            _unused2            : 1,    // 0
-            emergency_alarm_ack : 1,    // Emergency Alarm Ack
-            _unused3            : 2,    // 0b10
-            uncompressed_udp    : 1,    // Compressed UDP Data header (0) Enable, (1) Disable
-            display_pttid_dis   : 1;    // Display PTT ID (inverted)
-
-    // Byte 4
-    uint8_t tx_ref_frequency    : 2,    // RX Ref Frequency: Low, Medium or High
-            _unused4            : 2,    // 0b01
-            vox                 : 1,    // VOX Enable
-            power               : 1,    // Power: Low, High
-#define POWER_HIGH      1
-#define POWER_LOW       0
-
-            admit_criteria      : 2;    // Admit Criteria: Always, Channel Free or Correct CTS/DCS
-#define ADMIT_ALWAYS    0
-#define ADMIT_CH_FREE   1
-#define ADMIT_TONE      2
-#define ADMIT_COLOR     3
-
-    // Byte 5
-    uint8_t _unused5            : 4,    // 0
-            in_call_criteria    : 2,    // In Call Criteria: Always, Follow Admit Criteria or TX Interrupt
-#define INCALL_ALWAYS   0
-#define INCALL_ADMIT    1
-
-            _unused6            : 2;    // 0b11
-
-    // Bytes 6-7
-    uint16_t contact_name_index;        // Contact Name: Contact1...
-
-    // Bytes 8-9
-    uint8_t tot                 : 6,    // TOT x 15sec: 0-Infinite, 1=15s... 37=555s
-            _unused13           : 2;    // 0
-    uint8_t tot_rekey_delay;            // TOT Rekey Delay: 0s...255s
-
-    // Bytes 10-11
-    uint8_t emergency_system_index;     // Emergency System: None, System1...32
-    uint8_t scan_list_index;            // Scan List: None, ScanList1...250
-
-    // Bytes 12-13
-    uint8_t group_list_index;           // Group List: None, GroupList1...250
-    uint8_t _unused7;                   // 0
-
-    // Bytes 14-15
-    uint8_t _unused8;                   // 0
-    uint8_t _unused9;                   // 0xff
-
     // Bytes 16-23
     uint32_t rx_frequency;              // RX Frequency: 8 digits BCD
     uint32_t tx_frequency;              // TX Frequency: 8 digits BCD
 
-    // Bytes 24-27
-    uint16_t ctcss_dcs_receive;         // CTCSS/DCS Dec: 4 digits BCD
-    uint16_t ctcss_dcs_transmit;        // CTCSS/DCS Enc: 4 digits BCD
+    // Byte 24
+    uint8_t channel_mode;               // Mode: Analog or Digital
+#define MODE_ANALOG     0
+#define MODE_DIGITAL    1
 
-    // Bytes 28-29
-    uint8_t rx_signaling_syst;          // Rx Signaling System: Off, DTMF-1...4
-    uint8_t tx_signaling_syst;          // Tx Signaling System: Off, DTMF-1...4
+    // Bytes 25-26
+    uint8_t _unused25[2];               // 0
+
+    // Bytes 27-28
+    uint8_t tot;                        // TOT x 15sec: 0-Infinite, 1=15s... 33=495s
+    uint8_t tot_rekey_delay;            // TOT Rekey Delay: 0s...255s
+
+    // Byte 29
+    uint8_t admit_criteria;             // Admit Criteria: Always, Channel Free or Color Code
+#define ADMIT_ALWAYS    0
+#define ADMIT_CH_FREE   1
+#define ADMIT_COLOR     2
 
     // Bytes 30-31
-    uint8_t _unused10;                  // 0xff
-    uint8_t _unused11;                  // 0xff
+    uint8_t _unused30;                  // 0x50
+    uint8_t scan_list_index;            // Scan List: None, ScanList1...250
+
+    // Bytes 32-35
+    uint16_t ctcss_dcs_receive;         // CTCSS/DCS Dec: 4 digits BCD or 0xffff
+    uint16_t ctcss_dcs_transmit;        // CTCSS/DCS Enc: 4 digits BCD
+
+    // Bytes 36-39
+    uint8_t _unused36;                  // 0
+    uint8_t tx_signaling_syst;          // Tx Signaling System: Off, DTMF
+    uint8_t _unused38;                  // 0
+    uint8_t rx_signaling_syst;          // Rx Signaling System: Off, DTMF
+
+    // Bytes 40-43
+    uint8_t _unused40;                  // 0x16
+    uint8_t privacy_group;              // Privacy Group: 0=None, 1=53474c39
+#define PRIVGR_NONE     0
+#define PRIVGR_53474C39 1
+
+    uint8_t colorcode_tx;               // Color Code: 0...15
+    uint8_t group_list_index;           // Group List: None, GroupList1...128
+
+    // Bytes 44-47
+    uint8_t colorcode_rx;               // Color Code: 0...15
+    uint8_t emergency_system_index;     // Emergency System: None, System1...32
+    uint16_t contact_name_index;        // Contact Name: Contact1...
+
+    // Byte 48
+    uint8_t _unused48           : 6,    // 0
+            emergency_alarm_ack : 1,    // Emergency Alarm Ack
+            data_call_conf      : 1;    // Data Call Confirmed
+
+    // Byte 49
+    uint8_t private_call_conf   : 1,    // Private Call Confirmed
+            _unused49_1         : 3,    // 0
+            privacy             : 1,    // Privacy: Off or On
+            _unused49_5         : 1,    // 0
+            repeater_slot2      : 1,    // Repeater Slot: 0=slot1 or 1=slot2
+            _unused49_7         : 1;    // 0
+
+    // Byte 50
+    uint8_t dcdm                : 1,    // Dual Capacity Direct Mode
+            _unused50_1         : 4,    // 0
+            non_ste_frequency   : 1,    // Non STE = Frequency
+            _unused50_6         : 2;    // 0
+
+    // Byte 51
+    uint8_t _unused51_0         : 1,    // 0
+            bandwidth           : 1,    // Bandwidth: 12.5 or 25 kHz
+#define BW_12_5_KHZ     0
+#define BW_25_KHZ       1
+
+            rx_only             : 1,    // RX Only Enable
+            talkaround          : 1,    // Allow Talkaround
+            _unused51_4         : 2,    // 0
+            vox                 : 1,    // VOX Enable
+            power               : 1;    // Power: Low, High
+#define POWER_HIGH      1
+#define POWER_LOW       0
+
+    // Bytes 52-55
+    uint8_t _unused52[3];               // 0
+    uint8_t squelch;                    // Squelch: 0...9
+
 } channel_t;
 
 //
@@ -293,16 +277,13 @@ typedef struct {
 } intro_text_t;
 
 static const char *POWER_NAME[] = { "Low", "High" };
-static const char *SQUELCH_NAME[] = { "Tight", "Normal" };
-static const char *BANDWIDTH[] = { "12.5", "20", "25", "25" };
+static const char *BANDWIDTH[] = { "12.5", "25" };
 static const char *CONTACT_TYPE[] = {"Group", "Private", "All", "???" };
-static const char *ADMIT_NAME[] = { "-", "Free", "Tone", "Color" };
-static const char *INCALL_NAME[] = { "-", "Admit", "-", "Admit" };
+static const char *ADMIT_NAME[] = { "-", "Free", "Color", "???" };
 
 #ifdef PRINT_RARE_PARAMS
-static const char *REF_FREQUENCY[] = { "Low", "Med", "High" };
-static const char *PRIVACY_NAME[] = { "-", "Basic", "Enhanced" };
-static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DTMF-4" };
+static const char *PRIVACY_NAME[] = { "-", "On" };
+static const char *SIGNALING_SYSTEM[] = { "-", "DTMF" };
 #endif
 
 //
@@ -595,25 +576,25 @@ static int is_valid_frequency(int mhz)
 // Set the parameters for a given memory channel.
 //
 static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_mhz,
-    int power, int scanlist, int autoscan, int squelch, int tot, int rxonly,
-    int admit, int colorcode, int timeslot, int incall, int grouplist, int contact,
+    int power, int scanlist, int squelch, int tot, int rxonly,
+    int admit, int colorcode, int timeslot, int grouplist, int contact,
     int rxtone, int txtone, int width)
 {
     channel_t *ch = GET_CHANNEL(i);
 
     ch->channel_mode        = mode;
     ch->bandwidth           = width;
-    ch->autoscan            = autoscan;
     ch->squelch             = squelch;
     ch->rx_only             = rxonly;
-    ch->repeater_slot       = timeslot;
-    ch->colorcode           = colorcode;
+    ch->repeater_slot2      = (timeslot == 2);
+    ch->colorcode_tx        = colorcode;
+    ch->colorcode_rx        = colorcode;
     ch->data_call_conf      = 1;        // Always ask for SMS acknowledge
     ch->power               = power;
     ch->admit_criteria      = admit;
-    ch->in_call_criteria    = incall;
     ch->contact_name_index  = contact;
     ch->tot                 = tot;
+    ch->tot_rekey_delay     = 0;
     ch->scan_list_index     = scanlist;
     ch->group_list_index    = grouplist;
     ch->rx_frequency        = mhz_to_bcd(rx_mhz);
@@ -632,85 +613,85 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
 static void erase_channel(int i)
 {
     channel_t *ch = GET_CHANNEL(i);
-
-    // Byte 0
-    ch->channel_mode = MODE_ANALOG;
-    ch->bandwidth    = BW_12_5_KHZ;
-    ch->autoscan     = 0;
-    ch->squelch      = SQ_NORMAL;
-    ch->_unused1     = 1;
-    ch->lone_worker  = 0;
-
-    // Byte 1
-    ch->talkaround    = 0;
-    ch->rx_only       = 0;
-    ch->repeater_slot = 1;
-    ch->colorcode     = 1;
-
-    // Byte 2
-    ch->privacy_no        = 0;
-    ch->privacy           = PRIV_NONE;
-    ch->private_call_conf = 0;
-    ch->data_call_conf    = 0;
-
-    // Byte 3
-    ch->rx_ref_frequency    = REF_LOW;
-    ch->_unused2            = 0;
-    ch->emergency_alarm_ack = 0;
-    ch->_unused3            = 2;
-    ch->uncompressed_udp    = 1;
-    ch->display_pttid_dis   = 1;
-
-    // Byte 4
-    ch->tx_ref_frequency = REF_LOW;
-    ch->_unused4         = 1;
-    ch->vox              = 0;
-    ch->power            = POWER_HIGH;
-    ch->admit_criteria   = ADMIT_ALWAYS;
-
-    // Byte 5
-    ch->_unused5         = 0;
-    ch->in_call_criteria = INCALL_ALWAYS;
-    ch->_unused6         = 3;
-
-    // Bytes 6-7
-    ch->contact_name_index = 0;
-
-    // Bytes 8-9
-    ch->tot             = 60/15;
-    ch->_unused13       = 0;
-    ch->tot_rekey_delay = 0;
-
-    // Bytes 10-11
-    ch->emergency_system_index = 0;
-    ch->scan_list_index        = 0;
-
-    // Bytes 12-13
-    ch->group_list_index = 0;
-    ch->_unused7         = 0;
-
-    // Bytes 14-15
-    ch->_unused8 = 0;
-    ch->_unused9 = 0xff;
+    // Bytes 0-15
+    memset(ch->name, 0xff, 16);
 
     // Bytes 16-23
     ch->rx_frequency = 0x40000000;
     ch->tx_frequency = 0x40000000;
 
-    // Bytes 24-27
-    ch->ctcss_dcs_receive = 0xffff;
-    ch->ctcss_dcs_transmit = 0xffff;
+    // Byte 24
+    ch->channel_mode = MODE_ANALOG;
 
-    // Bytes 28-29
-    ch->rx_signaling_syst = 0;
-    ch->tx_signaling_syst = 0;
+    // Bytes 25-26
+    ch->_unused25[0] = 0;
+    ch->_unused25[1] = 0;
+
+    // Bytes 27-28
+    ch->tot             = 0;
+    ch->tot_rekey_delay = 5;
+
+    // Byte 29
+    ch->admit_criteria = ADMIT_ALWAYS;
 
     // Bytes 30-31
-    ch->_unused10 = 0xff;
-    ch->_unused11 = 0xff;
+    ch->_unused30       = 0x50;
+    ch->scan_list_index = 0;
 
-    // Bytes 32-63
-    memset(ch->name, 0xff, 16);
+    // Bytes 32-35
+    ch->ctcss_dcs_receive  = 0xffff;
+    ch->ctcss_dcs_transmit = 0xffff;
+
+    // Bytes 36-39
+    ch->_unused36         = 0;
+    ch->tx_signaling_syst = 0;
+    ch->_unused38         = 0;
+    ch->rx_signaling_syst = 0;
+
+    // Bytes 40-43
+    ch->_unused40        = 0x16;
+    ch->privacy_group    = PRIVGR_NONE;
+    ch->colorcode_tx     = 1;
+    ch->group_list_index = 0;
+
+    // Bytes 44-47
+    ch->colorcode_rx           = 1;
+    ch->emergency_system_index = 0;
+    ch->contact_name_index     = 0;
+
+    // Byte 48
+    ch->_unused48           = 0;
+    ch->emergency_alarm_ack = 0;
+    ch->data_call_conf      = 0;
+
+    // Byte 49
+    ch->private_call_conf = 0;
+    ch->_unused49_1       = 0;
+    ch->privacy           = 0;
+    ch->_unused49_5       = 0;
+    ch->repeater_slot2    = 0;
+    ch->_unused49_7       = 0;
+
+    // Byte 50
+    ch->dcdm              = 0;
+    ch->_unused50_1       = 0;
+    ch->non_ste_frequency = 0;
+    ch->_unused50_6       = 0;
+
+    // Byte 51
+    ch->_unused51_0 = 0;
+    ch->bandwidth   = BW_25_KHZ;
+    ch->rx_only     = 0;
+    ch->talkaround  = 0;
+    ch->_unused51_4 = 0;
+    ch->vox         = 0;
+    ch->power       = POWER_HIGH;
+
+    // Bytes 52-55
+    ch->_unused52[0] = 0;
+    ch->_unused52[1] = 0;
+    ch->_unused52[2] = 0;
+    ch->squelch      = 5;
 }
 
 static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan, int scanlist_flag)
@@ -809,7 +790,6 @@ static int have_channels(int mode)
 //      TX Frequency
 //      Power
 //      Scan List
-//      Autoscan
 //      TOT
 //      RX Only
 //      Admit Criteria
@@ -830,8 +810,6 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
     else
         fprintf(out, "%-4d ", ch->scan_list_index);
 
-    fprintf(out, "%c  ", "-+"[ch->autoscan]);
-
     if (ch->tot == 0)
         fprintf(out, "-   ");
     else
@@ -839,7 +817,7 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 
     fprintf(out, "%c  ", "-+"[ch->rx_only]);
 
-    fprintf(out, "%-6s ", ADMIT_NAME[ch->admit_criteria]);
+    fprintf(out, "%-6s ", ADMIT_NAME[ch->admit_criteria & 3]);
 }
 
 #ifdef PRINT_RARE_PARAMS
@@ -854,9 +832,6 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 static void print_chan_ext(FILE *out, channel_t *ch)
 {
     fprintf(out, "%-3d ", ch->tot_rekey_delay);
-    fprintf(out, "%-5s ", REF_FREQUENCY[ch->rx_ref_frequency]);
-    fprintf(out, "%-5s ", REF_FREQUENCY[ch->tx_ref_frequency]);
-    fprintf(out, "%c  ", "-+"[ch->lone_worker]);
     fprintf(out, "%c   ", "-+"[ch->vox]);
     fprintf(out, "%c  ", "-+"[ch->talkaround]);
 }
@@ -874,26 +849,27 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
         fprintf(out, "# 5) Transmit power: High, Low\n");
         fprintf(out, "# 6) Scan list: - or index in Scanlist table\n");
-        fprintf(out, "# 7) Autoscan flag: -, +\n");
-        fprintf(out, "# 8) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
-        fprintf(out, "# 9) Receive only: -, +\n");
-        fprintf(out, "# 10) Admit criteria: -, Free, Color\n");
-        fprintf(out, "# 11) Color code: 0, 1, 2, 3... 15\n");
-        fprintf(out, "# 12) Time slot: 1 or 2\n");
-        fprintf(out, "# 13) In call criteria: -, Admit, TXInt\n");
-        fprintf(out, "# 14) Receive group list: - or index in Grouplist table\n");
-        fprintf(out, "# 15) Contact for transmit: - or index in Contacts table\n");
+        fprintf(out, "# 7) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 8) Receive only: -, +\n");
+        fprintf(out, "# 9) Admit criteria: -, Free, Color\n");
+        fprintf(out, "# 10) Color code: 0, 1, 2, 3... 15\n");
+        fprintf(out, "# 11) Time slot: 1 or 2\n");
+        fprintf(out, "# 12) Receive group list: - or index in Grouplist table\n");
+        fprintf(out, "# 13) Contact for transmit: - or index in Contacts table\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Digital Name             Receive   Transmit Power Scan AS TOT RO Admit  Color Slot InCall RxGL TxContact");
+    fprintf(out, "Digital Name             Receive   Transmit Power Scan TOT RO Admit  Color Slot RxGL TxContact");
 #ifdef PRINT_RARE_PARAMS
-    fprintf(out, " Dly RxRef TxRef LW VOX TA EmSys Privacy  PN PCC EAA DCC CU");
+    fprintf(out, " Dly VOX TA EmSys Privacy  PN PCC EAA DCC");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = GET_CHANNEL(i);
 
-        if (!VALID_CHANNEL(ch) || ch->channel_mode != MODE_DIGITAL) {
+        if (!VALID_CHANNEL(ch)) {
+            break;
+        }
+        if (ch->channel_mode != MODE_DIGITAL) {
             // Select digital channels
             continue;
         }
@@ -902,11 +878,9 @@ static void print_digital_channels(FILE *out, int verbose)
         // Print digital parameters of the channel:
         //      Color Code
         //      Repeater Slot
-        //      In Call Criteria
         //      Group List
         //      Contact Name
-        fprintf(out, "%-5d %-3d  ", ch->colorcode, ch->repeater_slot);
-        fprintf(out, "%-6s ", INCALL_NAME[ch->in_call_criteria]);
+        fprintf(out, "%-5d %-3d  ", ch->colorcode_tx, ch->repeater_slot2 + 1);
 
         if (ch->group_list_index == 0)
             fprintf(out, "-    ");
@@ -924,7 +898,7 @@ static void print_digital_channels(FILE *out, int verbose)
         // Extended digital parameters of the channel:
         //      Emergency System
         //      Privacy
-        //      Privacy No. (+1)
+        //      Privacy Group
         //      Private Call Confirmed
         //      Emergency Alarm Ack
         //      Data Call Confirmed
@@ -937,15 +911,14 @@ static void print_digital_channels(FILE *out, int verbose)
 
         fprintf(out, "%-8s ", PRIVACY_NAME[ch->privacy]);
 
-        if (ch->privacy == PRIV_NONE)
+        if (ch->privacy == 0)
             fprintf(out, "-  ");
         else
-            fprintf(out, "%-2d ", ch->privacy_no + 1);
+            fprintf(out, "%-2d ", ch->privacy_group);
 
         fprintf(out, "%c   ", "-+"[ch->private_call_conf]);
         fprintf(out, "%c   ", "-+"[ch->emergency_alarm_ack]);
         fprintf(out, "%c   ", "-+"[ch->data_call_conf]);
-        fprintf(out, "%c   ", "+-"[ch->uncompressed_udp]);
 #endif
         // Print contact name as a comment.
         if (ch->contact_name_index > 0) {
@@ -971,25 +944,27 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
         fprintf(out, "# 5) Transmit power: High, Low\n");
         fprintf(out, "# 6) Scan list: - or index\n");
-        fprintf(out, "# 7) Autoscan flag: -, +\n");
-        fprintf(out, "# 8) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
-        fprintf(out, "# 9) Receive only: -, +\n");
-        fprintf(out, "# 10) Admit criteria: -, Free, Tone\n");
-        fprintf(out, "# 11) Squelch level: Normal, Tight\n");
-        fprintf(out, "# 12) Guard tone for receive, or '-' to disable\n");
-        fprintf(out, "# 13) Guard tone for transmit, or '-' to disable\n");
-        fprintf(out, "# 14) Bandwidth in kHz: 12.5, 20, 25\n");
+        fprintf(out, "# 7) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 8) Receive only: -, +\n");
+        fprintf(out, "# 9) Admit criteria: -, Free, Tone\n");
+        fprintf(out, "# 10) Squelch level: Normal, Tight\n");
+        fprintf(out, "# 11) Guard tone for receive, or '-' to disable\n");
+        fprintf(out, "# 12) Guard tone for transmit, or '-' to disable\n");
+        fprintf(out, "# 13) Bandwidth in kHz: 12.5, 20, 25\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Analog  Name             Receive   Transmit Power Scan AS TOT RO Admit  Squelch RxTone TxTone Width");
+    fprintf(out, "Analog  Name             Receive   Transmit Power Scan TOT RO Admit  Squelch RxTone TxTone Width");
 #ifdef PRINT_RARE_PARAMS
-    fprintf(out, " Dly RxRef TxRef LW VOX TA RxSign TxSign ID");
+    fprintf(out, " Dly RxRef TxRef LW VOX TA RxSign TxSign");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = GET_CHANNEL(i);
 
-        if (!VALID_CHANNEL(ch) || ch->channel_mode != MODE_ANALOG) {
+        if (!VALID_CHANNEL(ch)) {
+            break;
+        }
+        if (ch->channel_mode != MODE_ANALOG) {
             // Select analog channels
             continue;
         }
@@ -1000,7 +975,7 @@ static void print_analog_channels(FILE *out, int verbose)
         //      CTCSS/DCS Dec
         //      CTCSS/DCS Enc
         //      Bandwidth
-        fprintf(out, "%-7s ", SQUELCH_NAME[ch->squelch]);
+        fprintf(out, "%-7d ", ch->squelch);
         print_tone(out, ch->ctcss_dcs_receive);
         fprintf(out, "  ");
         print_tone(out, ch->ctcss_dcs_transmit);
@@ -1012,11 +987,8 @@ static void print_analog_channels(FILE *out, int verbose)
         // Extended analog parameters of the channel:
         //      Rx Signaling System
         //      Tx Signaling System
-        //      Display PTT ID (inverted)
-        //      Non-QT/DQT Turn-off Freq.
-        fprintf(out, "%-6s ", SIGNALING_SYSTEM[ch->rx_signaling_syst]);
-        fprintf(out, "%-6s ", SIGNALING_SYSTEM[ch->tx_signaling_syst]);
-        fprintf(out, "%c  ", "+-"[ch->display_pttid_dis]);
+        fprintf(out, "%-6s ", SIGNALING_SYSTEM[ch->rx_signaling_syst & 1]);
+        fprintf(out, "%-6s ", SIGNALING_SYSTEM[ch->tx_signaling_syst & 1]);
 #endif
         fprintf(out, "\n");
     }
@@ -1407,18 +1379,18 @@ static void rd5r_parse_parameter(radio_device_t *radio, char *param, char *value
 static int parse_digital_channel(radio_device_t *radio, int first_row, char *line)
 {
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
-    char power_str[256], scanlist_str[256], autoscan_str[256];
+    char power_str[256], scanlist_str[256];
     char tot_str[256], rxonly_str[256], admit_str[256], colorcode_str[256];
-    char slot_str[256], incall_str[256], grouplist_str[256], contact_str[256];
-    int num, power, scanlist, autoscan, tot, rxonly, admit;
-    int colorcode, timeslot, incall, grouplist, contact;
+    char slot_str[256], grouplist_str[256], contact_str[256];
+    int num, power, scanlist, tot, rxonly, admit;
+    int colorcode, timeslot, grouplist, contact;
     double rx_mhz, tx_mhz;
 
-    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
+    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
         num_str, name_str, rxfreq_str, offset_str,
-        power_str, scanlist_str, autoscan_str,
+        power_str, scanlist_str,
         tot_str, rxonly_str, admit_str, colorcode_str,
-        slot_str, incall_str, grouplist_str, contact_str) != 15)
+        slot_str, grouplist_str, contact_str) != 13)
         return 0;
 
     num = atoi(num_str);
@@ -1458,15 +1430,6 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
             fprintf(stderr, "Bad scanlist.\n");
             return 0;
         }
-    }
-
-    if (*autoscan_str == '-') {
-        autoscan = 0;
-    } else if (*autoscan_str == '+') {
-        autoscan = 1;
-    } else {
-        fprintf(stderr, "Bad autoscan flag.\n");
-        return 0;
     }
 
     tot = atoi(tot_str);
@@ -1508,15 +1471,6 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         return 0;
     }
 
-    if (*incall_str == '-' || strcasecmp("Always", incall_str) == 0) {
-        incall = INCALL_ALWAYS;
-    } else if (strcasecmp("Admit", incall_str) == 0) {
-        incall = INCALL_ADMIT;
-    } else {
-        fprintf(stderr, "Bad incall criteria.\n");
-        return 0;
-    }
-
     if (*grouplist_str == '-') {
         grouplist = 0;
     } else {
@@ -1545,8 +1499,8 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
-        power, scanlist, autoscan, SQ_NORMAL, tot, rxonly, admit,
-        colorcode, timeslot, incall, grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
+        power, scanlist, 5, tot, rxonly, admit,
+        colorcode, timeslot, grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
 
     radio->channel_count++;
     return 1;
@@ -1560,18 +1514,18 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 static int parse_analog_channel(radio_device_t *radio, int first_row, char *line)
 {
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
-    char power_str[256], scanlist_str[256], autoscan_str[256], squelch_str[256];
+    char power_str[256], scanlist_str[256], squelch_str[256];
     char tot_str[256], rxonly_str[256], admit_str[256];
     char rxtone_str[256], txtone_str[256], width_str[256];
-    int num, power, scanlist, autoscan, squelch, tot, rxonly, admit;
+    int num, power, scanlist, squelch, tot, rxonly, admit;
     int rxtone, txtone, width;
     double rx_mhz, tx_mhz;
 
-    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s %s",
+    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
         num_str, name_str, rxfreq_str, offset_str,
-        power_str, scanlist_str, autoscan_str,
+        power_str, scanlist_str,
         tot_str, rxonly_str, admit_str, squelch_str,
-        rxtone_str, txtone_str, width_str) != 14)
+        rxtone_str, txtone_str, width_str) != 13)
         return 0;
 
     num = atoi(num_str);
@@ -1613,21 +1567,9 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         }
     }
 
-    if (*autoscan_str == '-') {
-        autoscan = 0;
-    } else if (*autoscan_str == '+') {
-        autoscan = 1;
-    } else {
-        fprintf(stderr, "Bad autoscan flag.\n");
-        return 0;
-    }
-
-    if (strcasecmp ("Normal", squelch_str) == 0) {
-        squelch = SQ_NORMAL;
-    } else if (strcasecmp ("Tight", squelch_str) == 0) {
-        squelch = SQ_TIGHT;
-    } else {
-        fprintf (stderr, "Bad squelch level.\n");
+    squelch = atoi(tot_str);
+    if (squelch < 0 || squelch > 9) {
+        fprintf(stderr, "Bad squelch level.\n");
         return 0;
     }
 
@@ -1651,8 +1593,6 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         admit = ADMIT_ALWAYS;
     } else if (strcasecmp("Free", admit_str) == 0) {
         admit = ADMIT_CH_FREE;
-    } else if (strcasecmp("Tone", admit_str) == 0) {
-        admit = ADMIT_TONE;
     } else {
         fprintf(stderr, "Bad admit criteria.\n");
         return 0;
@@ -1671,8 +1611,6 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 
     if (strcasecmp ("12.5", width_str) == 0) {
         width = BW_12_5_KHZ;
-    } else if (strcasecmp ("20", width_str) == 0) {
-        width = BW_20_KHZ;
     } else if (strcasecmp ("25", width_str) == 0) {
         width = BW_25_KHZ;
     } else {
@@ -1686,8 +1624,8 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     setup_channel(num-1, MODE_ANALOG, name_str, rx_mhz, tx_mhz,
-        power, scanlist, autoscan, squelch, tot, rxonly, admit,
-        1, 1, 0, 0, 0, rxtone, txtone, width);
+        power, scanlist, squelch, tot, rxonly, admit,
+        1, 1, 0, 0, rxtone, txtone, width);
 
     radio->channel_count++;
     return 1;
@@ -2116,7 +2054,7 @@ static int rd5r_verify_config(radio_device_t *radio)
         channel_t *ch = GET_CHANNEL(i);
 
         if (!VALID_CHANNEL(ch))
-            continue;
+            break;
 
         nchannels++;
         if (ch->scan_list_index != 0) {

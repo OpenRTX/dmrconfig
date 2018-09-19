@@ -252,7 +252,7 @@ void print_ascii(FILE *out, const unsigned char *text, unsigned nchars, int fill
 {
     unsigned i, ch;
 
-    for (i=0; i<nchars && *text != 0xff; i++) {
+    for (i=0; i<nchars && *text != 0xff && *text != 0; i++) {
         ch = *text++;
         if (ch == '\t')
             ch = ' ';
