@@ -403,8 +403,8 @@ static void setup_zone(int index, const char *name)
     zone_t *z = GET_ZONE(index);
     int len = strlen(name);
 
-    memset(z->name, 0xff, 16);
-    memcpy(z->name, name, len<16 ? len : 16);
+    memset(z->name, 0xff, sizeof(z->name));
+    memcpy(z->name, name, (len < sizeof(z->name)) ? len : sizeof(z->name));
 }
 
 //
@@ -431,8 +431,8 @@ static void erase_zone(int index)
 {
     zone_t *z = GET_ZONE(index);
 
-    memset(z->name, 0xff, 16);
-    memset(z->member, 0, 32);
+    memset(z->name, 0xff, sizeof(z->name));
+    memset(z->member, 0, sizeof(z->member));
 }
 
 //
@@ -496,7 +496,7 @@ static void erase_contact(int index)
 {
     contact_t *ct = GET_CONTACT(index);
 
-    memset(ct->name, 0xff, 16);
+    memset(ct->name, 0xff, sizeof(ct->name));
     memset(ct->id, 0, 8);
 }
 
@@ -505,9 +505,11 @@ static void setup_contact(int index, const char *name, int type, int id, int rxt
     contact_t *ct = GET_CONTACT(index);
     int len = strlen(name);
 
-    ct->id[0]        = id;
-    ct->id[1]        = id >> 8;
-    ct->id[2]        = id >> 16;
+    ct->id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
+    ct->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
+    ct->id[2] = ((id / 1000 % 10) << 4) | ((id / 100) % 10);
+    ct->id[3] = ((id / 10 % 10) << 4) | (id % 10);
+
     ct->type         = type;
     ct->receive_tone = rxtone;
     ct->ring_style   = 0; // TODO
@@ -521,8 +523,8 @@ static void setup_grouplist(int index, const char *name)
     grouplist_t *gl = GET_GROUPLIST(index);
     int len = strlen(name);
 
-    memset(gl->name, 0xff, 16);
-    memcpy(gl->name, name, len < 16 ? len : 16);
+    memset(gl->name, 0xff, sizeof(gl->name));
+    memcpy(gl->name, name, (len < sizeof(gl->name)) ? len : sizeof(gl->name));
 }
 
 //
@@ -534,7 +536,7 @@ static int grouplist_append(int index, int cnum)
     grouplist_t *gl = GET_GROUPLIST(index);
     int i;
 
-    for (i=0; i<32; i++) {
+    for (i=0; i<16; i++) {
         if (gl->member[i] == cnum)
             return 1;
         if (gl->member[i] == 0) {
@@ -603,8 +605,8 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->ctcss_dcs_transmit  = txtone;
 
     int len = strlen(name);
-    memset(ch->name, 0xff, 16);
-    memcpy(ch->name, name, len<16 ? len : 16);
+    memset(ch->name, 0xff, sizeof(ch->name));
+    memcpy(ch->name, name, (len < sizeof(ch->name)) ? len : sizeof(ch->name));
 }
 
 //
@@ -613,8 +615,9 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
 static void erase_channel(int i)
 {
     channel_t *ch = GET_CHANNEL(i);
+
     // Bytes 0-15
-    memset(ch->name, 0xff, 16);
+    memset(ch->name, 0xff, sizeof(ch->name));
 
     // Bytes 16-23
     ch->rx_frequency = 0x40000000;
@@ -1337,17 +1340,18 @@ static void rd5r_parse_parameter(radio_device_t *radio, char *param, char *value
         }
         return;
     }
-#if 0
+
     general_settings_t *gs = GET_SETTINGS();
     if (strcasecmp ("Name", param) == 0) {
-        utf8_decode(gs->radio_name, value, 16);
+        ascii_decode(gs->radio_name, value, 8);
         return;
     }
     if (strcasecmp ("ID", param) == 0) {
         uint32_t id = strtoul(value, 0, 0);
-        gs->radio_id[0] = id;
-        gs->radio_id[1] = id >> 8;
-        gs->radio_id[2] = id >> 16;
+        gs->radio_id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
+        gs->radio_id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
+        gs->radio_id[2] = ((id / 1000 % 10) << 4) | ((id / 100) % 10);
+        gs->radio_id[3] = ((id / 10 % 10) << 4) | (id % 10);
         return;
     }
     if (strcasecmp ("Last Programmed Date", param) == 0) {
@@ -1358,15 +1362,16 @@ static void rd5r_parse_parameter(radio_device_t *radio, char *param, char *value
         // Ignore.
         return;
     }
+
+    intro_text_t *it = GET_INTRO();
     if (strcasecmp ("Intro Line 1", param) == 0) {
-        utf8_decode(gs->intro_line1, value, 10);
+        ascii_decode(it->intro_line1, value, 16);
         return;
     }
     if (strcasecmp ("Intro Line 2", param) == 0) {
-        utf8_decode(gs->intro_line2, value, 10);
+        ascii_decode(it->intro_line2, value, 16);
         return;
     }
-#endif
     fprintf(stderr, "Unknown parameter: %s = %s\n", param, value);
     exit(-1);
 }
@@ -1901,7 +1906,7 @@ static int parse_grouplist(int first_row, char *line)
 
     if (first_row) {
         // On first entry, erase the Grouplists table.
-        memset(&radio_mem[OFFSET_GLISTS], 0, NGLISTS*96);
+        memset(&radio_mem[OFFSET_GLISTS], 0, NGLISTS*48);
     }
 
     setup_grouplist(glnum-1, name_str);
@@ -1974,7 +1979,7 @@ static int parse_messages(int first_row, char *line)
 
     if (first_row) {
         // On first entry, erase the Messages table.
-        memset(&radio_mem[OFFSET_MSG], 0, NMESSAGES*288);
+        memset(&radio_mem[OFFSET_MSG], 0, NMESSAGES*144);
     }
 
     setup_message(mnum-1, text);
@@ -2121,7 +2126,7 @@ static int rd5r_verify_config(radio_device_t *radio)
             break;
 
         nscanlists++;
-        for (k=0; k<31; k++) {
+        for (k=0; k<32; k++) {
             int cnum = sl->member[k];
 
             if (cnum != 0) {
@@ -2145,7 +2150,7 @@ static int rd5r_verify_config(radio_device_t *radio)
             break;
 
         ngrouplists++;
-        for (k=0; k<32; k++) {
+        for (k=0; k<16; k++) {
             int cnum = gl->member[k];
 
             if (cnum != 0) {

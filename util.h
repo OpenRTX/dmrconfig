@@ -150,6 +150,12 @@ int utf8_to_unicode(const char **p);
 void utf8_decode(unsigned short *dst, const char *src, unsigned nsym);
 
 //
+// Copy ASCII string, at most nsym characters.
+// Replace underscore by space.
+//
+void ascii_decode(unsigned char *dst, const char *src, unsigned nsym);
+
+//
 // Get local time in format: YYYYMMDDhhmmss
 //
 void get_timestamp(char p[16]);

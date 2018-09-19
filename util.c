@@ -54,7 +54,7 @@ static const int CTCSS_TONES [NCTCSS] = {
 //
 // DCS codes.
 //
-#define NDCS    104
+#define NDCS    (104+1)
 
 static const int DCS_CODES[NDCS] = {
      23,  25,  26,  31,  32,  36,  43,  47,  51,  53,
@@ -68,6 +68,7 @@ static const int DCS_CODES[NDCS] = {
     506, 516, 523, 526, 532, 546, 565, 606, 612, 624,
     627, 631, 632, 654, 662, 664, 703, 712, 723, 731,
     732, 734, 743, 754,
+     17, // For RD-5R
 };
 
 //
@@ -329,6 +330,31 @@ void utf8_decode(unsigned short *dst, const char *src, unsigned nsym)
 }
 
 //
+// Copy ASCII string, at most nsym characters.
+// Replace underscore by space.
+//
+void ascii_decode(unsigned char *dst, const char *src, unsigned nsym)
+{
+    if (src[0] == '-' && src[1] == 0)
+        src = "";
+
+    for (; nsym > 0; nsym--) {
+        int ch = *src++;
+
+        if (ch == '_')
+            ch = ' ';
+        *dst++ = ch;
+
+        if (ch == 0) {
+            // Clear the remaining bytes.
+            while (--nsym > 0)
+                *dst++ = 0;
+            break;
+        }
+    }
+}
+
+//
 // Convert tone string to BCD format.
 // Four possible formats:
 // nnn.n - CTCSS frequency
@@ -356,8 +382,9 @@ int encode_tone(char *str)
         for (i=0; i<NDCS; i++)
             if (DCS_CODES[i] == val)
                 break;
-        if (i >= NDCS)
+        if (i >= NDCS) {
             return -1;
+        }
 
         a = 0;
         b = val / 100;
