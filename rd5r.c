@@ -45,7 +45,7 @@
 #define MEMSZ           0x20000
 #define OFFSET_TIMESTMP 0x00088
 #define OFFSET_SETTINGS 0x000e0
-#define OFFSET_MSG      0x00170
+#define OFFSET_MSGTAB   0x00128
 #define OFFSET_CONTACTS 0x01788
 #define OFFSET_BANK_0   0x03780 // Channels 1-128
 #define OFFSET_INTRO    0x07540
@@ -62,7 +62,7 @@
 #define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANL + (i)*88])
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*24])
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*48])
-#define GET_MESSAGE(i)      (&radio_mem[OFFSET_MSG + (i)*144])
+#define GET_MSGTAB()        ((msgtab_t*) &radio_mem[OFFSET_MSGTAB])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
 #define VALID_ZONE(z)       VALID_TEXT((z)->name)
@@ -282,6 +282,17 @@ typedef struct {
     // Bytes 7550-755f
     uint8_t intro_line2[16];
 } intro_text_t;
+
+//
+// Text messages.
+//
+typedef struct {
+    uint8_t count;                      // number of messages
+    uint8_t _unused1[7];                // 0
+    uint8_t len[NMESSAGES];             // message length
+    uint8_t _unused2[NMESSAGES];        // 0
+    uint8_t message[NMESSAGES*144];     // messages
+} msgtab_t;
 
 static const char *POWER_NAME[] = { "Low", "High" };
 static const char *BANDWIDTH[] = { "12.5", "25" };
@@ -560,15 +571,24 @@ static int grouplist_append(int index, int cnum)
 //
 static void setup_message(int index, const char *text)
 {
-    uint8_t *msg = GET_MESSAGE(index);
-    int len;
+    msgtab_t *mt = GET_MSGTAB();
+    uint8_t *msg = &mt->message[index*144];
+    int len, i;
 
     // Skip spaces and tabs.
     while (*text == ' ' || *text == '\t')
         text++;
     len = strlen(text);
+    mt->len[index] = len + 1;
+
     memset(msg, 0xff, 144);
     memcpy(msg, text, len < 144 ? len : 144);
+
+    // Count messages.
+    mt->count = 0;
+    for (i=0; i<sizeof(mt->len); i++)
+        if (mt->len[i] > 0)
+            mt->count++;
 }
 
 //
@@ -1073,9 +1093,9 @@ static int have_grouplists()
 
 static int have_messages()
 {
-    uint8_t *msg = GET_MESSAGE(0);
+    msgtab_t *mt = GET_MSGTAB();
 
-    return VALID_TEXT(msg);
+    return mt->count > 0;
 }
 
 //
@@ -1265,6 +1285,8 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
     // Text messages.
     //
     if (have_messages()) {
+        msgtab_t *mt = GET_MSGTAB();
+
         fprintf(out, "\n");
         if (verbose) {
             fprintf(out, "# Table of text messages.\n");
@@ -1274,15 +1296,12 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Message Text\n");
         for (i=0; i<NMESSAGES; i++) {
-            uint8_t *msg = GET_MESSAGE(i);
-
-            if (!VALID_TEXT(msg)) {
+            if (mt->len[i] == 0) {
                 // Message is disabled
                 continue;
             }
-
             fprintf(out, "%5d   ", i+1);
-            print_ascii(out, msg, 144, 0);
+            print_ascii(out, &mt->message[i*144], 144, 0);
             fprintf(out, "\n");
         }
     }
@@ -1824,7 +1843,12 @@ static int parse_scanlist(int first_row, char *line)
 
     setup_scanlist(snum-1, name_str, prio1, prio2, txchan);
 
-    if (*chan_str != '-') {
+    if (*chan_str == '-') {
+        // Empty
+    } else if (strcasecmp("Sel", chan_str) == 0) {
+        // Selected channel.
+        scanlist_append(snum-1, 0);
+    } else {
         char *str   = chan_str;
         int   nchan = 0;
         int   range = 0;
@@ -2025,7 +2049,7 @@ static int parse_messages(int first_row, char *line)
 
     if (first_row) {
         // On first entry, erase the Messages table.
-        memset(&radio_mem[OFFSET_MSG], 0, NMESSAGES*144);
+        memset(GET_MSGTAB(), 0, sizeof(msgtab_t));
     }
 
     setup_message(mnum-1, text);
