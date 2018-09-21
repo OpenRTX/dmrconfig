@@ -1,0 +1,12 @@
+#
+# Enable user access to USB devices of DMR radios.
+# Install this file into directory: /etc/udev/rules.d
+# To reload the rules, use:
+#       sudo udevadm control --reload-rules
+#
+
+# TYT MD-UV380
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="df11", MODE="666"
+
+# Baofeng RD-5R
+SUBSYSTEM=="usb", ATTRS{idVendor}=="15a2", ATTRS{idProduct}=="0073", MODE="666"

@@ -42,6 +42,24 @@ Update database of contacts from CSV file:
 
 Option -t enables tracing of USB protocol.
 
+## Permissions
+
+On Linux, a permission to access USB device is required.
+It's possible to run dmrconfig as root, like "sudo dmrconfig",
+but it's safer to enable access for users.
+Create a file /etc/udev/rules.d/99-dmr.rules with the following contents:
+
+    # TYT MD-UV380
+    SUBSYSTEM=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="df11", MODE="666"
+
+    # Baofeng RD-5R
+    SUBSYSTEM=="usb", ATTRS{idVendor}=="15a2", ATTRS{idProduct}=="0073", MODE="666"
+
+To activate it, run:
+
+    sudo udevadm control --reload-rules
+
+Then re-attach the USB cable to the radio.
 
 ## Sources
 
