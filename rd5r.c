@@ -52,7 +52,7 @@
 #define OFFSET_ZONETAB  0x08010
 #define OFFSET_BANK_1   0x0b1b0 // Channels 129-1024
 #define OFFSET_SCANTAB  0x17620
-#define OFFSET_GLISTS   0x1d6a0
+#define OFFSET_GROUPTAB 0x1d620
 
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
@@ -60,7 +60,7 @@
 #define GET_ZONETAB()       ((zonetab_t*) &radio_mem[OFFSET_ZONETAB])
 #define GET_SCANTAB(i)      ((scantab_t*) &radio_mem[OFFSET_SCANTAB])
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*24])
-#define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*48])
+#define GET_GROUPTAB()      ((grouptab_t*) &radio_mem[OFFSET_GROUPTAB])
 #define GET_MSGTAB()        ((msgtab_t*) &radio_mem[OFFSET_MSGTAB])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
@@ -232,6 +232,14 @@ typedef struct {
     // Bytes 16-47
     uint16_t member[16];                // Contacts
 } grouplist_t;
+
+//
+// Table of group lists.
+//
+typedef struct {
+    uint8_t     nitems1[128];           // N+1, zero when disabled
+    grouplist_t grouplist[NGLISTS];
+} grouptab_t;
 
 //
 // Scan list data.
@@ -594,13 +602,31 @@ static void setup_contact(int index, const char *name, int type, int id, int rxt
     memcpy(ct->name, name, len < 16 ? len : 16);
 }
 
+//
+// Get grouplist by index.
+// Return 0 when grouplist is disabled.
+//
+static grouplist_t *get_grouplist(int index)
+{
+    grouptab_t *gt = GET_GROUPTAB();
+
+    if (gt->nitems1[index] > 0)
+        return &gt->grouplist[index];
+    else
+        return 0;
+}
+
 static void setup_grouplist(int index, const char *name)
 {
-    grouplist_t *gl = GET_GROUPLIST(index);
+    grouptab_t *gt = GET_GROUPTAB();
+    grouplist_t *gl = &gt->grouplist[index];
     int len = strlen(name);
 
     memset(gl->name, 0xff, sizeof(gl->name));
     memcpy(gl->name, name, (len < sizeof(gl->name)) ? len : sizeof(gl->name));
+
+    // Enable grouplist.
+    gt->nitems1[index] = 1;
 }
 
 //
@@ -609,7 +635,8 @@ static void setup_grouplist(int index, const char *name)
 //
 static int grouplist_append(int index, int cnum)
 {
-    grouplist_t *gl = GET_GROUPLIST(index);
+    grouptab_t *gt = GET_GROUPTAB();
+    grouplist_t *gl = &gt->grouplist[index];
     int i;
 
     for (i=0; i<16; i++) {
@@ -617,6 +644,7 @@ static int grouplist_append(int index, int cnum)
             return 1;
         if (gl->member[i] == 0) {
             gl->member[i] = cnum;
+            gt->nitems1[index] = i + 2;
             return 1;
         }
     }
@@ -1144,9 +1172,14 @@ static int have_contacts()
 
 static int have_grouplists()
 {
-    grouplist_t *gl = GET_GROUPLIST(0);
+    grouptab_t *gt = GET_GROUPTAB();
+    int i;
 
-    return VALID_GROUPLIST(gl);
+    for (i=0; i<NGLISTS; i++) {
+        if (gt->nitems1[i] > 0)
+            return 1;
+    }
+    return 0;
 }
 
 static int have_messages()
@@ -1318,11 +1351,11 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Grouplist Name             Contacts\n");
         for (i=0; i<NGLISTS; i++) {
-            grouplist_t *gl = GET_GROUPLIST(i);
+            grouplist_t *gl = get_grouplist(i);
 
-            if (!VALID_GROUPLIST(gl)) {
+            if (!gl) {
                 // Group list is disabled.
-                break;
+                continue;
             }
 
             fprintf(out, "%5d     ", i + 1);
@@ -2037,7 +2070,7 @@ static int parse_grouplist(int first_row, char *line)
 
     if (first_row) {
         // On first entry, erase the Grouplists table.
-        memset(&radio_mem[OFFSET_GLISTS], 0, NGLISTS*48);
+        memset(&radio_mem[OFFSET_GROUPTAB], 0, sizeof(grouptab_t));
     }
 
     setup_grouplist(glnum-1, name_str);
@@ -2213,9 +2246,9 @@ static int rd5r_verify_config(radio_device_t *radio)
             }
         }
         if (ch->group_list_index != 0) {
-            grouplist_t *gl = GET_GROUPLIST(ch->group_list_index - 1);
+            grouplist_t *gl = get_grouplist(ch->group_list_index - 1);
 
-            if (!VALID_GROUPLIST(gl)) {
+            if (!gl) {
                 fprintf(stderr, "Channel %d '", i+1);
                 print_ascii(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': grouplist %d not found.\n", ch->group_list_index);
@@ -2266,10 +2299,10 @@ static int rd5r_verify_config(radio_device_t *radio)
 
     // Grouplists: check references to contacts.
     for (i=0; i<NGLISTS; i++) {
-        grouplist_t *gl = GET_GROUPLIST(i);
+        grouplist_t *gl = get_grouplist(i);
 
-        if (!VALID_GROUPLIST(gl))
-            break;
+        if (!gl)
+            continue;
 
         ngrouplists++;
         for (k=0; k<16; k++) {
