@@ -332,6 +332,7 @@ void utf8_decode(unsigned short *dst, const char *src, unsigned nsym)
 //
 // Copy ASCII string, at most nsym characters.
 // Replace underscore by space.
+// Fill the rest with 0xff.
 //
 void ascii_decode(unsigned char *dst, const char *src, unsigned nsym)
 {

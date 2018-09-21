@@ -441,10 +441,8 @@ static void setup_zone(int index, const char *name)
 {
     zonetab_t *zt = GET_ZONETAB();
     zone_t *z = &zt->zone[index];
-    int len = strlen(name);
 
-    memset(z->name, 0xff, sizeof(z->name));
-    memcpy(z->name, name, (len < sizeof(z->name)) ? len : sizeof(z->name));
+    ascii_decode(z->name, name, sizeof(z->name));
     memset(z->member, 0, sizeof(z->member));
 
     // Set valid bit.
@@ -506,11 +504,9 @@ static void setup_scanlist(int index, const char *name,
 {
     scantab_t *st = GET_SCANTAB();
     scanlist_t *sl = &st->scanlist[index];
-    int len = strlen(name);
 
     memset(sl, 0, 88);
-    memset(sl->name, 0xff, sizeof(sl->name));
-    memcpy(sl->name, name, len < sizeof(sl->name) ? len : sizeof(sl->name));
+    ascii_decode(sl->name, name, sizeof(sl->name));
 
     sl->priority_ch1     = prio1;
     sl->priority_ch2     = prio2;
@@ -587,7 +583,6 @@ static void erase_contact(int index)
 static void setup_contact(int index, const char *name, int type, int id, int rxtone)
 {
     contact_t *ct = GET_CONTACT(index);
-    int len = strlen(name);
 
     ct->id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
     ct->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
@@ -599,7 +594,7 @@ static void setup_contact(int index, const char *name, int type, int id, int rxt
     ct->ring_style   = 0; // TODO
     ct->_unused      = (type < CALL_ALL) ? 0 : 0xff;
 
-    memcpy(ct->name, name, len < 16 ? len : 16);
+    ascii_decode(ct->name, name, 16);
 }
 
 //
@@ -620,10 +615,8 @@ static void setup_grouplist(int index, const char *name)
 {
     grouptab_t *gt = GET_GROUPTAB();
     grouplist_t *gl = &gt->grouplist[index];
-    int len = strlen(name);
 
-    memset(gl->name, 0xff, sizeof(gl->name));
-    memcpy(gl->name, name, (len < sizeof(gl->name)) ? len : sizeof(gl->name));
+    ascii_decode(gl->name, name, sizeof(gl->name));
 
     // Enable grouplist.
     gt->nitems1[index] = 1;
@@ -742,8 +735,7 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->ctcss_dcs_receive   = rxtone;
     ch->ctcss_dcs_transmit  = txtone;
 
-    int len = strlen(name);
-    memcpy(ch->name, name, (len < sizeof(ch->name)) ? len : sizeof(ch->name));
+    ascii_decode(ch->name, name, sizeof(ch->name));
 
     // Set valid bit.
     b->bitmap[i % 128 / 8] |= 1 << (i & 7);
@@ -962,7 +954,10 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 
     fprintf(out, "%c  ", "-+"[ch->rx_only]);
 
-    fprintf(out, "%-6s ", ADMIT_NAME[ch->admit_criteria & 3]);
+    if (ch->channel_mode == MODE_DIGITAL)
+        fprintf(out, "%-6s ", ADMIT_NAME[ch->admit_criteria & 3]);
+    else
+        fprintf(out, "%-6s ", ADMIT_NAME[ch->admit_criteria != 0]);
 }
 
 #ifdef PRINT_RARE_PARAMS
