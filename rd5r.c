@@ -51,20 +51,19 @@
 #define OFFSET_INTRO    0x07540
 #define OFFSET_ZONETAB  0x08010
 #define OFFSET_BANK_1   0x0b1b0 // Channels 129-1024
-#define OFFSET_SCANL    0x17720
+#define OFFSET_SCANTAB  0x17620
 #define OFFSET_GLISTS   0x1d6a0
 
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_INTRO()         ((intro_text_t*) &radio_mem[OFFSET_INTRO])
 #define GET_ZONETAB()       ((zonetab_t*) &radio_mem[OFFSET_ZONETAB])
-#define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANL + (i)*88])
+#define GET_SCANTAB(i)      ((scantab_t*) &radio_mem[OFFSET_SCANTAB])
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*24])
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*48])
 #define GET_MSGTAB()        ((msgtab_t*) &radio_mem[OFFSET_MSGTAB])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
-#define VALID_SCANLIST(sl)  VALID_TEXT((sl)->name)
 #define VALID_GROUPLIST(gl) VALID_TEXT((gl)->name)
 #define VALID_CONTACT(ct)   VALID_TEXT((ct)->name)
 
@@ -268,6 +267,14 @@ typedef struct {
 } scanlist_t;
 
 //
+// Table of scanlists.
+//
+typedef struct {
+    uint8_t    valid[256];              // byte=1 when scanlist valid
+    scanlist_t scanlist[NSCANL];
+} scantab_t;
+
+//
 // General settings.
 //
 typedef struct {
@@ -437,6 +444,20 @@ static void setup_zone(int index, const char *name)
 }
 
 //
+// Get zone by index.
+// Return 0 when zone is disabled.
+//
+static zone_t *get_zone(int index)
+{
+    zonetab_t *zt = GET_ZONETAB();
+
+    if (zt->bitmap[index / 8] >> (index & 7) & 1)
+        return &zt->zone[index];
+    else
+        return 0;
+}
+
+//
 // Add channel to a zone.
 // Return 0 on failure.
 //
@@ -470,46 +491,54 @@ static void erase_zone(int index)
 }
 
 //
-// Is zone valid?
-//
-static int valid_zone(int i)
-{
-    zonetab_t *zt = GET_ZONETAB();
-
-    return (zt->bitmap[i / 8] >> (i & 7)) & 1;
-}
-
-//
 // Set parameters for a given scan list.
 //
 static void setup_scanlist(int index, const char *name,
     int prio1, int prio2, int txchan)
 {
-    scanlist_t *sl = GET_SCANLIST(index);
+    scantab_t *st = GET_SCANTAB();
+    scanlist_t *sl = &st->scanlist[index];
     int len = strlen(name);
 
-    // Bytes 0-31
+    memset(sl, 0, 88);
     memset(sl->name, 0xff, sizeof(sl->name));
     memcpy(sl->name, name, len < sizeof(sl->name) ? len : sizeof(sl->name));
 
-    // Bytes 32-37
     sl->priority_ch1     = prio1;
     sl->priority_ch2     = prio2;
     sl->tx_designated_ch = txchan;
+    sl->talkback         = 1;
+    sl->channel_mark     = 1;
+    sl->pl_type          = PL_PRI_NONPRI;
+    sl->sign_hold_time   = 1000 / 25;   // 1 sec
+    sl->prio_sample_time = 2000 / 250;  // 2 sec
+
+    // Set valid bit.
+    st->valid[index] = 1;
 }
 
 static void erase_scanlist(int index)
 {
-    scanlist_t *sl = GET_SCANLIST(index);
+    scantab_t *st = GET_SCANTAB();
 
-    memset(sl, 0, 88);
-    memset(sl->name, 0xff, sizeof(sl->name));
+    memset(&st->scanlist[index], 0xff, sizeof(scanlist_t));
 
-    sl->talkback         = 1;
-    sl->channel_mark     = 1;
-    sl->pl_type          = PL_PRI_NONPRI;
-    sl->sign_hold_time   = 0xff;
-    sl->prio_sample_time = 2000 / 250;  // 2 sec
+    // Clear valid bit.
+    st->valid[index] = 0;
+}
+
+//
+// Get scanlist by index.
+// Return 0 when scanlist is disabled.
+//
+static scanlist_t *get_scanlist(int index)
+{
+    scantab_t *st = GET_SCANTAB();
+
+    if (st->valid[index])
+        return &st->scanlist[index];
+    else
+        return 0;
 }
 
 //
@@ -518,8 +547,11 @@ static void erase_scanlist(int index)
 //
 static int scanlist_append(int index, int cnum)
 {
-    scanlist_t *sl = GET_SCANLIST(index);
+    scanlist_t *sl = get_scanlist(index);
     int i;
+
+    if (!sl)
+        return 0;
 
     // First element is always Selected.
     if (sl->member[0] == 0)
@@ -646,17 +678,10 @@ static channel_t *get_channel(int i)
 {
     bank_t *b = get_bank(i >> 7);
 
-    return &b->chan[i % 128];
-}
-
-//
-// Is channel valid?
-//
-static int valid_channel(int i)
-{
-    bank_t *b = get_bank(i >> 7);
-
-    return (b->bitmap[i % 128 / 8] >> (i & 7)) & 1;
+    if ((b->bitmap[i % 128 / 8] >> (i & 7)) & 1)
+        return &b->chan[i % 128];
+    else
+        return 0;
 }
 
 //
@@ -667,7 +692,8 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     int admit, int colorcode, int timeslot, int grouplist, int contact,
     int rxtone, int txtone, int width)
 {
-    channel_t *ch = get_channel(i);
+    bank_t *b = get_bank(i >> 7);
+    channel_t *ch = &b->chan[i % 128];
 
     ch->channel_mode        = mode;
     ch->bandwidth           = width;
@@ -692,7 +718,6 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     memcpy(ch->name, name, (len < sizeof(ch->name)) ? len : sizeof(ch->name));
 
     // Set valid bit.
-    bank_t *b = get_bank(i >> 7);
     b->bitmap[i % 128 / 8] |= 1 << (i & 7);
 }
 
@@ -701,7 +726,8 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
 //
 static void erase_channel(int i)
 {
-    channel_t *ch = get_channel(i);
+    bank_t *b = get_bank(i >> 7);
+    channel_t *ch = &b->chan[i % 128];
 
     // Bytes 0-15
     memset(ch->name, 0xff, sizeof(ch->name));
@@ -784,7 +810,6 @@ static void erase_channel(int i)
     ch->squelch      = 5;
 
     // Clear valid bit.
-    bank_t *b = get_bank(i >> 7);
     b->bitmap[i % 128 / 8] &= ~(1 << (i & 7));
 }
 
@@ -867,12 +892,10 @@ static int have_channels(int mode)
     int i;
 
     for (i=0; i<NCHAN; i++) {
-        if (valid_channel(i)) {
-            channel_t *ch = get_channel(i);
+        channel_t *ch = get_channel(i);
 
-            if (ch->channel_mode == mode)
-                return 1;
-        }
+        if (ch && ch->channel_mode == mode)
+            return 1;
     }
     return 0;
 }
@@ -958,11 +981,11 @@ static void print_digital_channels(FILE *out, int verbose)
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
-        if (!valid_channel(i)) {
+        channel_t *ch = get_channel(i);
+
+        if (!ch) {
             continue;
         }
-
-        channel_t *ch = get_channel(i);
         if (ch->channel_mode != MODE_DIGITAL) {
             // Select digital channels
             continue;
@@ -1053,11 +1076,11 @@ static void print_analog_channels(FILE *out, int verbose)
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
-        if (!valid_channel(i)) {
+        channel_t *ch = get_channel(i);
+
+        if (!ch) {
             continue;
         }
-
-        channel_t *ch = get_channel(i);
         if (ch->channel_mode != MODE_ANALOG) {
             // Select analog channels
             continue;
@@ -1102,9 +1125,14 @@ static int have_zones()
 
 static int have_scanlists()
 {
-    scanlist_t *sl = GET_SCANLIST(0);
+    scantab_t *st = GET_SCANTAB();
+    int i;
 
-    return VALID_SCANLIST(sl);
+    for (i=0; i<NSCANL; i++) {
+        if (st->valid[i])
+            return 1;
+    }
+    return 0;
 }
 
 static int have_contacts()
@@ -1155,8 +1183,6 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
     // Zones.
     //
     if (have_zones()) {
-        zonetab_t *zt = GET_ZONETAB();
-
         fprintf(out, "\n");
         if (verbose) {
             fprintf(out, "# Table of channel zones.\n");
@@ -1167,12 +1193,12 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Zone    Name             Channels\n");
         for (i=0; i<NZONES; i++) {
-            if (!valid_zone(i)) {
+            zone_t *z = get_zone(i);
+
+            if (!z) {
                 // Zone is disabled.
                 continue;
             }
-            zone_t *z = &zt->zone[i];
-
             fprintf(out, "%4d    ", i + 1);
             print_ascii(out, z->name, 16, 1);
             fprintf(out, " ");
@@ -1206,13 +1232,12 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
 #endif
         fprintf(out, "Channels\n");
         for (i=0; i<NSCANL; i++) {
-            scanlist_t *sl = GET_SCANLIST(i);
+            scanlist_t *sl = get_scanlist(i);
 
-            if (!VALID_SCANLIST(sl)) {
+            if (!sl) {
                 // Scan list is disabled.
-                break;
+                continue;
             }
-
             fprintf(out, "%5d    ", i + 1);
             print_ascii(out, sl->name, 15, 1);
             if (sl->priority_ch1 == 0) {
@@ -2159,19 +2184,18 @@ static int rd5r_verify_config(radio_device_t *radio)
 {
     int i, k, nchannels = 0, nzones = 0, nscanlists = 0, ngrouplists = 0;
     int ncontacts = 0, nerrors = 0;
-    zonetab_t *zt = GET_ZONETAB();
 
     // Channels: check references to scanlists, contacts and grouplists.
     for (i=0; i<NCHAN; i++) {
-        if (!valid_channel(i))
-            continue;
-
         channel_t *ch = get_channel(i);
+
+        if (!ch)
+            continue;
         nchannels++;
         if (ch->scan_list_index != 0) {
-            scanlist_t *sl = GET_SCANLIST(ch->scan_list_index - 1);
+            scanlist_t *sl = get_scanlist(ch->scan_list_index - 1);
 
-            if (!VALID_SCANLIST(sl)) {
+            if (!sl) {
                 fprintf(stderr, "Channel %d '", i+1);
                 print_ascii(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': scanlist %d not found.\n", ch->scan_list_index);
@@ -2202,16 +2226,16 @@ static int rd5r_verify_config(radio_device_t *radio)
 
     // Zones: check references to channels.
     for (i=0; i<NZONES; i++) {
-        if (!valid_zone(i))
-            continue;
+        zone_t *z = get_zone(i);
 
-        zone_t *z = &zt->zone[i];
+        if (!z)
+            continue;
         nzones++;
 
         for (k=0; k<16; k++) {
             int cnum = z->member[k];
 
-            if (cnum != 0 && !valid_channel(cnum - 1)) {
+            if (cnum != 0 && !get_channel(cnum - 1)) {
                 fprintf(stderr, "Zone %d '", i+1);
                 print_ascii(stderr, z->name, 16, 0);
                 fprintf(stderr, "': channel %d not found.\n", cnum);
@@ -2222,16 +2246,16 @@ static int rd5r_verify_config(radio_device_t *radio)
 
     // Scanlists: check references to channels.
     for (i=0; i<NSCANL; i++) {
-        scanlist_t *sl = GET_SCANLIST(i);
+        scanlist_t *sl = get_scanlist(i);
 
-        if (!VALID_SCANLIST(sl))
-            break;
+        if (!sl)
+            continue;
 
         nscanlists++;
         for (k=0; k<32; k++) {
-            int cnum = sl->member[k];
+            int cnum = sl->member[k] - 1;
 
-            if (cnum != 0 && !valid_channel(cnum - 1)) {
+            if (cnum > 0 && !get_channel(cnum - 1)) {
                 fprintf(stderr, "Scanlist %d '", i+1);
                 print_ascii(stderr, sl->name, 15, 0);
                 fprintf(stderr, "': channel %d not found.\n", cnum);
