@@ -45,31 +45,25 @@
 #define MEMSZ           0x20000
 #define OFFSET_TIMESTMP 0x00088
 #define OFFSET_SETTINGS 0x000e0
-#define OFFSET_MSG      0x00170
+#define OFFSET_MSGTAB   0x00128
 #define OFFSET_CONTACTS 0x01788
-#define OFFSET_CHANLO   0x03790 // Channels 1-128
+#define OFFSET_BANK_0   0x03780 // Channels 1-128
 #define OFFSET_INTRO    0x07540
-#define OFFSET_ZONES    0x08030
-#define OFFSET_CHANHI   0x0b1c0 // Channels 129-1024
+#define OFFSET_ZONETAB  0x08010
+#define OFFSET_BANK_1   0x0b1b0 // Channels 129-1024
 #define OFFSET_SCANL    0x17720
 #define OFFSET_GLISTS   0x1d6a0
 
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_INTRO()         ((intro_text_t*) &radio_mem[OFFSET_INTRO])
-#define GET_CHANNEL_LO(i)   ((channel_t*) &radio_mem[(i)*56 + OFFSET_CHANLO])
-#define GET_CHANNEL_HI(i)   ((channel_t*) &radio_mem[((i)-128)*56 + OFFSET_CHANHI])
-#define GET_CHANNEL(i)      ((i)<128 ? GET_CHANNEL_LO(i) : GET_CHANNEL_HI(i))
-#define GET_ZONE(i)         ((zone_t*) &radio_mem[OFFSET_ZONES + (i)*48])
-#define GET_ZONEXT(i)       ((zone_ext_t*) &radio_mem[OFFSET_ZONEXT + (i)*224])
+#define GET_ZONETAB()       ((zonetab_t*) &radio_mem[OFFSET_ZONETAB])
 #define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANL + (i)*88])
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*24])
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*48])
-#define GET_MESSAGE(i)      (&radio_mem[OFFSET_MSG + (i)*144])
+#define GET_MSGTAB()        ((msgtab_t*) &radio_mem[OFFSET_MSGTAB])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
-#define VALID_CHANNEL(ch)   VALID_TEXT((ch)->name)
-#define VALID_ZONE(z)       VALID_TEXT((z)->name)
 #define VALID_SCANLIST(sl)  VALID_TEXT((sl)->name)
 #define VALID_GROUPLIST(gl) VALID_TEXT((gl)->name)
 #define VALID_CONTACT(ct)   VALID_TEXT((ct)->name)
@@ -171,6 +165,14 @@ typedef struct {
 } channel_t;
 
 //
+// Bank of 128 channels.
+//
+typedef struct {
+    uint8_t bitmap[16];                 // bit set when channel valid
+    channel_t chan[128];
+} bank_t;
+
+//
 // Contact data.
 //
 typedef struct {
@@ -212,6 +214,14 @@ typedef struct {
     // Bytes 16-47
     uint16_t member[16];                // Member: channels 1...16
 } zone_t;
+
+//
+// Table of zones.
+//
+typedef struct {
+    uint8_t bitmap[32];                 // bit set when zone valid
+    zone_t  zone[NZONES];
+} zonetab_t;
 
 //
 // Group list data.
@@ -278,6 +288,17 @@ typedef struct {
     // Bytes 7550-755f
     uint8_t intro_line2[16];
 } intro_text_t;
+
+//
+// Table of text messages.
+//
+typedef struct {
+    uint8_t count;                      // number of messages
+    uint8_t _unused1[7];                // 0
+    uint8_t len[NMESSAGES];             // message length
+    uint8_t _unused2[NMESSAGES];        // 0
+    uint8_t message[NMESSAGES*144];     // messages
+} msgtab_t;
 
 static const char *POWER_NAME[] = { "Low", "High" };
 static const char *BANDWIDTH[] = { "12.5", "25" };
@@ -403,11 +424,16 @@ static int gd77old_is_compatible(radio_device_t *radio)
 //
 static void setup_zone(int index, const char *name)
 {
-    zone_t *z = GET_ZONE(index);
+    zonetab_t *zt = GET_ZONETAB();
+    zone_t *z = &zt->zone[index];
     int len = strlen(name);
 
     memset(z->name, 0xff, sizeof(z->name));
     memcpy(z->name, name, (len < sizeof(z->name)) ? len : sizeof(z->name));
+    memset(z->member, 0, sizeof(z->member));
+
+    // Set valid bit.
+    zt->bitmap[index / 8] |= 1 << (index & 7);
 }
 
 //
@@ -416,7 +442,8 @@ static void setup_zone(int index, const char *name)
 //
 static int zone_append(int index, int cnum)
 {
-    zone_t *z = GET_ZONE(index);
+    zonetab_t *zt = GET_ZONETAB();
+    zone_t *z = &zt->zone[index];
     int i;
 
     for (i=0; i<16; i++) {
@@ -432,10 +459,24 @@ static int zone_append(int index, int cnum)
 
 static void erase_zone(int index)
 {
-    zone_t *z = GET_ZONE(index);
+    zonetab_t *zt = GET_ZONETAB();
+    zone_t *z = &zt->zone[index];
 
-    memset(z->name, 0xff, sizeof(z->name));
+    memset(z->name, 0, sizeof(z->name));
     memset(z->member, 0, sizeof(z->member));
+
+    // Clear valid bit.
+    zt->bitmap[index / 8] &= ~(1 << (index & 7));
+}
+
+//
+// Is zone valid?
+//
+static int valid_zone(int i)
+{
+    zonetab_t *zt = GET_ZONETAB();
+
+    return (zt->bitmap[i / 8] >> (i & 7)) & 1;
 }
 
 //
@@ -516,7 +557,7 @@ static void setup_contact(int index, const char *name, int type, int id, int rxt
     ct->type         = type;
     ct->receive_tone = rxtone;
     ct->ring_style   = 0; // TODO
-    ct->_unused      = 0xff;
+    ct->_unused      = (type < CALL_ALL) ? 0 : 0xff;
 
     memcpy(ct->name, name, len < 16 ? len : 16);
 }
@@ -555,14 +596,24 @@ static int grouplist_append(int index, int cnum)
 //
 static void setup_message(int index, const char *text)
 {
-    uint8_t *msg = GET_MESSAGE(index);
-    int len;
+    msgtab_t *mt = GET_MSGTAB();
+    uint8_t *msg = &mt->message[index*144];
+    int len, i;
 
     // Skip spaces and tabs.
     while (*text == ' ' || *text == '\t')
         text++;
     len = strlen(text);
+    mt->len[index] = len + 1;
+
+    memset(msg, 0xff, 144);
     memcpy(msg, text, len < 144 ? len : 144);
+
+    // Count messages.
+    mt->count = 0;
+    for (i=0; i<sizeof(mt->len); i++)
+        if (mt->len[i] > 0)
+            mt->count++;
 }
 
 //
@@ -578,6 +629,37 @@ static int is_valid_frequency(int mhz)
 }
 
 //
+// Get channel bank by index.
+//
+static bank_t *get_bank(int i)
+{
+    if (i == 0)
+        return (bank_t*) &radio_mem[OFFSET_BANK_0];
+    else
+        return (i - 1) + (bank_t*) &radio_mem[OFFSET_BANK_1];
+}
+
+//
+// Get channel by index.
+//
+static channel_t *get_channel(int i)
+{
+    bank_t *b = get_bank(i >> 7);
+
+    return &b->chan[i % 128];
+}
+
+//
+// Is channel valid?
+//
+static int valid_channel(int i)
+{
+    bank_t *b = get_bank(i >> 7);
+
+    return (b->bitmap[i % 128 / 8] >> (i & 7)) & 1;
+}
+
+//
 // Set the parameters for a given memory channel.
 //
 static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_mhz,
@@ -585,7 +667,7 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     int admit, int colorcode, int timeslot, int grouplist, int contact,
     int rxtone, int txtone, int width)
 {
-    channel_t *ch = GET_CHANNEL(i);
+    channel_t *ch = get_channel(i);
 
     ch->channel_mode        = mode;
     ch->bandwidth           = width;
@@ -594,12 +676,11 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->repeater_slot2      = (timeslot == 2);
     ch->colorcode_tx        = colorcode;
     ch->colorcode_rx        = colorcode;
-    ch->data_call_conf      = 1;        // Always ask for SMS acknowledge
+//    ch->data_call_conf      = 1;        // Always ask for SMS acknowledge
     ch->power               = power;
     ch->admit_criteria      = admit;
     ch->contact_name_index  = contact;
     ch->tot                 = tot;
-    ch->tot_rekey_delay     = 0;
     ch->scan_list_index     = scanlist;
     ch->group_list_index    = grouplist;
     ch->rx_frequency        = mhz_to_bcd(rx_mhz);
@@ -609,6 +690,10 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
 
     int len = strlen(name);
     memcpy(ch->name, name, (len < sizeof(ch->name)) ? len : sizeof(ch->name));
+
+    // Set valid bit.
+    bank_t *b = get_bank(i >> 7);
+    b->bitmap[i % 128 / 8] |= 1 << (i & 7);
 }
 
 //
@@ -616,7 +701,7 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
 //
 static void erase_channel(int i)
 {
-    channel_t *ch = GET_CHANNEL(i);
+    channel_t *ch = get_channel(i);
 
     // Bytes 0-15
     memset(ch->name, 0xff, sizeof(ch->name));
@@ -697,6 +782,10 @@ static void erase_channel(int i)
     ch->_unused52[1] = 0;
     ch->_unused52[2] = 0;
     ch->squelch      = 5;
+
+    // Clear valid bit.
+    bank_t *b = get_bank(i >> 7);
+    b->bitmap[i % 128 / 8] &= ~(1 << (i & 7));
 }
 
 static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan, int scanlist_flag)
@@ -778,12 +867,12 @@ static int have_channels(int mode)
     int i;
 
     for (i=0; i<NCHAN; i++) {
-        channel_t *ch = GET_CHANNEL(i);
+        if (valid_channel(i)) {
+            channel_t *ch = get_channel(i);
 
-        if (!VALID_CHANNEL(ch))
-            return 0;
-        if (ch->channel_mode == mode)
-            return 1;
+            if (ch->channel_mode == mode)
+                return 1;
+        }
     }
     return 0;
 }
@@ -869,11 +958,11 @@ static void print_digital_channels(FILE *out, int verbose)
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
-        channel_t *ch = GET_CHANNEL(i);
-
-        if (!VALID_CHANNEL(ch)) {
-            break;
+        if (!valid_channel(i)) {
+            continue;
         }
+
+        channel_t *ch = get_channel(i);
         if (ch->channel_mode != MODE_DIGITAL) {
             // Select digital channels
             continue;
@@ -964,11 +1053,11 @@ static void print_analog_channels(FILE *out, int verbose)
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
-        channel_t *ch = GET_CHANNEL(i);
-
-        if (!VALID_CHANNEL(ch)) {
-            break;
+        if (!valid_channel(i)) {
+            continue;
         }
+
+        channel_t *ch = get_channel(i);
         if (ch->channel_mode != MODE_ANALOG) {
             // Select analog channels
             continue;
@@ -980,7 +1069,7 @@ static void print_analog_channels(FILE *out, int verbose)
         //      CTCSS/DCS Dec
         //      CTCSS/DCS Enc
         //      Bandwidth
-        fprintf(out, "%-7d ", ch->squelch);
+        fprintf(out, "%-7d ", ch->squelch <= 9 ? ch->squelch : 5);
         print_tone(out, ch->ctcss_dcs_receive);
         fprintf(out, "  ");
         print_tone(out, ch->ctcss_dcs_transmit);
@@ -1001,9 +1090,14 @@ static void print_analog_channels(FILE *out, int verbose)
 
 static int have_zones()
 {
-    zone_t *z = GET_ZONE(0);
+    zonetab_t *zt = GET_ZONETAB();
+    int i;
 
-    return VALID_ZONE(z);
+    for (i=0; i<32; i++) {
+        if (zt->bitmap[i])
+            return 1;
+    }
+    return 0;
 }
 
 static int have_scanlists()
@@ -1029,9 +1123,9 @@ static int have_grouplists()
 
 static int have_messages()
 {
-    uint8_t *msg = GET_MESSAGE(0);
+    msgtab_t *mt = GET_MSGTAB();
 
-    return VALID_TEXT(msg);
+    return mt->count > 0;
 }
 
 //
@@ -1061,6 +1155,8 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
     // Zones.
     //
     if (have_zones()) {
+        zonetab_t *zt = GET_ZONETAB();
+
         fprintf(out, "\n");
         if (verbose) {
             fprintf(out, "# Table of channel zones.\n");
@@ -1071,12 +1167,11 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Zone    Name             Channels\n");
         for (i=0; i<NZONES; i++) {
-            zone_t *z = GET_ZONE(i);
-
-            if (!VALID_ZONE(z)) {
+            if (!valid_zone(i)) {
                 // Zone is disabled.
-                break;
+                continue;
             }
+            zone_t *z = &zt->zone[i];
 
             fprintf(out, "%4d    ", i + 1);
             print_ascii(out, z->name, 16, 1);
@@ -1221,6 +1316,8 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
     // Text messages.
     //
     if (have_messages()) {
+        msgtab_t *mt = GET_MSGTAB();
+
         fprintf(out, "\n");
         if (verbose) {
             fprintf(out, "# Table of text messages.\n");
@@ -1230,15 +1327,12 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Message Text\n");
         for (i=0; i<NMESSAGES; i++) {
-            uint8_t *msg = GET_MESSAGE(i);
-
-            if (!VALID_TEXT(msg)) {
+            if (mt->len[i] == 0) {
                 // Message is disabled
                 continue;
             }
-
             fprintf(out, "%5d   ", i+1);
-            print_ascii(out, msg, 144, 0);
+            print_ascii(out, &mt->message[i*144], 144, 0);
             fprintf(out, "\n");
         }
     }
@@ -1574,7 +1668,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         }
     }
 
-    squelch = atoi(tot_str);
+    squelch = atoi(squelch_str);
     if (squelch < 0 || squelch > 9) {
         fprintf(stderr, "Bad squelch level.\n");
         return 0;
@@ -1628,11 +1722,13 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     if (first_row && radio->channel_count == 0) {
         // On first entry, erase all channels, zones and scanlists.
         erase_channels();
+        erase_zones();
+        erase_scanlists();
     }
 
     setup_channel(num-1, MODE_ANALOG, name_str, rx_mhz, tx_mhz,
         power, scanlist, squelch, tot, rxonly, admit,
-        1, 1, 0, 0, rxtone, txtone, width);
+        0, 1, 0, 0, rxtone, txtone, width);
 
     radio->channel_count++;
     return 1;
@@ -1989,7 +2085,7 @@ static int parse_messages(int first_row, char *line)
 
     if (first_row) {
         // On first entry, erase the Messages table.
-        memset(&radio_mem[OFFSET_MSG], 0, NMESSAGES*144);
+        memset(GET_MSGTAB(), 0, sizeof(msgtab_t));
     }
 
     setup_message(mnum-1, text);
@@ -2063,14 +2159,14 @@ static int rd5r_verify_config(radio_device_t *radio)
 {
     int i, k, nchannels = 0, nzones = 0, nscanlists = 0, ngrouplists = 0;
     int ncontacts = 0, nerrors = 0;
+    zonetab_t *zt = GET_ZONETAB();
 
     // Channels: check references to scanlists, contacts and grouplists.
     for (i=0; i<NCHAN; i++) {
-        channel_t *ch = GET_CHANNEL(i);
+        if (!valid_channel(i))
+            continue;
 
-        if (!VALID_CHANNEL(ch))
-            break;
-
+        channel_t *ch = get_channel(i);
         nchannels++;
         if (ch->scan_list_index != 0) {
             scanlist_t *sl = GET_SCANLIST(ch->scan_list_index - 1);
@@ -2106,24 +2202,20 @@ static int rd5r_verify_config(radio_device_t *radio)
 
     // Zones: check references to channels.
     for (i=0; i<NZONES; i++) {
-        zone_t *z = GET_ZONE(i);
+        if (!valid_zone(i))
+            continue;
 
-        if (!VALID_ZONE(z))
-            break;
-
+        zone_t *z = &zt->zone[i];
         nzones++;
+
         for (k=0; k<16; k++) {
             int cnum = z->member[k];
 
-            if (cnum != 0) {
-                channel_t *ch = GET_CHANNEL(cnum - 1);
-
-                if (!VALID_CHANNEL(ch)) {
-                    fprintf(stderr, "Zone %d '", i+1);
-                    print_ascii(stderr, z->name, 16, 0);
-                    fprintf(stderr, "': channel %d not found.\n", cnum);
-                    nerrors++;
-                }
+            if (cnum != 0 && !valid_channel(cnum - 1)) {
+                fprintf(stderr, "Zone %d '", i+1);
+                print_ascii(stderr, z->name, 16, 0);
+                fprintf(stderr, "': channel %d not found.\n", cnum);
+                nerrors++;
             }
         }
     }
@@ -2139,15 +2231,11 @@ static int rd5r_verify_config(radio_device_t *radio)
         for (k=0; k<32; k++) {
             int cnum = sl->member[k];
 
-            if (cnum != 0) {
-                channel_t *ch = GET_CHANNEL(cnum - 1);
-
-                if (!VALID_CHANNEL(ch)) {
-                    fprintf(stderr, "Scanlist %d '", i+1);
-                    print_ascii(stderr, sl->name, 15, 0);
-                    fprintf(stderr, "': channel %d not found.\n", cnum);
-                    nerrors++;
-                }
+            if (cnum != 0 && !valid_channel(cnum - 1)) {
+                fprintf(stderr, "Scanlist %d '", i+1);
+                print_ascii(stderr, sl->name, 15, 0);
+                fprintf(stderr, "': channel %d not found.\n", cnum);
+                nerrors++;
             }
         }
     }

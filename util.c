@@ -341,16 +341,16 @@ void ascii_decode(unsigned char *dst, const char *src, unsigned nsym)
     for (; nsym > 0; nsym--) {
         int ch = *src++;
 
-        if (ch == '_')
-            ch = ' ';
-        *dst++ = ch;
-
         if (ch == 0) {
             // Clear the remaining bytes.
-            while (--nsym > 0)
-                *dst++ = 0;
+            while (nsym-- > 0)
+                *dst++ = 0xff;
             break;
         }
+        if (ch == '_')
+            ch = ' ';
+
+        *dst++ = ch;
     }
 }
 
