@@ -330,9 +330,9 @@ static const char *SQUELCH_NAME[] = { "Tight", "Normal" };
 static const char *BANDWIDTH[] = { "12.5", "20", "25", "25" };
 static const char *CONTACT_TYPE[] = { "-", "Group", "Private", "All" };
 static const char *ADMIT_NAME[] = { "-", "Free", "Tone", "Color" };
-static const char *INCALL_NAME[] = { "-", "Admit", "-", "Admit" };
 
 #ifdef PRINT_RARE_PARAMS
+static const char *INCALL_NAME[] = { "-", "Admit", "-", "Admit" };
 static const char *REF_FREQUENCY[] = { "Low", "Med", "High" };
 static const char *PRIVACY_NAME[] = { "-", "Basic", "Enhanced" };
 static const char *SIGNALING_SYSTEM[] = { "-", "DTMF-1", "DTMF-2", "DTMF-3", "DTMF-4" };
@@ -574,15 +574,14 @@ static int is_valid_frequency(int mhz)
 // Set the parameters for a given memory channel.
 //
 static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_mhz,
-    int power, int scanlist, int autoscan, int squelch, int tot, int rxonly,
-    int admit, int colorcode, int timeslot, int incall, int grouplist, int contact,
+    int power, int scanlist, int squelch, int tot, int rxonly,
+    int admit, int colorcode, int timeslot, int grouplist, int contact,
     int rxtone, int txtone, int width)
 {
     channel_t *ch = GET_CHANNEL(i);
 
     ch->channel_mode        = mode;
     ch->bandwidth           = width;
-    ch->autoscan            = autoscan;
     ch->squelch             = squelch;
     ch->rx_only             = rxonly;
     ch->repeater_slot       = timeslot;
@@ -590,7 +589,6 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->data_call_conf      = 1;        // Always ask for SMS acknowledge
     ch->power               = power;
     ch->admit_criteria      = admit;
-    ch->in_call_criteria    = incall;
     ch->contact_name_index  = contact;
     ch->tot                 = tot;
     ch->scan_list_index     = scanlist;
@@ -783,7 +781,6 @@ static int have_channels(int mode)
 //      TX Frequency
 //      Power
 //      Scan List
-//      Autoscan
 //      TOT
 //      RX Only
 //      Admit Criteria
@@ -804,8 +801,6 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
     else
         fprintf(out, "%-4d ", ch->scan_list_index);
 
-    fprintf(out, "%c  ", "-+"[ch->autoscan]);
-
     if (ch->tot == 0)
         fprintf(out, "-   ");
     else
@@ -819,6 +814,7 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 #ifdef PRINT_RARE_PARAMS
 //
 // Print extended parameters of the channel:
+//      Autoscan
 //      TOT Rekey Delay
 //      RX Ref Frequency
 //      RX Ref Frequency
@@ -827,6 +823,8 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 //
 static void print_chan_ext(FILE *out, channel_t *ch)
 {
+    fprintf(out, "%c  ", "-+"[ch->autoscan]);
+    fprintf(out, "%-6s ", INCALL_NAME[ch->in_call_criteria]);
     fprintf(out, "%-3d ", ch->tot_rekey_delay);
     fprintf(out, "%-5s ", REF_FREQUENCY[ch->rx_ref_frequency]);
     fprintf(out, "%-5s ", REF_FREQUENCY[ch->tx_ref_frequency]);
@@ -848,20 +846,18 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
         fprintf(out, "# 5) Transmit power: High, Low\n");
         fprintf(out, "# 6) Scan list: - or index in Scanlist table\n");
-        fprintf(out, "# 7) Autoscan flag: -, +\n");
-        fprintf(out, "# 8) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
-        fprintf(out, "# 9) Receive only: -, +\n");
-        fprintf(out, "# 10) Admit criteria: -, Free, Color\n");
-        fprintf(out, "# 11) Color code: 0, 1, 2, 3... 15\n");
-        fprintf(out, "# 12) Time slot: 1 or 2\n");
-        fprintf(out, "# 13) In call criteria: -, Admit, TXInt\n");
-        fprintf(out, "# 14) Receive group list: - or index in Grouplist table\n");
-        fprintf(out, "# 15) Contact for transmit: - or index in Contacts table\n");
+        fprintf(out, "# 7) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 8) Receive only: -, +\n");
+        fprintf(out, "# 9) Admit criteria: -, Free, Color\n");
+        fprintf(out, "# 10) Color code: 0, 1, 2, 3... 15\n");
+        fprintf(out, "# 11) Time slot: 1 or 2\n");
+        fprintf(out, "# 12) Receive group list: - or index in Grouplist table\n");
+        fprintf(out, "# 13) Contact for transmit: - or index in Contacts table\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Digital Name             Receive   Transmit Power Scan AS TOT RO Admit  Color Slot InCall RxGL TxContact");
+    fprintf(out, "Digital Name             Receive   Transmit Power Scan TOT RO Admit  Color Slot RxGL TxContact");
 #ifdef PRINT_RARE_PARAMS
-    fprintf(out, " Dly RxRef TxRef LW VOX TA EmSys Privacy  PN PCC EAA DCC CU");
+    fprintf(out, " AS InCall Dly RxRef TxRef LW VOX TA EmSys Privacy  PN PCC EAA DCC CU");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
@@ -876,11 +872,9 @@ static void print_digital_channels(FILE *out, int verbose)
         // Print digital parameters of the channel:
         //      Color Code
         //      Repeater Slot
-        //      In Call Criteria
         //      Group List
         //      Contact Name
         fprintf(out, "%-5d %-3d  ", ch->colorcode, ch->repeater_slot);
-        fprintf(out, "%-6s ", INCALL_NAME[ch->in_call_criteria]);
 
         if (ch->group_list_index == 0)
             fprintf(out, "-    ");
@@ -896,6 +890,7 @@ static void print_digital_channels(FILE *out, int verbose)
         print_chan_ext(out, ch);
 
         // Extended digital parameters of the channel:
+        //      In Call Criteria
         //      Emergency System
         //      Privacy
         //      Privacy No. (+1)
@@ -945,14 +940,13 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
         fprintf(out, "# 5) Transmit power: High, Low\n");
         fprintf(out, "# 6) Scan list: - or index\n");
-        fprintf(out, "# 7) Autoscan flag: -, +\n");
-        fprintf(out, "# 8) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
-        fprintf(out, "# 9) Receive only: -, +\n");
-        fprintf(out, "# 10) Admit criteria: -, Free, Tone\n");
-        fprintf(out, "# 11) Squelch level: Normal, Tight\n");
-        fprintf(out, "# 12) Guard tone for receive, or '-' to disable\n");
-        fprintf(out, "# 13) Guard tone for transmit, or '-' to disable\n");
-        fprintf(out, "# 14) Bandwidth in kHz: 12.5, 20, 25\n");
+        fprintf(out, "# 7) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 8) Receive only: -, +\n");
+        fprintf(out, "# 9) Admit criteria: -, Free, Tone\n");
+        fprintf(out, "# 10) Squelch level: Normal, Tight\n");
+        fprintf(out, "# 11) Guard tone for receive, or '-' to disable\n");
+        fprintf(out, "# 12) Guard tone for transmit, or '-' to disable\n");
+        fprintf(out, "# 13) Bandwidth in kHz: 12.5, 20, 25\n");
         fprintf(out, "#\n");
     }
     fprintf(out, "Analog  Name             Receive   Transmit Power Scan AS TOT RO Admit  Squelch RxTone TxTone Width");
@@ -1418,18 +1412,18 @@ static void md380_parse_parameter(radio_device_t *radio, char *param, char *valu
 static int parse_digital_channel(radio_device_t *radio, int first_row, char *line)
 {
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
-    char power_str[256], scanlist_str[256], autoscan_str[256];
+    char power_str[256], scanlist_str[256];
     char tot_str[256], rxonly_str[256], admit_str[256], colorcode_str[256];
-    char slot_str[256], incall_str[256], grouplist_str[256], contact_str[256];
-    int num, power, scanlist, autoscan, tot, rxonly, admit;
-    int colorcode, timeslot, incall, grouplist, contact;
+    char slot_str[256], grouplist_str[256], contact_str[256];
+    int num, power, scanlist, tot, rxonly, admit;
+    int colorcode, timeslot, grouplist, contact;
     double rx_mhz, tx_mhz;
 
-    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
+    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
         num_str, name_str, rxfreq_str, offset_str,
-        power_str, scanlist_str, autoscan_str,
+        power_str, scanlist_str,
         tot_str, rxonly_str, admit_str, colorcode_str,
-        slot_str, incall_str, grouplist_str, contact_str) != 15)
+        slot_str, grouplist_str, contact_str) != 13)
         return 0;
 
     num = atoi(num_str);
@@ -1469,15 +1463,6 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
             fprintf(stderr, "Bad scanlist.\n");
             return 0;
         }
-    }
-
-    if (*autoscan_str == '-') {
-        autoscan = 0;
-    } else if (*autoscan_str == '+') {
-        autoscan = 1;
-    } else {
-        fprintf(stderr, "Bad autoscan flag.\n");
-        return 0;
     }
 
     tot = atoi(tot_str);
@@ -1519,15 +1504,6 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         return 0;
     }
 
-    if (*incall_str == '-' || strcasecmp("Always", incall_str) == 0) {
-        incall = INCALL_ALWAYS;
-    } else if (strcasecmp("Admit", incall_str) == 0) {
-        incall = INCALL_ADMIT;
-    } else {
-        fprintf(stderr, "Bad incall criteria.\n");
-        return 0;
-    }
-
     if (*grouplist_str == '-') {
         grouplist = 0;
     } else {
@@ -1556,8 +1532,8 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
-        power, scanlist, autoscan, SQ_NORMAL, tot, rxonly, admit,
-        colorcode, timeslot, incall, grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
+        power, scanlist, SQ_NORMAL, tot, rxonly, admit,
+        colorcode, timeslot, grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
 
     radio->channel_count++;
     return 1;
@@ -1571,18 +1547,18 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 static int parse_analog_channel(radio_device_t *radio, int first_row, char *line)
 {
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
-    char power_str[256], scanlist_str[256], autoscan_str[256], squelch_str[256];
+    char power_str[256], scanlist_str[256], squelch_str[256];
     char tot_str[256], rxonly_str[256], admit_str[256];
     char rxtone_str[256], txtone_str[256], width_str[256];
-    int num, power, scanlist, autoscan, squelch, tot, rxonly, admit;
+    int num, power, scanlist, squelch, tot, rxonly, admit;
     int rxtone, txtone, width;
     double rx_mhz, tx_mhz;
 
-    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s %s",
+    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
         num_str, name_str, rxfreq_str, offset_str,
-        power_str, scanlist_str, autoscan_str,
+        power_str, scanlist_str,
         tot_str, rxonly_str, admit_str, squelch_str,
-        rxtone_str, txtone_str, width_str) != 14)
+        rxtone_str, txtone_str, width_str) != 13)
         return 0;
 
     num = atoi(num_str);
@@ -1622,15 +1598,6 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
             fprintf(stderr, "Bad scanlist.\n");
             return 0;
         }
-    }
-
-    if (*autoscan_str == '-') {
-        autoscan = 0;
-    } else if (*autoscan_str == '+') {
-        autoscan = 1;
-    } else {
-        fprintf(stderr, "Bad autoscan flag.\n");
-        return 0;
     }
 
     if (strcasecmp ("Normal", squelch_str) == 0) {
@@ -1697,8 +1664,8 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     setup_channel(num-1, MODE_ANALOG, name_str, rx_mhz, tx_mhz,
-        power, scanlist, autoscan, squelch, tot, rxonly, admit,
-        1, 1, 0, 0, 0, rxtone, txtone, width);
+        power, scanlist, squelch, tot, rxonly, admit,
+        1, 1, 0, 0, rxtone, txtone, width);
 
     radio->channel_count++;
     return 1;
