@@ -7,6 +7,7 @@ Supported radios:
  * TYT MD-UV380
  * TYT MD-UV390, Retevis RT3S (untested)
  * TYT MD-9600 (untested)
+ * Baofeng RD-5R
  * Zastone D900 (untested)
  * Zastone DP880 (untested)
  * Radtel RT-27D (untested)
