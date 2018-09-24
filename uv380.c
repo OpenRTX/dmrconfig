@@ -214,7 +214,7 @@ typedef struct {
             receive_tone        : 1,    // Call Receive Tone: No or yes
             _unused2            : 2;    // 0b11
 
-    // Bytes 4-19
+    // Bytes 4-35
     uint16_t name[16];                  // Contact Name (Unicode)
 } contact_t;
 
@@ -2442,6 +2442,11 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
             continue;
         }
 
+        // Strip trailing spaces and newline.
+        char *e = line + strlen(line) - 1;
+        while (e >= line && (*e=='\n' || *e=='\r' || *e==' ' || *e=='\t'))
+            *e-- = 0;
+
         id = strtoul(line, 0, 10);
         if (id < 1 || id > 0xffffff) {
             fprintf(stderr, "Bad id: %d\n", id);
@@ -2464,8 +2469,8 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
             return;
         }
         *name++ = 0;
+        //printf("%-10d%-10s%s\n", id, callsign, name);
 
-        //printf("%-10d%-10s%s", id, callsign, name);
         cs = GET_CALLSIGN(mem, nrecords);
         nrecords++;
 
