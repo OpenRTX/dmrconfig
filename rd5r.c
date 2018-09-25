@@ -1160,9 +1160,15 @@ static int have_scanlists()
 
 static int have_contacts()
 {
-    contact_t *ct = GET_CONTACT(0);
+    int i;
 
-    return VALID_CONTACT(ct);
+    for (i=0; i<NCONTACTS; i++) {
+        contact_t *ct = GET_CONTACT(i);
+
+        if (VALID_CONTACT(ct))
+            return 1;
+    }
+    return 0;
 }
 
 static int have_grouplists()
@@ -1322,7 +1328,7 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
 
             if (!VALID_CONTACT(ct)) {
                 // Contact is disabled
-                break;
+                continue;
             }
 
             fprintf(out, "%5d   ", i+1);
@@ -2321,7 +2327,7 @@ static int rd5r_verify_config(radio_device_t *radio)
         contact_t *ct = GET_CONTACT(i);
 
         if (!VALID_CONTACT(ct))
-            break;
+            continue;
         ncontacts++;
     }
 
