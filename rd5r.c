@@ -64,7 +64,6 @@
 #define GET_MSGTAB()        ((msgtab_t*) &radio_mem[OFFSET_MSGTAB])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
-#define VALID_GROUPLIST(gl) VALID_TEXT((gl)->name)
 #define VALID_CONTACT(ct)   VALID_TEXT((ct)->name)
 
 //
@@ -199,7 +198,7 @@ typedef struct {
     // Bytes 21-23
     uint8_t receive_tone;               // Call Receive Tone: 0=Off, 1=On
     uint8_t ring_style;                 // Ring style: 0-10
-    uint8_t _unused;                    // 0xff for used contact, 0 for blank entry
+    uint8_t _unused23;                  // 0xff for used contact, 0 for blank entry
 
 } contact_t;
 
@@ -592,7 +591,7 @@ static void setup_contact(int index, const char *name, int type, int id, int rxt
     ct->type         = type;
     ct->receive_tone = rxtone;
     ct->ring_style   = 0; // TODO
-    ct->_unused      = (type < CALL_ALL) ? 0 : 0xff;
+    ct->_unused23    = (type < CALL_ALL) ? 0 : 0xff;
 
     ascii_decode(ct->name, name, 16);
 }
