@@ -631,7 +631,11 @@ static int grouplist_append(int index, int cnum)
     grouplist_t *gl = &gt->grouplist[index];
     int i;
 
-    for (i=0; i<16; i++) {
+    // RD-5R firmware up to v2.1.6 has a bug:
+    // when all 16 entries in RX group list are occupied,
+    // it stops functioning and no audio is received.
+    // As a workaround, we must use only 15 entries here.
+    for (i=0; i<15; i++) {
         if (gl->member[i] == cnum)
             return 1;
         if (gl->member[i] == 0) {
