@@ -642,7 +642,6 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->rx_only             = rxonly;
     ch->repeater_slot       = timeslot;
     ch->colorcode           = colorcode;
-    ch->data_call_conf      = 1;        // Always ask for SMS acknowledge
     ch->admit_criteria      = admit;
     ch->contact_name_index  = contact;
     ch->tot                 = tot;
