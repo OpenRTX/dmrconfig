@@ -48,8 +48,7 @@ static struct {
     { "TP660",      &radio_dp880 },     // Zastone DP880
     { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
     { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R
-    { "MD-760P",    &radio_gd77 },      // Radioddity GD-77
-    { "MD-760",     &radio_gd77_old },  // Radioddity GD-77, older versions up to 2.6.6
+    { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
     { 0, 0 }
 };
 
@@ -205,7 +204,8 @@ void radio_read_image(const char *filename)
         } else if (memcmp(ident, "MD-760P", 7) == 0) {
             device = &radio_gd77;
         } else if (memcmp(ident, "MD-760", 6) == 0) {
-            device = &radio_gd77_old;
+            fprintf(stderr, "Old Radioddity GD-77 v2.6 image not supported!\n");
+            exit(-1);
         } else {
             fprintf(stderr, "%s: Unrecognized header '%.6s'\n",
                 filename, ident);

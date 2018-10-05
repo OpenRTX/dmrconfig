@@ -1,5 +1,5 @@
 /*
- * Interface to Radioddity GD-77.
+ * Interface to Radioddity GD-77, firmware version 3.1.1 and later.
  *
  * Copyright (C) 2018 Serge Vakulenko, KK6ABQ
  *
@@ -37,7 +37,7 @@
 #define NCHAN               1024
 #define NCONTACTS           1024
 #define NZONES              250
-#define NGLISTS             76      // check grouplist bitmap
+#define NGLISTS             76
 #define NSCANL              64
 #define NMESSAGES           32
 
@@ -45,13 +45,12 @@
 #define OFFSET_TIMESTMP     0x00088
 #define OFFSET_SETTINGS     0x000e0
 #define OFFSET_MSGTAB       0x00128
-#define OFFSET_CONTACTS_OLD 0x01788 // Contacts for GD-77 version 2.6.6
 #define OFFSET_SCANTAB      0x01790
 #define OFFSET_BANK_0       0x03780 // Channels 1-128
 #define OFFSET_INTRO        0x07540
 #define OFFSET_ZONETAB      0x08010
 #define OFFSET_BANK_1       0x0b1b0 // Channels 129-1024
-#define OFFSET_CONTACTS     0x17620 // Contacts for GD-77 version 3.1.1
+#define OFFSET_CONTACTS     0x17620
 #define OFFSET_GROUPTAB     0x1d620
 
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
@@ -61,9 +60,7 @@
 #define GET_SCANTAB(i)      ((scantab_t*) &radio_mem[OFFSET_SCANTAB])
 #define GET_GROUPTAB()      ((grouptab_t*) &radio_mem[OFFSET_GROUPTAB])
 #define GET_MSGTAB()        ((msgtab_t*) &radio_mem[OFFSET_MSGTAB])
-
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*24])
-#define GET_CONTACT_OLD(i)  ((contact_t*) &radio_mem[OFFSET_CONTACTS_OLD + (i)*24])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
 #define VALID_CONTACT(ct)   ((ct) != 0 && VALID_TEXT((ct)->name))
@@ -383,17 +380,6 @@ static void gd77_download(radio_device_t *radio)
 }
 
 //
-// Radioddity GD-77 old firmware: read memory image.
-//
-static void gd77old_download(radio_device_t *radio)
-{
-    download(radio);
-
-    // Add header.
-    memcpy(&radio_mem[0], "MD-760", 6);
-}
-
-//
 // Write memory image to the device.
 //
 static void gd77_upload(radio_device_t *radio, int cont_flag)
@@ -423,11 +409,6 @@ static void gd77_upload(radio_device_t *radio, int cont_flag)
 static int gd77_is_compatible(radio_device_t *radio)
 {
     return strncmp("MD-760P", (char*)&radio_mem[0], 7) == 0;
-}
-
-static int gd77old_is_compatible(radio_device_t *radio)
-{
-    return strncmp("MD-760\xff", (char*)&radio_mem[0], 7) == 0;
 }
 
 //
@@ -568,25 +549,9 @@ static int scanlist_append(int index, int cnum)
     return 0;
 }
 
-//
-// Get contact by index.
-// Return 0 when contact is disabled.
-//
-static contact_t *get_contact(int index)
-{
-    if (gd77_is_compatible(0))
-        return GET_CONTACT(index);
-    else if (gd77old_is_compatible(0))
-        return GET_CONTACT_OLD(index);
-    else
-        return 0;
-}
-
 static void erase_contact(int index)
 {
-    contact_t *ct = get_contact(index);
-    if (! ct)
-        return;
+    contact_t *ct = GET_CONTACT(index);
 
     memset(ct->name, 0xff, sizeof(ct->name));
     memset(ct->id, 0, 8);
@@ -594,9 +559,7 @@ static void erase_contact(int index)
 
 static void setup_contact(int index, const char *name, int type, int id, int rxtone)
 {
-    contact_t *ct = get_contact(index);
-    if (! ct)
-        return;
+    contact_t *ct = GET_CONTACT(index);
 
     ct->id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
     ct->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
@@ -1076,7 +1039,7 @@ static void print_digital_channels(FILE *out, int verbose)
 #endif
         // Print contact name as a comment.
         if (ch->contact_name_index > 0) {
-            contact_t *ct = get_contact(ch->contact_name_index - 1);
+            contact_t *ct = GET_CONTACT(ch->contact_name_index - 1);
             if (VALID_CONTACT(ct)) {
                 fprintf(out, " # ");
                 print_ascii(out, ct->name, 16, 0);
@@ -1177,7 +1140,7 @@ static int have_contacts()
     int i;
 
     for (i=0; i<NCONTACTS; i++) {
-        contact_t *ct = get_contact(i);
+        contact_t *ct = GET_CONTACT(i);
 
         if (VALID_CONTACT(ct))
             return 1;
@@ -1338,7 +1301,7 @@ static void gd77_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Contact Name             Type    ID       RxTone\n");
         for (i=0; i<NCONTACTS; i++) {
-            contact_t *ct = get_contact(i);
+            contact_t *ct = GET_CONTACT(i);
 
             if (!VALID_CONTACT(ct)) {
                 // Contact is disabled
@@ -2251,7 +2214,7 @@ static int gd77_verify_config(radio_device_t *radio)
             }
         }
         if (ch->contact_name_index != 0) {
-            contact_t *ct = get_contact(ch->contact_name_index - 1);
+            contact_t *ct = GET_CONTACT(ch->contact_name_index - 1);
 
             if (!VALID_CONTACT(ct)) {
                 fprintf(stderr, "Channel %d '", i+1);
@@ -2324,7 +2287,7 @@ static int gd77_verify_config(radio_device_t *radio)
             int cnum = gl->member[k];
 
             if (cnum != 0) {
-                contact_t *ct = get_contact(cnum - 1);
+                contact_t *ct = GET_CONTACT(cnum - 1);
 
                 if (!VALID_CONTACT(ct)) {
                     fprintf(stderr, "Grouplist %d '", i+1);
@@ -2338,7 +2301,7 @@ static int gd77_verify_config(radio_device_t *radio)
 
     // Count contacts.
     for (i=0; i<NCONTACTS; i++) {
-        contact_t *ct = get_contact(i);
+        contact_t *ct = GET_CONTACT(i);
 
         if (!VALID_CONTACT(ct))
             continue;
@@ -2355,32 +2318,13 @@ static int gd77_verify_config(radio_device_t *radio)
 }
 
 //
-// Radioddity GD-77
+// Radioddity GD-77, version 3.1.1 and later
 //
 radio_device_t radio_gd77 = {
     "Radioddity GD-77",
     gd77_download,
     gd77_upload,
     gd77_is_compatible,
-    gd77_read_image,
-    gd77_save_image,
-    gd77_print_version,
-    gd77_print_config,
-    gd77_verify_config,
-    gd77_parse_parameter,
-    gd77_parse_header,
-    gd77_parse_row,
-    gd77_update_timestamp,
-};
-
-//
-// Radioddity GD-77, older versions up to 2.6.6
-//
-radio_device_t radio_gd77_old = {
-    "Radioddity GD-77 (old)",
-    gd77old_download,
-    gd77_upload,
-    gd77old_is_compatible,
     gd77_read_image,
     gd77_save_image,
     gd77_print_version,
