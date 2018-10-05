@@ -5,7 +5,7 @@ GITCOUNT        = $(shell git rev-list HEAD --count)
 CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -g -s
 
-OBJS		= main.o util.o radio.o dfu-windows.o uv380.o md380.o rd5r.o hid.o hid-windows.o
+OBJS		= main.o util.o radio.o dfu-windows.o uv380.o md380.o rd5r.o gd77.o hid.o hid-windows.o
 LIBS            = -lhid -lsetupapi
 
 # Compiling Windows binary from Linux
@@ -35,6 +35,8 @@ install:	dmrconfig
 ###
 dfu-libusb.o: dfu-libusb.c util.h
 dfu-windows.o: dfu-windows.c util.h
+gd77.o: gd77.c radio.h util.h
+hid.o: hid.c util.h
 hid-libusb.o: hid-libusb.c util.h
 hid-macos.o: hid-macos.c util.h
 hid-windows.o: hid-windows.c util.h

@@ -1,5 +1,5 @@
 /*
- * Interface to Baofeng RD-5R.
+ * Interface to Radioddity GD-77.
  *
  * Copyright (C) 2018 Serge Vakulenko, KK6ABQ
  *
@@ -34,36 +34,39 @@
 #include "radio.h"
 #include "util.h"
 
-#define NCHAN           1024
-#define NCONTACTS       256
-#define NZONES          250
-#define NGLISTS         64
-#define NSCANL          250
-#define NMESSAGES       32
+#define NCHAN               1024
+#define NCONTACTS           1024
+#define NZONES              250
+#define NGLISTS             76      // check grouplist bitmap
+#define NSCANL              64
+#define NMESSAGES           32
 
-#define MEMSZ           0x20000
-#define OFFSET_TIMESTMP 0x00088
-#define OFFSET_SETTINGS 0x000e0
-#define OFFSET_MSGTAB   0x00128
-#define OFFSET_CONTACTS 0x01788
-#define OFFSET_BANK_0   0x03780 // Channels 1-128
-#define OFFSET_INTRO    0x07540
-#define OFFSET_ZONETAB  0x08010
-#define OFFSET_BANK_1   0x0b1b0 // Channels 129-1024
-#define OFFSET_SCANTAB  0x17620
-#define OFFSET_GROUPTAB 0x1d620
+#define MEMSZ               0x20000
+#define OFFSET_TIMESTMP     0x00088
+#define OFFSET_SETTINGS     0x000e0
+#define OFFSET_MSGTAB       0x00128
+#define OFFSET_CONTACTS_OLD 0x01788 // Contacts for GD-77 version 2.6.6
+#define OFFSET_SCANTAB      0x01790
+#define OFFSET_BANK_0       0x03780 // Channels 1-128
+#define OFFSET_INTRO        0x07540
+#define OFFSET_ZONETAB      0x08010
+#define OFFSET_BANK_1       0x0b1b0 // Channels 129-1024
+#define OFFSET_CONTACTS     0x17620 // Contacts for GD-77 version 3.1.1
+#define OFFSET_GROUPTAB     0x1d620
 
 #define GET_TIMESTAMP()     (&radio_mem[OFFSET_TIMESTMP])
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_INTRO()         ((intro_text_t*) &radio_mem[OFFSET_INTRO])
 #define GET_ZONETAB()       ((zonetab_t*) &radio_mem[OFFSET_ZONETAB])
 #define GET_SCANTAB(i)      ((scantab_t*) &radio_mem[OFFSET_SCANTAB])
-#define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*24])
 #define GET_GROUPTAB()      ((grouptab_t*) &radio_mem[OFFSET_GROUPTAB])
 #define GET_MSGTAB()        ((msgtab_t*) &radio_mem[OFFSET_MSGTAB])
 
+#define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*24])
+#define GET_CONTACT_OLD(i)  ((contact_t*) &radio_mem[OFFSET_CONTACTS_OLD + (i)*24])
+
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
-#define VALID_CONTACT(ct)   VALID_TEXT((ct)->name)
+#define VALID_CONTACT(ct)   ((ct) != 0 && VALID_TEXT((ct)->name))
 
 //
 // Channel data.
@@ -276,7 +279,7 @@ typedef struct {
 // Table of scanlists.
 //
 typedef struct {
-    uint8_t    valid[256];              // byte=1 when scanlist valid
+    uint8_t    valid[NSCANL];           // byte=1 when scanlist valid
     scanlist_t scanlist[NSCANL];
 } scantab_t;
 
@@ -326,7 +329,7 @@ static const char *SIGNALING_SYSTEM[] = { "-", "DTMF" };
 //
 // Print a generic information about the device.
 //
-static void rd5r_print_version(radio_device_t *radio, FILE *out)
+static void gd77_print_version(radio_device_t *radio, FILE *out)
 {
     unsigned char *timestamp = GET_TIMESTAMP();
 
@@ -369,20 +372,31 @@ static void download(radio_device_t *radio)
 }
 
 //
-// Baofeng RD-5R: read memory image.
+// Radioddity GD-77 new firmware: read memory image.
 //
-static void rd5r_download(radio_device_t *radio)
+static void gd77_download(radio_device_t *radio)
 {
     download(radio);
 
     // Add header.
-    memcpy(&radio_mem[0], "BF-5R", 5);
+    memcpy(&radio_mem[0], "MD-760P", 7);
+}
+
+//
+// Radioddity GD-77 old firmware: read memory image.
+//
+static void gd77old_download(radio_device_t *radio)
+{
+    download(radio);
+
+    // Add header.
+    memcpy(&radio_mem[0], "MD-760", 6);
 }
 
 //
 // Write memory image to the device.
 //
-static void rd5r_upload(radio_device_t *radio, int cont_flag)
+static void gd77_upload(radio_device_t *radio, int cont_flag)
 {
     int bno;
 
@@ -406,9 +420,14 @@ static void rd5r_upload(radio_device_t *radio, int cont_flag)
 //
 // Check whether the memory image is compatible with this device.
 //
-static int rd5r_is_compatible(radio_device_t *radio)
+static int gd77_is_compatible(radio_device_t *radio)
 {
-    return strncmp("BF-5R", (char*)&radio_mem[0], 5) == 0;
+    return strncmp("MD-760P", (char*)&radio_mem[0], 7) == 0;
+}
+
+static int gd77old_is_compatible(radio_device_t *radio)
+{
+    return strncmp("MD-760\xff", (char*)&radio_mem[0], 7) == 0;
 }
 
 //
@@ -549,9 +568,25 @@ static int scanlist_append(int index, int cnum)
     return 0;
 }
 
+//
+// Get contact by index.
+// Return 0 when contact is disabled.
+//
+static contact_t *get_contact(int index)
+{
+    if (gd77_is_compatible(0))
+        return GET_CONTACT(index);
+    else if (gd77old_is_compatible(0))
+        return GET_CONTACT_OLD(index);
+    else
+        return 0;
+}
+
 static void erase_contact(int index)
 {
-    contact_t *ct = GET_CONTACT(index);
+    contact_t *ct = get_contact(index);
+    if (! ct)
+        return;
 
     memset(ct->name, 0xff, sizeof(ct->name));
     memset(ct->id, 0, 8);
@@ -559,7 +594,9 @@ static void erase_contact(int index)
 
 static void setup_contact(int index, const char *name, int type, int id, int rxtone)
 {
-    contact_t *ct = GET_CONTACT(index);
+    contact_t *ct = get_contact(index);
+    if (! ct)
+        return;
 
     ct->id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
     ct->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
@@ -609,11 +646,8 @@ static int grouplist_append(int index, int cnum)
     grouplist_t *gl = &gt->grouplist[index];
     int i;
 
-    // RD-5R firmware up to v2.1.6 has a bug:
-    // when all 16 entries in RX group list are occupied,
-    // it stops functioning and no audio is received.
-    // As a workaround, we must use only 15 entries here.
-    for (i=0; i<15; i++) {
+    //TODO: 32 contacts per RX group list in GD-77.
+    for (i=0; i<16; i++) {
         if (gl->member[i] == cnum)
             return 1;
         if (gl->member[i] == 0) {
@@ -1043,7 +1077,7 @@ static void print_digital_channels(FILE *out, int verbose)
 #endif
         // Print contact name as a comment.
         if (ch->contact_name_index > 0) {
-            contact_t *ct = GET_CONTACT(ch->contact_name_index - 1);
+            contact_t *ct = get_contact(ch->contact_name_index - 1);
             if (VALID_CONTACT(ct)) {
                 fprintf(out, " # ");
                 print_ascii(out, ct->name, 16, 0);
@@ -1144,7 +1178,7 @@ static int have_contacts()
     int i;
 
     for (i=0; i<NCONTACTS; i++) {
-        contact_t *ct = GET_CONTACT(i);
+        contact_t *ct = get_contact(i);
 
         if (VALID_CONTACT(ct))
             return 1;
@@ -1174,13 +1208,13 @@ static int have_messages()
 //
 // Print full information about the device configuration.
 //
-static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
+static void gd77_print_config(radio_device_t *radio, FILE *out, int verbose)
 {
     int i;
 
     fprintf(out, "Radio: %s\n", radio->name);
     if (verbose)
-        rd5r_print_version(radio, out);
+        gd77_print_version(radio, out);
 
     //
     // Channels.
@@ -1305,7 +1339,7 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
         fprintf(out, "Contact Name             Type    ID       RxTone\n");
         for (i=0; i<NCONTACTS; i++) {
-            contact_t *ct = GET_CONTACT(i);
+            contact_t *ct = get_contact(i);
 
             if (!VALID_CONTACT(ct)) {
                 // Contact is disabled
@@ -1385,7 +1419,7 @@ static void rd5r_print_config(radio_device_t *radio, FILE *out, int verbose)
 //
 // Read memory image from the binary file.
 //
-static void rd5r_read_image(radio_device_t *radio, FILE *img)
+static void gd77_read_image(radio_device_t *radio, FILE *img)
 {
     struct stat st;
 
@@ -1411,7 +1445,7 @@ static void rd5r_read_image(radio_device_t *radio, FILE *img)
 //
 // Save memory image to the binary file.
 //
-static void rd5r_save_image(radio_device_t *radio, FILE *img)
+static void gd77_save_image(radio_device_t *radio, FILE *img)
 {
     fwrite(&radio_mem[0], 1, MEMSZ, img);
 }
@@ -1467,7 +1501,7 @@ static void erase_contacts()
 //
 // Parse the scalar parameter.
 //
-static void rd5r_parse_parameter(radio_device_t *radio, char *param, char *value)
+static void gd77_parse_parameter(radio_device_t *radio, char *param, char *value)
 {
     if (strcasecmp("Radio", param) == 0) {
         if (!radio_is_compatible(value)) {
@@ -2136,7 +2170,7 @@ static int parse_messages(int first_row, char *line)
 // Parse table header.
 // Return table id, or 0 in case of error.
 //
-static int rd5r_parse_header(radio_device_t *radio, char *line)
+static int gd77_parse_header(radio_device_t *radio, char *line)
 {
     if (strncasecmp(line, "Digital", 7) == 0)
         return 'D';
@@ -2159,7 +2193,7 @@ static int rd5r_parse_header(radio_device_t *radio, char *line)
 // Parse one line of table data.
 // Return 0 on failure.
 //
-static int rd5r_parse_row(radio_device_t *radio, int table_id, int first_row, char *line)
+static int gd77_parse_row(radio_device_t *radio, int table_id, int first_row, char *line)
 {
     switch (table_id) {
     case 'D': return parse_digital_channel(radio, first_row, line);
@@ -2176,7 +2210,7 @@ static int rd5r_parse_row(radio_device_t *radio, int table_id, int first_row, ch
 //
 // Update timestamp.
 //
-static void rd5r_update_timestamp(radio_device_t *radio)
+static void gd77_update_timestamp(radio_device_t *radio)
 {
     unsigned char *timestamp = GET_TIMESTAMP();
     char p[16];
@@ -2195,7 +2229,7 @@ static void rd5r_update_timestamp(radio_device_t *radio)
 // Check that configuration is correct.
 // Return 0 on error.
 //
-static int rd5r_verify_config(radio_device_t *radio)
+static int gd77_verify_config(radio_device_t *radio)
 {
     int i, k, nchannels = 0, nzones = 0, nscanlists = 0, ngrouplists = 0;
     int ncontacts = 0, nerrors = 0;
@@ -2218,7 +2252,7 @@ static int rd5r_verify_config(radio_device_t *radio)
             }
         }
         if (ch->contact_name_index != 0) {
-            contact_t *ct = GET_CONTACT(ch->contact_name_index - 1);
+            contact_t *ct = get_contact(ch->contact_name_index - 1);
 
             if (!VALID_CONTACT(ct)) {
                 fprintf(stderr, "Channel %d '", i+1);
@@ -2291,7 +2325,7 @@ static int rd5r_verify_config(radio_device_t *radio)
             int cnum = gl->member[k];
 
             if (cnum != 0) {
-                contact_t *ct = GET_CONTACT(cnum - 1);
+                contact_t *ct = get_contact(cnum - 1);
 
                 if (!VALID_CONTACT(ct)) {
                     fprintf(stderr, "Grouplist %d '", i+1);
@@ -2305,7 +2339,7 @@ static int rd5r_verify_config(radio_device_t *radio)
 
     // Count contacts.
     for (i=0; i<NCONTACTS; i++) {
-        contact_t *ct = GET_CONTACT(i);
+        contact_t *ct = get_contact(i);
 
         if (!VALID_CONTACT(ct))
             continue;
@@ -2322,20 +2356,39 @@ static int rd5r_verify_config(radio_device_t *radio)
 }
 
 //
-// Baofeng RD-5R
+// Radioddity GD-77
 //
-radio_device_t radio_rd5r = {
-    "Baofeng RD-5R",
-    rd5r_download,
-    rd5r_upload,
-    rd5r_is_compatible,
-    rd5r_read_image,
-    rd5r_save_image,
-    rd5r_print_version,
-    rd5r_print_config,
-    rd5r_verify_config,
-    rd5r_parse_parameter,
-    rd5r_parse_header,
-    rd5r_parse_row,
-    rd5r_update_timestamp,
+radio_device_t radio_gd77 = {
+    "Radioddity GD-77",
+    gd77_download,
+    gd77_upload,
+    gd77_is_compatible,
+    gd77_read_image,
+    gd77_save_image,
+    gd77_print_version,
+    gd77_print_config,
+    gd77_verify_config,
+    gd77_parse_parameter,
+    gd77_parse_header,
+    gd77_parse_row,
+    gd77_update_timestamp,
+};
+
+//
+// Radioddity GD-77, older versions up to 2.6.6
+//
+radio_device_t radio_gd77_old = {
+    "Radioddity GD-77 (old)",
+    gd77old_download,
+    gd77_upload,
+    gd77old_is_compatible,
+    gd77_read_image,
+    gd77_save_image,
+    gd77_print_version,
+    gd77_print_config,
+    gd77_verify_config,
+    gd77_parse_parameter,
+    gd77_parse_header,
+    gd77_parse_row,
+    gd77_update_timestamp,
 };
