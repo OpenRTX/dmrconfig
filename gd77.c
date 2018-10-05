@@ -230,8 +230,8 @@ typedef struct {
     // Bytes 0-15
     uint8_t name[16];                   // Group List Name
 
-    // Bytes 16-47
-    uint16_t member[16];                // Contacts
+    // Bytes 16-79
+    uint16_t member[32];                // Contacts
 } grouplist_t;
 
 //
@@ -646,8 +646,7 @@ static int grouplist_append(int index, int cnum)
     grouplist_t *gl = &gt->grouplist[index];
     int i;
 
-    //TODO: 32 contacts per RX group list in GD-77.
-    for (i=0; i<16; i++) {
+    for (i=0; i<32; i++) {
         if (gl->member[i] == cnum)
             return 1;
         if (gl->member[i] == 0) {
@@ -1378,7 +1377,7 @@ static void gd77_print_config(radio_device_t *radio, FILE *out, int verbose)
             print_ascii(out, gl->name, 16, 1);
             fprintf(out, " ");
             if (gl->member[0]) {
-                print_chanlist(out, gl->member, 16, 0);
+                print_chanlist(out, gl->member, 32, 0);
             } else {
                 fprintf(out, "-");
             }
@@ -2321,7 +2320,7 @@ static int gd77_verify_config(radio_device_t *radio)
             continue;
 
         ngrouplists++;
-        for (k=0; k<16; k++) {
+        for (k=0; k<32; k++) {
             int cnum = gl->member[k];
 
             if (cnum != 0) {
