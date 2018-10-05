@@ -16,6 +16,7 @@ CONF  = md2017-7-23-2017.conf \
         rd5r-empty.conf \
         rd5r-factory.conf \
         gd77-ver311-W5NOR-Oklahoma.conf \
+        gd77-empty.conf \
         gd77-factory.conf
 
 VPATH = ../../dmrconfig.wiki/files
