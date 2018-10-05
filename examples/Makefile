@@ -14,7 +14,9 @@ CONF  = md2017-7-23-2017.conf \
         rd5r-v21x-Los-Angeles-CA.conf \
         rd5r-v21x-Tampa-FL.conf \
         rd5r-empty.conf \
-        rd5r-factory.conf
+        rd5r-factory.conf \
+        gd77-ver311-W5NOR-Oklahoma.conf \
+        gd77-factory.conf
 
 VPATH = ../../dmrconfig.wiki/files
 
