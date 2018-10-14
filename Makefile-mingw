@@ -5,7 +5,7 @@ GITCOUNT        = $(shell git rev-list HEAD --count)
 CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -g -s
 
-OBJS		= main.o util.o radio.o dfu-windows.o uv380.o md380.o rd5r.o gd77.o hid.o hid-windows.o
+OBJS		= main.o util.o radio.o dfu-windows.o uv380.o md380.o rd5r.o gd77.o hid.o hid-windows.o serial.o
 LIBS            = -lhid -lsetupapi
 
 # Compiling Windows binary from Linux

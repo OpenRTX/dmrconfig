@@ -78,6 +78,18 @@ void hid_write_block(int bno, unsigned char *data, int nbytes);
 void hid_write_finish(void);
 
 //
+// Serial functions.
+//
+int serial_init(int vid, int pid);
+const char *serial_identify(void);
+void serial_close(void);
+//void serial_send_recv(const unsigned char *data, unsigned nbytes, unsigned char *rdata, unsigned rlength);
+//void serial_read_block(int bno, unsigned char *data, int nbytes);
+//void serial_read_finish(void);
+//void serial_write_block(int bno, unsigned char *data, int nbytes);
+//void serial_write_finish(void);
+
+//
 // Delay in milliseconds.
 //
 void mdelay(unsigned msec);

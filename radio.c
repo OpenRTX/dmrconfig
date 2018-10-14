@@ -68,6 +68,7 @@ void radio_disconnect()
     dfu_reboot();
     dfu_close();
     hid_close();
+    serial_close();
 }
 
 //
@@ -89,9 +90,14 @@ void radio_connect()
     // Try TYT MD family.
     ident = dfu_init(0x0483, 0xdf11);
     if (! ident) {
-        // Try RD-5R.
+        // Try RD-5R and GD-77.
         if (hid_init(0x15a2, 0x0073) >= 0)
             ident = hid_identify();
+    }
+    if (! ident) {
+        // Try AT-D868UV.
+        if (serial_init(0x28e9, 0x018a) >= 0)
+            ident = serial_identify();
     }
     if (! ident) {
         fprintf(stderr, "No radio detected.\n");

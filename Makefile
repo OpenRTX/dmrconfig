@@ -6,7 +6,7 @@ UNAME           = $(shell uname)
 CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -g
 
-OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o
+OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o serial.o
 LIBS            = -lusb-1.0
 
 # Linux
