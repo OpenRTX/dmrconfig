@@ -648,7 +648,7 @@ void serial_read_region(int addr, unsigned char *data, int nbytes)
 {
     static const int DATASZ = 64;
     unsigned char cmd[6], reply[8 + DATASZ];
-    int n;
+    int n, i, retry = 0;
 
     for (n=0; n<nbytes; n+=DATASZ) {
         // Read command: 52 aa aa aa aa 10
@@ -658,36 +658,59 @@ void serial_read_region(int addr, unsigned char *data, int nbytes)
         cmd[3] = (addr + n) >> 8;
         cmd[4] = addr + n;
         cmd[5] = DATASZ;
+again:
         send_recv(cmd, 6, reply, sizeof(reply));
         if (reply[0] != CMD_WRITE[0] || reply[7+DATASZ] != CMD_ACK[0]) {
             fprintf(stderr, "%s: Wrong read reply %02x-...-%02x, expected %02x-...-%02x\n",
                 __func__, reply[0], reply[7+DATASZ], CMD_WRITE[0], CMD_ACK[0]);
             exit(-1);
         }
+
+        // Compute checksum.
+        unsigned char sum = reply[1];
+        for (i=2; i<6+DATASZ; i++)
+            sum += reply[i];
+        if (reply[6+DATASZ] != sum) {
+            fprintf(stderr, "%s: Wrong read checksum %02x, expected %02x\n",
+                __func__, sum, reply[6+DATASZ]);
+            if (retry++ < 3)
+                goto again;
+            exit(-1);
+        }
+
         memcpy(data + n, reply + 6, DATASZ);
     }
 }
 
 void serial_write_region(int addr, unsigned char *data, int nbytes)
 {
-    //TODO
-#if 0
-    unsigned char ack, cmd[4+32];
-    int n;
+    static const int DATASZ = 64;
+    unsigned char ack, cmd[8 + DATASZ];
+    int n, i;
 
-    for (n=0; n<nbytes; n+=32) {
+    for (n=0; n<nbytes; n+=DATASZ) {
         // Write command: 57 aa aa aa aa 10 .. .. ss nn
         cmd[0] = CMD_WRITE[0];
-        cmd[1] = (addr + n) >> 8;
-        cmd[2] = addr + n;
-        cmd[3] = 32;
-        memcpy(cmd + 4, data + n, 32);
-        send_recv(cmd, 4+32, &ack, 1);
+        cmd[1] = (addr + n) >> 24;
+        cmd[2] = (addr + n) >> 16;
+        cmd[3] = (addr + n) >> 8;
+        cmd[4] = addr + n;
+        cmd[5] = DATASZ;
+        memcpy(cmd + 6, data + n, DATASZ);
+
+        // Compute checksum.
+        unsigned char sum = cmd[1];
+        for (i=2; i<6+DATASZ; i++)
+            sum += cmd[i];
+
+        cmd[6 + DATASZ] = sum;
+        cmd[7 + DATASZ] = CMD_ACK[0];
+
+        send_recv(cmd, 8 + DATASZ, &ack, 1);
         if (ack != CMD_ACK[0]) {
             fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
                 __func__, ack, CMD_ACK[0]);
             exit(-1);
         }
     }
-#endif
 }

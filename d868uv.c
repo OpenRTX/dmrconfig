@@ -41,8 +41,8 @@
 #define NSCANL          250
 #define NMESSAGES       100
 
-//#define MEMSZ           0x100000
-#define MEMSZ           0x4300000
+#define MEMSZ           0x10000
+//#define MEMSZ           0x4300000
 
 //
 // Print a generic information about the device.
