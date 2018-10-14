@@ -62,6 +62,8 @@ static const unsigned char CMD_PRG[]   = "PROGRAM";
 static const unsigned char CMD_PRG2[]  = "\2";
 static const unsigned char CMD_QX[]    = "QX\6";
 static const unsigned char CMD_ACK[]   = "\6";
+static const unsigned char CMD_READ[]  = "Raaaan";
+static const unsigned char CMD_WRITE[] = "Waaaan...";
 static const unsigned char CMD_END[]   = "END";
 
 //
@@ -640,4 +642,52 @@ const char *serial_identify()
     // Terminate the string.
     reply[8] = 0;
     return (char*)&reply[1];
+}
+
+void serial_read_region(int addr, unsigned char *data, int nbytes)
+{
+    static const int DATASZ = 64;
+    unsigned char cmd[6], reply[8 + DATASZ];
+    int n;
+
+    for (n=0; n<nbytes; n+=DATASZ) {
+        // Read command: 52 aa aa aa aa 10
+        cmd[0] = CMD_READ[0];
+        cmd[1] = (addr + n) >> 24;
+        cmd[2] = (addr + n) >> 16;
+        cmd[3] = (addr + n) >> 8;
+        cmd[4] = addr + n;
+        cmd[5] = DATASZ;
+        send_recv(cmd, 6, reply, sizeof(reply));
+        if (reply[0] != CMD_WRITE[0] || reply[7+DATASZ] != CMD_ACK[0]) {
+            fprintf(stderr, "%s: Wrong read reply %02x-...-%02x, expected %02x-...-%02x\n",
+                __func__, reply[0], reply[7+DATASZ], CMD_WRITE[0], CMD_ACK[0]);
+            exit(-1);
+        }
+        memcpy(data + n, reply + 6, DATASZ);
+    }
+}
+
+void serial_write_region(int addr, unsigned char *data, int nbytes)
+{
+    //TODO
+#if 0
+    unsigned char ack, cmd[4+32];
+    int n;
+
+    for (n=0; n<nbytes; n+=32) {
+        // Write command: 57 aa aa aa aa 10 .. .. ss nn
+        cmd[0] = CMD_WRITE[0];
+        cmd[1] = (addr + n) >> 8;
+        cmd[2] = addr + n;
+        cmd[3] = 32;
+        memcpy(cmd + 4, data + n, 32);
+        send_recv(cmd, 4+32, &ack, 1);
+        if (ack != CMD_ACK[0]) {
+            fprintf(stderr, "%s: Wrong acknowledge %#x, expected %#x\n",
+                __func__, ack, CMD_ACK[0]);
+            exit(-1);
+        }
+    }
+#endif
 }

@@ -41,7 +41,8 @@
 #define NSCANL          250
 #define NMESSAGES       100
 
-#define MEMSZ           0xd0000
+//#define MEMSZ           0x100000
+#define MEMSZ           0x4300000
 
 //
 // Print a generic information about the device.
@@ -72,12 +73,10 @@ static void d868uv_print_version(radio_device_t *radio, FILE *out)
 //
 static void d868uv_download(radio_device_t *radio)
 {
-    //TODO
-#if 0
-    int bno;
+    int addr;
 
-    for (bno=0; bno<MEMSZ/1024; bno++) {
-        dfu_read_block(bno, &radio_mem[bno*1024], 1024);
+    for (addr = 0x00000000; addr < MEMSZ; addr += 1024) {
+        serial_read_region(addr, &radio_mem[addr], 1024);
 
         ++radio_progress;
         if (radio_progress % 32 == 0) {
@@ -85,7 +84,6 @@ static void d868uv_download(radio_device_t *radio)
             fflush(stderr);
         }
     }
-#endif
 }
 
 //
@@ -97,10 +95,8 @@ static void d868uv_upload(radio_device_t *radio, int cont_flag)
 #if 0
     int bno;
 
-    dfu_erase(0, MEMSZ);
-
     for (bno=0; bno<MEMSZ/1024; bno++) {
-        dfu_write_block(bno, &radio_mem[bno*1024], 1024);
+        serial_write_region(addr, &radio_mem[bno*1024], 1024);
 
         ++radio_progress;
         if (radio_progress % 32 == 0) {
@@ -175,10 +171,7 @@ static void d868uv_read_image(radio_device_t *radio, FILE *img)
 //
 static void d868uv_save_image(radio_device_t *radio, FILE *img)
 {
-    //TODO
-#if 0
     fwrite(&radio_mem[0], 1, MEMSZ, img);
-#endif
 }
 
 //
