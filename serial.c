@@ -59,8 +59,10 @@
 static char *dev_path;
 
 static const unsigned char CMD_PRG[]   = "PROGRAM";
+static const unsigned char CMD_PRG2[]  = "\2";
 static const unsigned char CMD_QX[]    = "QX\6";
-static const unsigned char CMD_ACK2[]  = "\2";
+static const unsigned char CMD_ACK[]   = "\6";
+static const unsigned char CMD_END[]   = "END";
 
 //
 // Encode the speed in bits per second into bit value
@@ -248,26 +250,6 @@ again:
     }
 #endif
     return got;
-}
-
-//
-// Close the serial port.
-//
-void serial_close()
-{
-#if defined(__WIN32__) || defined(WIN32)
-    if (fd != INVALID_HANDLE_VALUE) {
-        SetCommState(fd, &saved_mode);
-        CloseHandle(fd);
-        fd = INVALID_HANDLE_VALUE;
-    }
-#else
-    if (fd >= 0) {
-        tcsetattr(fd, TCSANOW, &saved_mode);
-        close(fd);
-        fd = -1;
-    }
-#endif
 }
 
 //
@@ -602,7 +584,32 @@ static int send_recv(const unsigned char *cmd, int cmdlen,
 }
 
 //
+// Close the serial port.
+//
+void serial_close()
+{
+#if defined(__WIN32__) || defined(WIN32)
+    if (fd != INVALID_HANDLE_VALUE) {
+        SetCommState(fd, &saved_mode);
+        CloseHandle(fd);
+        fd = INVALID_HANDLE_VALUE;
+    }
+#else
+    if (fd >= 0) {
+        unsigned char ack[1];
+
+        send_recv(CMD_END, 3, ack, 1);
+
+        tcsetattr(fd, TCSANOW, &saved_mode);
+        close(fd);
+        fd = -1;
+    }
+#endif
+}
+
+//
 // Query and return the device identification string.
+// On error, return NULL.
 //
 const char *serial_identify()
 {
@@ -614,7 +621,7 @@ const char *serial_identify()
     }
 
     send_recv(CMD_PRG, 7, ack, 3);
-    if (ack[0] != CMD_QX[0] || ack[1] != CMD_QX[1] || ack[2] != CMD_QX[2]) {
+    if (memcmp(ack, CMD_QX, 3) != 0) {
         fprintf(stderr, "%s: Wrong PRG acknowledge %02x-%02x-%02x, expected %02x-%02x-%02x\n",
             __func__, ack[0], ack[1], ack[2], CMD_QX[0], CMD_QX[1], CMD_QX[2]);
         return 0;
@@ -623,9 +630,14 @@ const char *serial_identify()
     // Reply:
     // 49 44 38 36 38 55 56 45 00 56 31 30 32 00 00 06
     //  I  D  8  6  8  U  V  E     V  1  0  2
-    send_recv(CMD_ACK2, 1, reply, 16);
+    send_recv(CMD_PRG2, 1, reply, 16);
+    if (reply[0] != 'I' || reply[15] != CMD_ACK[0]) {
+        fprintf(stderr, "%s: Wrong PRG2 reply %02x-...-%02x, expected %02x-...-%02x\n",
+            __func__, reply[0], reply[15], 'I', CMD_ACK[0]);
+        return 0;
+    }
 
     // Terminate the string.
     reply[8] = 0;
-    return (char*)reply;
+    return (char*)&reply[1];
 }

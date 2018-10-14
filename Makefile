@@ -6,7 +6,7 @@ UNAME           = $(shell uname)
 CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -g
 
-OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o serial.o
+OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o serial.o d868uv.o
 LIBS            = -lusb-1.0
 
 # Linux
@@ -37,6 +37,7 @@ dmrconfig.linux: dmrconfig
 		strip $@
 
 ###
+d868uv.o: d868uv.c radio.h util.h
 dfu-libusb.o: dfu-libusb.c util.h
 dfu-windows.o: dfu-windows.c util.h
 gd77.o: gd77.c radio.h util.h
@@ -48,5 +49,6 @@ main.o: main.c radio.h util.h
 md380.o: md380.c radio.h util.h
 radio.o: radio.c radio.h util.h
 rd5r.o: rd5r.c radio.h util.h
+serial.o: serial.c util.h
 util.o: util.c util.h
 uv380.o: uv380.c radio.h util.h

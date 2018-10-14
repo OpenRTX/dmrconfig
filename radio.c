@@ -49,6 +49,7 @@ static struct {
     { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
     { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R
     { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
+    { "D868UVE",    &radio_d868uv },    // Anytone AT-D868UV
     { 0, 0 }
 };
 
