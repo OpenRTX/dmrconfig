@@ -44,12 +44,12 @@ static struct {
     { "MD-UV390",   &radio_uv390 },     // TYT MD-UV390, Retevis RT3S
     { "2017",       &radio_md2017 },    // TYT MD-2017, Retevis RT82
     { "MD9600",     &radio_md9600 },    // TYT MD-9600
-    { "ZD3688",     &radio_d900 },      // Zastone D900
-    { "TP660",      &radio_dp880 },     // Zastone DP880
-    { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
     { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R
     { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
     { "D868UVE",    &radio_d868uv },    // Anytone AT-D868UV
+    { "ZD3688",     &radio_d900 },      // Zastone D900
+    { "TP660",      &radio_dp880 },     // Zastone DP880
+    { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
     { 0, 0 }
 };
 
