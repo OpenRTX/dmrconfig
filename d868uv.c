@@ -41,8 +41,26 @@
 #define NSCANL          250
 #define NMESSAGES       100
 
-#define MEMSZ           0x10000
-//#define MEMSZ           0x4300000
+//
+// Size of memory image.
+// Essentialy a sum of all fragments defined ind868um-map.h.
+//
+#define MEMSZ           1607296
+
+//
+// D868UV radio has a huge internal address space, more than 64 Mbytes.
+// The configuration data are dispersed over this space.
+// Here is a table of fragments: starting address and length.
+// We read these fragments and save them into a file continuously.
+//
+typedef struct {
+    unsigned address;
+    unsigned length;
+} fragment_t;
+
+static fragment_t region_map[] = {
+#include "d868uv-map.h"
+};
 
 //
 // Print a generic information about the device.
@@ -73,16 +91,32 @@ static void d868uv_print_version(radio_device_t *radio, FILE *out)
 //
 static void d868uv_download(radio_device_t *radio)
 {
-    int addr;
+    fragment_t *f;
+    unsigned file_offset = 0;
+    unsigned last_printed = 0;
 
-    for (addr = 0x00000000; addr < MEMSZ; addr += 1024) {
-        serial_read_region(addr, &radio_mem[addr], 1024);
+    for (f=region_map; f->length; f++) {
+        unsigned addr = f->address;
+        unsigned nbytes = f->length;
 
-        ++radio_progress;
-        if (radio_progress % 32 == 0) {
-            fprintf(stderr, "#");
-            fflush(stderr);
+        while (nbytes > 0) {
+            unsigned n = (nbytes > 32*1024) ? 32*1024 : nbytes;
+            serial_read_region(addr, &radio_mem[file_offset], n);
+            file_offset += n;
+            addr += n;
+            nbytes -= n;
+
+            if (file_offset / (32*1024) != last_printed) {
+                fprintf(stderr, "#");
+                fflush(stderr);
+                last_printed = file_offset / (32*1024);
+            }
         }
+    }
+    if (file_offset != MEMSZ) {
+        fprintf(stderr, "\nWrong MEMSZ=%u for D868UV!\n", MEMSZ);
+        fprintf(stderr, "Should be %u; check d868uv-map.h!\n", file_offset);
+        exit(-1);
     }
 }
 
@@ -91,20 +125,33 @@ static void d868uv_download(radio_device_t *radio)
 //
 static void d868uv_upload(radio_device_t *radio, int cont_flag)
 {
-    //TODO
-#if 0
-    int bno;
+    fragment_t *f;
+    unsigned file_offset = 0;
+    unsigned last_printed = 0;
 
-    for (bno=0; bno<MEMSZ/1024; bno++) {
-        serial_write_region(addr, &radio_mem[bno*1024], 1024);
+    for (f=region_map; f->length; f++) {
+        unsigned addr = f->address;
+        unsigned nbytes = f->length;
 
-        ++radio_progress;
-        if (radio_progress % 32 == 0) {
-            fprintf(stderr, "#");
-            fflush(stderr);
+        while (nbytes > 0) {
+            unsigned n = (nbytes > 32*1024) ? 32*1024 : nbytes;
+            serial_write_region(addr, &radio_mem[file_offset], n);
+            file_offset += n;
+            addr += n;
+            nbytes -= n;
+
+            if (file_offset / (32*1024) != last_printed) {
+                fprintf(stderr, "#");
+                fflush(stderr);
+                last_printed = file_offset / (32*1024);
+            }
         }
     }
-#endif
+    if (file_offset != MEMSZ) {
+        fprintf(stderr, "\nWrong MEMSZ=%u for D868UV!\n", MEMSZ);
+        fprintf(stderr, "Should be %u; check d868uv-map.h!\n", file_offset);
+        exit(-1);
+    }
 }
 
 //
