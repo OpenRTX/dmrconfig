@@ -200,6 +200,9 @@ void radio_read_image(const char *filename)
     case 262709:
         device = &radio_md380;
         break;
+    case 1607296:
+        device = &radio_d868uv;
+        break;
     case 131072:
         if (fread(ident, 1, 8, img) != 8) {
             fprintf(stderr, "%s: Cannot read header.\n", filename);

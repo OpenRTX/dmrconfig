@@ -167,6 +167,10 @@ static int d868uv_is_compatible(radio_device_t *radio)
 //
 static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
 {
+    fprintf(out, "Radio: %s\n", radio->name);
+    if (verbose)
+        d868uv_print_version(radio, out);
+
     //TODO
 }
 
@@ -175,8 +179,6 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
 //
 static void d868uv_read_image(radio_device_t *radio, FILE *img)
 {
-    //TODO
-#if 0
     struct stat st;
 
     // Guess device type by file size.
@@ -192,25 +194,10 @@ static void d868uv_read_image(radio_device_t *radio, FILE *img)
             exit(-1);
         }
         break;
-    case MEMSZ + 0x225 + 0x10:
-        // RTD file.
-        // Header 0x225 bytes and footer 0x10 bytes at 0x40225.
-        fseek(img, 0x225, SEEK_SET);
-        if (fread(&radio_mem[0], 1, 0x40000, img) != 0x40000) {
-            fprintf(stderr, "Error reading image data.\n");
-            exit(-1);
-        }
-        fseek(img, 0x10, SEEK_CUR);
-        if (fread(&radio_mem[0x40000], 1, MEMSZ - 0x40000, img) != MEMSZ - 0x40000) {
-            fprintf(stderr, "Error reading image data.\n");
-            exit(-1);
-        }
-        break;
     default:
         fprintf(stderr, "Unrecognized file size %u bytes.\n", (int) st.st_size);
         exit(-1);
     }
-#endif
 }
 
 //
@@ -280,35 +267,7 @@ static int d868uv_parse_row(radio_device_t *radio, int table_id, int first_row, 
 //
 static void d868uv_update_timestamp(radio_device_t *radio)
 {
-    //TODO
-#if 0
-    unsigned char *timestamp = GET_TIMESTAMP();
-    char p[16];
-
-    // Last Programmed Date
-    get_timestamp(p);
-    timestamp[0] = ((p[0]  & 0xf) << 4) | (p[1]  & 0xf); // year upper
-    timestamp[1] = ((p[2]  & 0xf) << 4) | (p[3]  & 0xf); // year lower
-    timestamp[2] = ((p[4]  & 0xf) << 4) | (p[5]  & 0xf); // month
-    timestamp[3] = ((p[6]  & 0xf) << 4) | (p[7]  & 0xf); // day
-    timestamp[4] = ((p[8]  & 0xf) << 4) | (p[9]  & 0xf); // hour
-    timestamp[5] = ((p[10] & 0xf) << 4) | (p[11] & 0xf); // minute
-    timestamp[6] = ((p[12] & 0xf) << 4) | (p[13] & 0xf); // second
-
-    // CPS Software Version: Vdx.xx
-    const char *dot = strchr(VERSION, '.');
-    if (dot) {
-        timestamp[7] = 0x0d; // Prints as '='
-        timestamp[8] = dot[-1] & 0x0f;
-        if (dot[2] == '.') {
-            timestamp[9] = 0;
-            timestamp[10] = dot[1] & 0x0f;
-        } else {
-            timestamp[9] = dot[1] & 0x0f;
-            timestamp[10] = dot[2] & 0x0f;
-        }
-    }
-#endif
+    // No timestamp.
 }
 
 //
