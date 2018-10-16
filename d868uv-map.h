@@ -34,7 +34,7 @@
 { 0x00f40000, 0x2000 },     // Channels 3713-3840
 { 0x00f80000, 0x2000 },     // Channels 3841-3968
 { 0x00fc0000, 0x0880 },     // Channels 3969-4000, VFO A, VFO B
-{ 0x01000000, 0x1f400 },    // Channel bitmaps?
+{ 0x01000000, 0x1f400 },    // Unknown bitmap
 { 0x01080000, 0xc0 },       // Scanlist 1
 { 0x01080200, 0xc0 },       // Scanlist 2
 { 0x01080400, 0xc0 },       // Scanlist 3
@@ -309,7 +309,7 @@
 { 0x024c1280, 0x40 },       // Unknown data
 { 0x024c1300, 0x80 },       // Unknown data
 { 0x024c1400, 0x80 },       // Unknown data
-{ 0x024c1500, 0x240 },      // Unknown data
+{ 0x024c1500, 0x240 },      // Channel bitmap
 { 0x024c1800, 0x500 },      // Zeroes?
 { 0x024c2000, 0x440 },      // Unknown data
 { 0x024c2600, 0x40 },       // Unknown data

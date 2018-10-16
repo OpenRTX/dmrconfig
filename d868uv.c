@@ -34,12 +34,21 @@
 #include "radio.h"
 #include "util.h"
 
+//
+// Sizes of configuration tables.
+//
 #define NCHAN           4000
 #define NCONTACTS       10000
 #define NZONES          250
 #define NGLISTS         250
 #define NSCANL          250
 #define NMESSAGES       100
+
+//
+// Offsets in the image file.
+//
+#define OFFSET_BANK1        0x000040
+#define OFFSET_CHAN_BITMAP  0x070a40
 
 //
 // Size of memory image.
@@ -61,6 +70,15 @@ typedef struct {
 static fragment_t region_map[] = {
 #include "d868uv-map.h"
 };
+
+//
+// Channel data.
+//
+typedef struct {
+    // Bytes 0-63
+    uint8_t data[64];
+
+} channel_t;
 
 //
 // Print a generic information about the device.
@@ -206,6 +224,28 @@ static void d868uv_read_image(radio_device_t *radio, FILE *img)
 static void d868uv_save_image(radio_device_t *radio, FILE *img)
 {
     fwrite(&radio_mem[0], 1, MEMSZ, img);
+}
+
+//
+// Get channel bank by index.
+//
+static channel_t *get_bank(int i)
+{
+    return (channel_t*) &radio_mem[OFFSET_BANK1 + i*0x2000];
+}
+
+//
+// Get channel by index.
+//
+/*static*/ channel_t *get_channel(int i)
+{
+    channel_t *bank   = get_bank(i >> 7);
+    uint8_t   *bitmap = &radio_mem[OFFSET_CHAN_BITMAP];
+
+    if ((bitmap[i / 8] >> (i & 7)) & 1)
+        return &bank[i % 128];
+    else
+        return 0;
 }
 
 //
