@@ -696,7 +696,8 @@ again:
 
 void serial_write_region(int addr, unsigned char *data, int nbytes)
 {
-    static const int DATASZ = 64;
+    //static const int DATASZ = 64;
+    static const int DATASZ = 16;
     unsigned char ack, cmd[8 + DATASZ];
     int n, i;
 

@@ -334,7 +334,7 @@ void utf8_decode(unsigned short *dst, const char *src, unsigned nsym)
 // Replace underscore by space.
 // Fill the rest with 0xff.
 //
-void ascii_decode(unsigned char *dst, const char *src, unsigned nsym)
+void ascii_decode(unsigned char *dst, const char *src, unsigned nsym, unsigned fill)
 {
     if (src[0] == '-' && src[1] == 0)
         src = "";
@@ -345,11 +345,39 @@ void ascii_decode(unsigned char *dst, const char *src, unsigned nsym)
         if (ch == 0) {
             // Clear the remaining bytes.
             while (nsym-- > 0)
-                *dst++ = 0xff;
+                *dst++ = fill;
             break;
         }
         if (ch == '_')
             ch = ' ';
+
+        *dst++ = ch;
+    }
+}
+
+//
+// Copy ASCII string, at most nsym characters.
+// Replace underscore by space.
+// Fill the rest with 0xff.
+//
+void ascii_decode_uppercase(unsigned char *dst, const char *src, unsigned nsym, unsigned fill)
+{
+    if (src[0] == '-' && src[1] == 0)
+        src = "";
+
+    for (; nsym > 0; nsym--) {
+        int ch = *src++;
+
+        if (ch == 0) {
+            // Clear the remaining bytes.
+            while (nsym-- > 0)
+                *dst++ = fill;
+            break;
+        }
+        if (ch == '_')
+            ch = ' ';
+        else if (ch >= 'a' && ch <= 'z')
+            ch += 'A' - 'a';
 
         *dst++ = ch;
     }

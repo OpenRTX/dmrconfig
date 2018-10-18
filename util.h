@@ -162,7 +162,8 @@ void utf8_decode(unsigned short *dst, const char *src, unsigned nsym);
 // Copy ASCII string, at most nsym characters.
 // Replace underscore by space.
 //
-void ascii_decode(unsigned char *dst, const char *src, unsigned nsym);
+void ascii_decode(unsigned char *dst, const char *src, unsigned nsym, unsigned fill);
+void ascii_decode_uppercase(unsigned char *dst, const char *src, unsigned nsym, unsigned fill);
 
 //
 // Get local time in format: YYYYMMDDhhmmss

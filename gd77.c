@@ -419,7 +419,7 @@ static void setup_zone(int index, const char *name)
     zonetab_t *zt = GET_ZONETAB();
     zone_t *z = &zt->zone[index];
 
-    ascii_decode(z->name, name, sizeof(z->name));
+    ascii_decode(z->name, name, sizeof(z->name), 0xff);
     memset(z->member, 0, sizeof(z->member));
 
     // Set valid bit.
@@ -483,7 +483,7 @@ static void setup_scanlist(int index, const char *name,
     scanlist_t *sl = &st->scanlist[index];
 
     memset(sl, 0, 88);
-    ascii_decode(sl->name, name, sizeof(sl->name));
+    ascii_decode(sl->name, name, sizeof(sl->name), 0xff);
 
     sl->priority_ch1     = prio1;
     sl->priority_ch2     = prio2;
@@ -571,7 +571,7 @@ static void setup_contact(int index, const char *name, int type, int id, int rxt
     ct->ring_style   = 0; // TODO
     ct->_unused23    = (type < CALL_ALL) ? 0 : 0xff;
 
-    ascii_decode(ct->name, name, 16);
+    ascii_decode(ct->name, name, 16, 0xff);
 }
 
 //
@@ -593,7 +593,7 @@ static void setup_grouplist(int index, const char *name)
     grouptab_t *gt = GET_GROUPTAB();
     grouplist_t *gl = &gt->grouplist[index];
 
-    ascii_decode(gl->name, name, sizeof(gl->name));
+    ascii_decode(gl->name, name, sizeof(gl->name), 0xff);
 
     // Enable grouplist.
     gt->nitems1[index] = 1;
@@ -712,7 +712,7 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->ctcss_dcs_receive   = rxtone;
     ch->ctcss_dcs_transmit  = txtone;
 
-    ascii_decode(ch->name, name, sizeof(ch->name));
+    ascii_decode(ch->name, name, sizeof(ch->name), 0xff);
 
     // Set valid bit.
     b->bitmap[i % 128 / 8] |= 1 << (i & 7);
@@ -1475,7 +1475,7 @@ static void gd77_parse_parameter(radio_device_t *radio, char *param, char *value
 
     general_settings_t *gs = GET_SETTINGS();
     if (strcasecmp ("Name", param) == 0) {
-        ascii_decode(gs->radio_name, value, 8);
+        ascii_decode(gs->radio_name, value, 8, 0xff);
         return;
     }
     if (strcasecmp ("ID", param) == 0) {
@@ -1497,11 +1497,11 @@ static void gd77_parse_parameter(radio_device_t *radio, char *param, char *value
 
     intro_text_t *it = GET_INTRO();
     if (strcasecmp ("Intro Line 1", param) == 0) {
-        ascii_decode(it->intro_line1, value, 16);
+        ascii_decode(it->intro_line1, value, 16, 0xff);
         return;
     }
     if (strcasecmp ("Intro Line 2", param) == 0) {
-        ascii_decode(it->intro_line2, value, 16);
+        ascii_decode(it->intro_line2, value, 16, 0xff);
         return;
     }
     fprintf(stderr, "Unknown parameter: %s = %s\n", param, value);

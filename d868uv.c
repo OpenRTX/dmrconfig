@@ -92,8 +92,19 @@ typedef struct {
 // TODO: verify the general settings with official CPS
 //
 typedef struct {
-    // Bytes 0-0x5ff.
-    uint8_t  _unused0[0x600];
+    // Bytes 0-5.
+    uint8_t  _unused0[6];
+
+    // Bytes 6-7.
+    uint8_t  power_on;          // Power-on Interface
+#define PWON_DEFAULT    0       // Default
+#define PWON_CUST_CHAR  1       // Custom Char
+#define PWON_CUST_PICT  2       // Custom Picture
+
+    uint8_t  _unused7;
+
+    // Bytes 8-0x5ff.
+    uint8_t  _unused8[0x5f8];
 
     // Bytes 0x600-0x61f
     uint8_t intro_line1[16];    // Up to 14 characters
@@ -194,10 +205,11 @@ static void d868uv_download(radio_device_t *radio)
 static void d868uv_upload(radio_device_t *radio, int cont_flag)
 {
     fragment_t *f;
-    unsigned file_offset = 0;
+    unsigned file_offset;
     unsigned last_printed = 0;
 
     // Skip first region.
+    file_offset = region_map[0].length;
     for (f=region_map+1; f->length; f++) {
         unsigned addr = f->address;
         unsigned nbytes = f->length;
@@ -345,7 +357,39 @@ static channel_t *get_bank(int i)
 //
 static void d868uv_parse_parameter(radio_device_t *radio, char *param, char *value)
 {
-    //TODO
+    if (strcasecmp("Radio", param) == 0) {
+        if (!radio_is_compatible(value)) {
+            fprintf(stderr, "Incompatible model: %s\n", value);
+            exit(-1);
+        }
+        return;
+    }
+
+    radioid_t *ri = GET_RADIOID();
+    if (strcasecmp ("Name", param) == 0) {
+        ascii_decode(ri->name, value, 16, 0);
+        return;
+    }
+    if (strcasecmp ("ID", param) == 0) {
+        uint32_t id = strtoul(value, 0, 0);
+        ri->id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
+        ri->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
+        ri->id[2] = ((id / 1000 % 10) << 4) | ((id / 100) % 10);
+        ri->id[3] = ((id / 10 % 10) << 4) | (id % 10);
+        return;
+    }
+
+    general_settings_t *gs = GET_SETTINGS();
+    if (strcasecmp ("Intro Line 1", param) == 0) {
+        ascii_decode_uppercase(gs->intro_line1, value, 14, 0);
+        gs->power_on = PWON_CUST_CHAR;
+        return;
+    }
+    if (strcasecmp ("Intro Line 2", param) == 0) {
+        ascii_decode_uppercase(gs->intro_line2, value, 14, 0);
+        gs->power_on = PWON_CUST_CHAR;
+        return;
+    }
     fprintf(stderr, "Unknown parameter: %s = %s\n", param, value);
     exit(-1);
 }
