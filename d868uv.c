@@ -49,6 +49,13 @@
 //
 #define OFFSET_BANK1        0x000040
 #define OFFSET_CHAN_BITMAP  0x070a40
+#define OFFSET_SETTINGS     0x071600
+#define OFFSET_RADIOID      0x073d00
+
+#define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
+#define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
+
+#define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
 
 //
 // Size of memory image.
@@ -79,6 +86,49 @@ typedef struct {
     uint8_t data[64];
 
 } channel_t;
+
+//
+// General settings: 0x640 bytes at 0x02500000.
+// TODO: verify the general settings with official CPS
+//
+typedef struct {
+    // Bytes 0-0x5ff.
+    uint8_t  _unused0[0x600];
+
+    // Bytes 0x600-0x61f
+    uint8_t intro_line1[16];    // Up to 14 characters
+    uint8_t intro_line2[16];    // Up to 14 characters
+
+    // Bytes 0x620-0x63f
+    uint8_t password[16];       // Up to 8 ascii digits
+    uint8_t _unused630[16];     // 0xff
+
+} general_settings_t;
+
+//
+// Radio ID table: 250 entries, 0x1f40 bytes at 0x02580000.
+//
+typedef struct {
+    // Bytes 0-3.
+    uint8_t id[4];              // Up to 8 BCD digits
+#define GET_ID(x) (((x)[0] >> 4) * 10000000 +\
+                   ((x)[0] & 15) * 1000000 +\
+                   ((x)[1] >> 4) * 100000 +\
+                   ((x)[1] & 15) * 10000 +\
+                   ((x)[2] >> 4) * 1000 +\
+                   ((x)[2] & 15) * 100 +\
+                   ((x)[3] >> 4) * 10 +\
+                   ((x)[3] & 15))
+    // Byte 4.
+    uint8_t _unused4;           // 0
+
+    // Bytes 5-20
+    uint8_t name[16];           // Name
+
+    // Bytes 21-31
+    uint8_t _unused21[11];      // 0
+
+} radioid_t;
 
 //
 // Print a generic information about the device.
@@ -147,7 +197,8 @@ static void d868uv_upload(radio_device_t *radio, int cont_flag)
     unsigned file_offset = 0;
     unsigned last_printed = 0;
 
-    for (f=region_map; f->length; f++) {
+    // Skip first region.
+    for (f=region_map+1; f->length; f++) {
         unsigned addr = f->address;
         unsigned nbytes = f->length;
 
@@ -180,6 +231,43 @@ static int d868uv_is_compatible(radio_device_t *radio)
     return 1;
 }
 
+static void print_id(FILE *out, int verbose)
+{
+    radioid_t *ri = GET_RADIOID();
+    unsigned id = GET_ID(ri->id);
+
+    if (verbose)
+        fprintf(out, "\n# Unique DMR ID and name of this radio.");
+    fprintf(out, "\nID: %u\nName: ", id);
+    if (VALID_TEXT(ri->name)) {
+        print_ascii(out, ri->name, 16, 0);
+    } else {
+        fprintf(out, "-");
+    }
+    fprintf(out, "\n");
+}
+
+static void print_intro(FILE *out, int verbose)
+{
+    general_settings_t *gs = GET_SETTINGS();
+
+    if (verbose)
+        fprintf(out, "\n# Text displayed when the radio powers up.\n");
+    fprintf(out, "Intro Line 1: ");
+    if (VALID_TEXT(gs->intro_line1)) {
+        print_ascii(out, gs->intro_line1, 14, 0);
+    } else {
+        fprintf(out, "-");
+    }
+    fprintf(out, "\nIntro Line 2: ");
+    if (VALID_TEXT(gs->intro_line2)) {
+        print_ascii(out, gs->intro_line2, 14, 0);
+    } else {
+        fprintf(out, "-");
+    }
+    fprintf(out, "\n");
+}
+
 //
 // Print full information about the device configuration.
 //
@@ -190,6 +278,10 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
         d868uv_print_version(radio, out);
 
     //TODO
+
+    // General settings.
+    print_id(out, verbose);
+    print_intro(out, verbose);
 }
 
 //

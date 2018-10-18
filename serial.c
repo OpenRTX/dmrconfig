@@ -617,16 +617,23 @@ const char *serial_identify()
 {
     static unsigned char reply[16];
     unsigned char ack[3];
+    int retry = 0;
 
     if (serial_open(dev_path, 115200) < 0) {
         return 0;
     }
 
+again:
     send_recv(CMD_PRG, 7, ack, 3);
     if (memcmp(ack, CMD_QX, 3) != 0) {
-        fprintf(stderr, "%s: Wrong PRG acknowledge %02x-%02x-%02x, expected %02x-%02x-%02x\n",
-            __func__, ack[0], ack[1], ack[2], CMD_QX[0], CMD_QX[1], CMD_QX[2]);
-        return 0;
+        if (++retry >= 10) {
+            fprintf(stderr, "%s: Wrong PRG acknowledge %02x-%02x-%02x, expected %02x-%02x-%02x\n",
+                __func__, ack[0], ack[1], ack[2], CMD_QX[0], CMD_QX[1], CMD_QX[2]);
+            return 0;
+        }
+        usleep(500000);
+        tcflush(fd, TCIOFLUSH);
+        goto again;
     }
 
     // Reply:
@@ -634,9 +641,14 @@ const char *serial_identify()
     //  I  D  8  6  8  U  V  E     V  1  0  2
     send_recv(CMD_PRG2, 1, reply, 16);
     if (reply[0] != 'I' || reply[15] != CMD_ACK[0]) {
-        fprintf(stderr, "%s: Wrong PRG2 reply %02x-...-%02x, expected %02x-...-%02x\n",
-            __func__, reply[0], reply[15], 'I', CMD_ACK[0]);
-        return 0;
+        if (++retry >= 10) {
+            fprintf(stderr, "%s: Wrong PRG2 reply %02x-...-%02x, expected %02x-...-%02x\n",
+                __func__, reply[0], reply[15], 'I', CMD_ACK[0]);
+            return 0;
+        }
+        usleep(500000);
+        tcflush(fd, TCIOFLUSH);
+        goto again;
     }
 
     // Terminate the string.
