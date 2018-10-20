@@ -9,13 +9,24 @@ LDFLAGS		= -g
 OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o
 LIBS            = -lusb-1.0
 
+#
 # Linux
+#
+# To install required libraries, use:
+#   sudo apt install libusb-1.0-0-dev libudev-dev
+#
 ifeq ($(UNAME),Linux)
     OBJS        += hid-libusb.o
-    LIBS        = -Wl,-Bstatic -lusb-1.0 -Wl,-Bdynamic -lpthread -ludev
+    LIBUSB      = /usr/lib/x86_64-linux-gnu/libusb-1.0.a
+    ifeq ($(wildcard $(LIBUSB)),$(LIBUSB))
+        # Link libusb statically, when possible
+        LIBS    = $(LIBUSB) -lpthread -ludev
+    endif
 endif
 
+#
 # Mac OS X
+#
 ifeq ($(UNAME),Darwin)
     OBJS        += hid-macos.o
     LIBS        += -framework IOKit -framework CoreFoundation
