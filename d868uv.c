@@ -82,9 +82,130 @@ static fragment_t region_map[] = {
 // Channel data.
 //
 typedef struct {
-    // Bytes 0-63
-    uint8_t data[64];
 
+    // Bytes 0-7
+    uint32_t    rx_frequency;           // RX Frequency: 8 digits BCD
+    uint32_t    tx_offset;              // TX Offset: 8 digits BCD
+
+    // Byte 8
+    uint8_t     channel_mode    : 2,    // Mode: Analog or Digital
+#define MODE_ANALOG     0
+#define MODE_DIGITAL    1
+#define MODE_A_D        2
+#define MODE_D_A        3
+
+                power           : 2,    // Power: Low, Middle, High, Turbo
+#define POWER_LOW       0
+#define POWER_MIDDLE    1
+#define POWER_HIGH      2
+#define POWER_TURBO     3
+
+                bandwidth       : 1,    // Bandwidth: 12.5 or 25 kHz
+#define BW_12_5_KHZ     0
+#define BW_25_KHZ       1
+
+                _unused8        : 2,    // 0
+                neg_tx_off      : 1;    // Negative TX offset?
+
+    // Byte 9
+    uint8_t     rx_ctcss        : 1,    // CTCSS Decode
+                rx_dcs          : 1,    // DCS Decode
+                tx_ctcss        : 1,    // CTCSS Encode
+                tx_dcs          : 1,    // DCS Encode
+                reverse         : 1,    // Reverse
+                tx_prohibit     : 1,    // TX Prohibit
+                call_confirm    : 1,    // Call Confirmation
+                talkaround      : 1;    // Talk Around
+
+    // Bytes 10-15
+    uint8_t     ctcss_transmit;         // CTCSS Encode: 0=62.5, 50=254.1, 51=Define
+    uint8_t     ctcss_receive;          // CTCSS Decode: 0=62.5, 50=254.1, 51=Define
+    uint16_t    dcs_transmit;           // DCS Encode: 0=D000N, 17=D021N, 1023=D777N
+    uint16_t    dcs_receive;            // DCS Decode: 0=D000N, 17=D021N, 1023=D777N
+
+    // Bytes 16-19
+    uint16_t    custom_ctcss;           // 0x09cf=251.1, 0x0a28=260
+    uint8_t     tone2_decode;           // 2Tone Decode: 0x00=1, 0x0f=16
+    uint8_t     _unused19;              // 0
+
+    // Bytes 20-23
+    uint16_t    contact_index;          // Contact: 0=Contact1, 1=Contact2, ...
+    uint16_t    _unused22;              // 0
+
+    // Byte 24
+    uint8_t     id_index;               // Index in Radio ID table
+
+    // Byte 25
+    uint8_t     ptt_id          : 2,    // PTT ID
+#define PTTID_OFF       0
+#define PTTID_START     1
+#define PTTID_END       2
+#define PTTID_START_END 3
+
+                _unused25_1     : 2,    // 0
+
+                squelch_mode    : 1,    // Squelch Mode
+#define SQ_CARRIER      0               // Carrier
+#define SQ_TONE         1               // CTCSS/DCS
+
+                _unused25_2     : 3;    // 0
+
+    // Byte 26
+    uint8_t     tx_permit       : 2,    // TX Permit
+#define PERMIT_ALWAYS   0               // Always
+#define PERMIT_CH_FREE  1               // Channel Free
+#define PERMIT_CC_DIF   2               // Different Color Code
+#define PERMIT_CC_SAME  3               // Same Color Code
+
+                _unused26_1     : 2,    // 0
+
+                _opt_signal     : 2,    // Optional Signal
+#define OPTSIG_OFF      0               // Off
+#define OPTSIG_DTMF     1               // DTMF
+#define OPTSIG_2TONE    2               // 2Tone
+#define OPTSIG_5TONE    3               // 5Tone
+
+                _unused26_2     : 2;    // 0
+
+    // Bytes 27-31
+    uint8_t     scan_list_index;        // Scan List: 0xff=None, 0=ScanList1...
+    uint8_t     group_list_index;       // Receive Group List: 0xff=None, 0=GroupList1...
+    uint8_t     id_2tone;               // 2Tone ID: 0=1, 0x17=24
+    uint8_t     id_5tone;               // 5Tone ID: 0=1, 0x63=100
+    uint8_t     id_dtmf;                // DTMF ID: 0=1, 0x0f=16
+
+    // Byte 32
+    uint8_t     color_code;             // Color Code: 0-15
+
+    // Byte 33
+    uint8_t     slot2           : 1,    // Slot: Slot2
+                _unused33_1     : 1,    // 0
+                simplex_tdma    : 1,    // Simplex TDMA: On
+                _unused33_2     : 1,    // 0
+                tdma_adaptive   : 1,    // TDMA Adaptive: On
+                _unused33_3     : 1,    // 0
+                enh_encryption  : 1,    // Encryption Type: Enhanced Encryption
+                work_alone      : 1;    // Work Alone: On
+
+    // Byte 34
+    uint8_t     encryption;             // Digital Encryption: 1-32, 0=Off
+
+    // Bytes 35-51
+    uint8_t     name[16];               // Channel Name, zero filled
+    uint8_t     _unused51;              // 0
+
+    // Byte 52
+    uint8_t     ranging         : 1,    // Ranging: On
+                through_mode    : 1,    // Through Mode: On
+                _unused52       : 6;    // 0
+
+    // Byte 53
+    uint8_t     aprs_report     : 1,    // APRS Report: On
+                _unused53       : 7;    // 0
+
+    // Bytes 54-63
+    uint8_t     aprs_channel;           // APRS Report Channel: 0x00=1, ... 0x07=8
+    uint8_t     _unused55[9];           // 0
 } channel_t;
 
 //
