@@ -201,6 +201,7 @@ void print_mhz(FILE *out, unsigned hz);
 // Print the transmit offset or frequency.
 //
 void print_offset(FILE *out, unsigned rx_bcd, unsigned tx_bcd);
+void print_offset_delta(FILE *out, unsigned rx_bcd, unsigned delta_bcd);
 
 //
 // Compare channel index for qsort().

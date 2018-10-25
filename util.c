@@ -558,6 +558,30 @@ void print_offset(FILE *out, unsigned rx_bcd, unsigned tx_bcd)
 }
 
 //
+// Print the transmit offset or frequency.
+// TX value is a delta.
+//
+void print_offset_delta(FILE *out, unsigned rx_bcd, unsigned tx_delta_bcd)
+{
+    int rx_hz = freq_to_hz(rx_bcd);
+    int delta = freq_to_hz(tx_delta_bcd);
+    int tx_hz = rx_hz + delta;
+
+    if (delta == 0) {
+        fprintf(out, "+0       ");
+    } else if (delta > 0 && delta/50000 <= 255) {
+        fprintf(out, "+");
+        print_mhz(out, delta);
+    } else if (delta < 0 && -delta/50000 <= 255) {
+        fprintf(out, "-");
+        print_mhz(out, -delta);
+    } else {
+        fprintf(out, " ");
+        print_mhz(out, tx_hz);
+    }
+}
+
+//
 // Compare channel index for qsort().
 //
 int compare_index(const void *pa, const void *pb)

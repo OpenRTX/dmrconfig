@@ -89,10 +89,10 @@ typedef struct {
 
     // Byte 8
     uint8_t     channel_mode    : 2,    // Mode: Analog or Digital
-#define MODE_ANALOG     0
-#define MODE_DIGITAL    1
-#define MODE_A_D        2
-#define MODE_D_A        3
+#define MODE_ANALOG     0               // Analog
+#define MODE_DIGITAL    1               // Digital
+#define MODE_A_D        2               // A+D, transmit analog
+#define MODE_D_A        3               // D+A, transmit digital
 
                 power           : 2,    // Power: Low, Middle, High, Turbo
 #define POWER_LOW       0
@@ -105,7 +105,7 @@ typedef struct {
 #define BW_25_KHZ       1
 
                 _unused8        : 2,    // 0
-                neg_tx_off      : 1;    // Negative TX offset?
+                neg_tx_offset   : 1;    // Negative TX offset?
 
     // Byte 9
     uint8_t     rx_ctcss        : 1,    // CTCSS Decode
@@ -113,7 +113,7 @@ typedef struct {
                 tx_ctcss        : 1,    // CTCSS Encode
                 tx_dcs          : 1,    // DCS Encode
                 reverse         : 1,    // Reverse
-                tx_prohibit     : 1,    // TX Prohibit
+                rx_only         : 1,    // TX Prohibit
                 call_confirm    : 1,    // Call Confirmation
                 talkaround      : 1;    // Talk Around
 
@@ -154,7 +154,7 @@ typedef struct {
     uint8_t     tx_permit       : 2,    // TX Permit
 #define PERMIT_ALWAYS   0               // Always
 #define PERMIT_CH_FREE  1               // Channel Free
-#define PERMIT_CC_DIF   2               // Different Color Code
+#define PERMIT_CC_DIFF  2               // Different Color Code
 #define PERMIT_CC_SAME  3               // Same Color Code
 
                 _unused26_1     : 2,    // 0
@@ -261,6 +261,10 @@ typedef struct {
     uint8_t _unused21[11];      // 0
 
 } radioid_t;
+
+static const char *POWER_NAME[] = { "Low", "Mid", "High", "Turbo" };
+static const char *ADMIT_NAME[] = { "-", "Free", "DiffCC", "Color" };
+static const char *BANDWIDTH[] = { "12.5", "25" };
 
 //
 // Print a generic information about the device.
@@ -402,6 +406,231 @@ static void print_intro(FILE *out, int verbose)
 }
 
 //
+// Get channel bank by index.
+//
+static channel_t *get_bank(int i)
+{
+    return (channel_t*) &radio_mem[OFFSET_BANK1 + i*0x2000];
+}
+
+//
+// Get channel by index.
+//
+static channel_t *get_channel(int i)
+{
+    channel_t *bank   = get_bank(i >> 7);
+    uint8_t   *bitmap = &radio_mem[OFFSET_CHAN_BITMAP];
+
+    if ((bitmap[i / 8] >> (i & 7)) & 1)
+        return &bank[i % 128];
+    else
+        return 0;
+}
+
+//
+// Do we have any channels of given mode?
+//
+static int have_channels(int mode)
+{
+    int i;
+
+    for (i=0; i<NCHAN; i++) {
+        channel_t *ch = get_channel(i);
+
+        if (!ch)
+            continue;
+        if (ch->channel_mode == mode)
+            return 1;
+
+        // Treat D+A mode as digital.
+        if (mode == MODE_DIGITAL && ch->channel_mode == MODE_D_A)
+            return 1;
+
+        // Treat A+D mode as analog.
+        if (mode == MODE_ANALOG && ch->channel_mode == MODE_A_D)
+            return 1;
+    }
+    return 0;
+}
+
+//
+// Print base parameters of the channel:
+//      Name
+//      RX Frequency
+//      TX Frequency
+//      Power
+//      Scan List
+//      TOT
+//      RX Only
+//      Admit Criteria
+//
+static void print_chan_base(FILE *out, channel_t *ch, int cnum)
+{
+    fprintf(out, "%5d   ", cnum);
+    print_ascii(out, ch->name, 16, 1);
+    fprintf(out, " ");
+    print_freq(out, ch->rx_frequency);
+    fprintf(out, " ");
+    print_offset_delta(out, ch->rx_frequency, ch->tx_offset);
+
+    fprintf(out, "%-4s  ", POWER_NAME[ch->power]);
+
+    if (ch->scan_list_index == 0)
+        fprintf(out, "-    ");
+    else
+        fprintf(out, "%-4d ", ch->scan_list_index);
+
+    //TODO
+//    if (ch->tot == 0)
+        fprintf(out, "-   ");
+//    else
+//        fprintf(out, "%-3d ", ch->tot * 15);
+
+    fprintf(out, "%c  ", "-+"[ch->rx_only]);
+
+    fprintf(out, "%-6s ", ADMIT_NAME[ch->tx_permit]);
+    //TODO: Busy Lock for analog channels
+}
+
+static void print_digital_channels(FILE *out, int verbose)
+{
+    int i;
+
+    if (verbose) {
+        fprintf(out, "# Table of digital channels.\n");
+        fprintf(out, "# 1) Channel number: 1-%d\n", NCHAN);
+        fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
+        fprintf(out, "# 3) Receive frequency in MHz\n");
+        fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
+        fprintf(out, "# 5) Transmit power: High, Low\n");
+        fprintf(out, "# 6) Scan list: - or index in Scanlist table\n");
+        fprintf(out, "# 7) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 8) Receive only: -, +\n");
+        fprintf(out, "# 9) Admit criteria: -, Free, Color\n");
+        fprintf(out, "# 10) Color code: 0, 1, 2, 3... 15\n");
+        fprintf(out, "# 11) Time slot: 1 or 2\n");
+        fprintf(out, "# 12) Receive group list: - or index in Grouplist table\n");
+        fprintf(out, "# 13) Contact for transmit: - or index in Contacts table\n");
+        fprintf(out, "#\n");
+    }
+    fprintf(out, "Digital Name             Receive   Transmit Power Scan TOT RO Admit  Color Slot RxGL TxContact");
+    fprintf(out, "\n");
+    for (i=0; i<NCHAN; i++) {
+        channel_t *ch = get_channel(i);
+
+        if (!ch)
+            continue;
+        if (ch->channel_mode != MODE_DIGITAL && ch->channel_mode != MODE_D_A) {
+            // Select digital channels
+            continue;
+        }
+        print_chan_base(out, ch, i+1);
+
+        // Print digital parameters of the channel:
+        //      Color Code
+        //      Repeater Slot
+        //      Group List
+        //      Contact Name
+        fprintf(out, "%-5d %-3d  ", ch->color_code, 1 + ch->slot2);
+
+        if (ch->group_list_index == 0)
+            fprintf(out, "-    ");
+        else
+            fprintf(out, "%-4d ", ch->group_list_index);
+
+        if (ch->contact_index == 0)
+            fprintf(out, "-");
+        else
+            fprintf(out, "%-4d", ch->contact_index);
+#if 0
+        // Print contact name as a comment.
+        //TODO
+        if (ch->contact_index > 0) {
+            contact_t *ct = GET_CONTACT(ch->contact_index - 1);
+            if (VALID_CONTACT(ct)) {
+                fprintf(out, " # ");
+                print_ascii(out, ct->name, 16, 0);
+            }
+        }
+#endif
+        fprintf(out, "\n");
+    }
+}
+
+static void print_ctcss(FILE *out, unsigned ctcss)
+{
+    //TODO
+    fprintf(out, "0x%02x ", ctcss);
+}
+
+static void print_dcs(FILE *out, unsigned dcs)
+{
+    //TODO
+    fprintf(out, "0x%04x ", dcs);
+}
+
+static void print_analog_channels(FILE *out, int verbose)
+{
+    int i;
+
+    if (verbose) {
+        fprintf(out, "# Table of analog channels.\n");
+        fprintf(out, "# 1) Channel number: 1-%d\n", NCHAN);
+        fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
+        fprintf(out, "# 3) Receive frequency in MHz\n");
+        fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
+        fprintf(out, "# 5) Transmit power: High, Low\n");
+        fprintf(out, "# 6) Scan list: - or index\n");
+        fprintf(out, "# 7) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 8) Receive only: -, +\n");
+        fprintf(out, "# 9) Admit criteria: -, Free, Tone\n");
+        fprintf(out, "# 10) Squelch level: Normal, Tight\n");
+        fprintf(out, "# 11) Guard tone for receive, or '-' to disable\n");
+        fprintf(out, "# 12) Guard tone for transmit, or '-' to disable\n");
+        fprintf(out, "# 13) Bandwidth in kHz: 12.5, 20, 25\n");
+        fprintf(out, "#\n");
+    }
+    fprintf(out, "Analog  Name             Receive   Transmit Power Scan AS TOT RO Admit  Squelch RxTone TxTone Width");
+    fprintf(out, "\n");
+    for (i=0; i<NCHAN; i++) {
+        channel_t *ch = get_channel(i);
+
+        if (!ch)
+            continue;
+        if (ch->channel_mode != MODE_ANALOG && ch->channel_mode != MODE_A_D) {
+            // Select analog channels
+            continue;
+        }
+        print_chan_base(out, ch, i+1);
+
+        // Print analog parameters of the channel:
+        //      Squelch
+        //      CTCSS/DCS Dec
+        //      CTCSS/DCS Enc
+        //      Bandwidth
+        fprintf(out, "%-7s ", "Normal");
+
+        if (ch->rx_ctcss)
+            print_ctcss(out, ch->ctcss_receive);
+        else if (ch->rx_dcs)
+            print_dcs(out, ch->dcs_receive);
+        else
+            fprintf(out, "-      ");
+
+        fprintf(out, "  ");
+        if (ch->tx_ctcss)
+            print_ctcss(out, ch->ctcss_transmit);
+        else if (ch->tx_dcs)
+            print_dcs(out, ch->dcs_transmit);
+        else
+            fprintf(out, "-      ");
+
+        fprintf(out, "  %s", BANDWIDTH[ch->bandwidth]);
+        fprintf(out, "\n");
+    }
+}
+
+//
 // Print full information about the device configuration.
 //
 static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
@@ -409,6 +638,18 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
     fprintf(out, "Radio: %s\n", radio->name);
     if (verbose)
         d868uv_print_version(radio, out);
+
+    //
+    // Channels.
+    //
+    if (have_channels(MODE_DIGITAL)) {
+        fprintf(out, "\n");
+        print_digital_channels(out, verbose);
+    }
+    if (have_channels(MODE_ANALOG)) {
+        fprintf(out, "\n");
+        print_analog_channels(out, verbose);
+    }
 
     //TODO
 
@@ -449,28 +690,6 @@ static void d868uv_read_image(radio_device_t *radio, FILE *img)
 static void d868uv_save_image(radio_device_t *radio, FILE *img)
 {
     fwrite(&radio_mem[0], 1, MEMSZ, img);
-}
-
-//
-// Get channel bank by index.
-//
-static channel_t *get_bank(int i)
-{
-    return (channel_t*) &radio_mem[OFFSET_BANK1 + i*0x2000];
-}
-
-//
-// Get channel by index.
-//
-/*static*/ channel_t *get_channel(int i)
-{
-    channel_t *bank   = get_bank(i >> 7);
-    uint8_t   *bitmap = &radio_mem[OFFSET_CHAN_BITMAP];
-
-    if ((bitmap[i / 8] >> (i & 7)) & 1)
-        return &bank[i % 128];
-    else
-        return 0;
 }
 
 //
@@ -580,9 +799,9 @@ static int d868uv_verify_config(radio_device_t *radio)
 
     // Channels: check references to scanlists, contacts and grouplists.
     for (i=0; i<NCHAN; i++) {
-        channel_t *ch = GET_CHANNEL(i);
+        channel_t *ch = get_channel(i);
 
-        if (!VALID_CHANNEL(ch))
+        if (!ch)
             continue;
 
         nchannels++;
@@ -591,18 +810,18 @@ static int d868uv_verify_config(radio_device_t *radio)
 
             if (!VALID_SCANLIST(sl)) {
                 fprintf(stderr, "Channel %d '", i+1);
-                print_unicode(stderr, ch->name, 16, 0);
+                print_ascii(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': scanlist %d not found.\n", ch->scan_list_index);
                 nerrors++;
             }
         }
-        if (ch->contact_name_index != 0) {
-            contact_t *ct = GET_CONTACT(ch->contact_name_index - 1);
+        if (ch->contact_index != 0) {
+            contact_t *ct = GET_CONTACT(ch->contact_index - 1);
 
             if (!VALID_CONTACT(ct)) {
                 fprintf(stderr, "Channel %d '", i+1);
-                print_unicode(stderr, ch->name, 16, 0);
-                fprintf(stderr, "': contact %d not found.\n", ch->contact_name_index);
+                print_ascii(stderr, ch->name, 16, 0);
+                fprintf(stderr, "': contact %d not found.\n", ch->contact_index);
                 nerrors++;
             }
         }
@@ -611,7 +830,7 @@ static int d868uv_verify_config(radio_device_t *radio)
 
             if (!VALID_GROUPLIST(gl)) {
                 fprintf(stderr, "Channel %d '", i+1);
-                print_unicode(stderr, ch->name, 16, 0);
+                print_ascii(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': grouplist %d not found.\n", ch->group_list_index);
                 nerrors++;
             }
@@ -633,11 +852,11 @@ static int d868uv_verify_config(radio_device_t *radio)
             int cnum = z->member_a[k];
 
             if (cnum != 0) {
-                channel_t *ch = GET_CHANNEL(cnum - 1);
+                channel_t *ch = get_channel(cnum - 1);
 
-                if (!VALID_CHANNEL(ch)) {
+                if (!ch) {
                     fprintf(stderr, "Zone %da '", i+1);
-                    print_unicode(stderr, z->name, 16, 0);
+                    print_ascii(stderr, z->name, 16, 0);
                     fprintf(stderr, "': channel %d not found.\n", cnum);
                     nerrors++;
                 }
@@ -647,11 +866,11 @@ static int d868uv_verify_config(radio_device_t *radio)
             int cnum = zext->ext_a[k];
 
             if (cnum != 0) {
-                channel_t *ch = GET_CHANNEL(cnum - 1);
+                channel_t *ch = get_channel(cnum - 1);
 
-                if (!VALID_CHANNEL(ch)) {
+                if (!ch) {
                     fprintf(stderr, "Zone %da '", i+1);
-                    print_unicode(stderr, z->name, 16, 0);
+                    print_ascii(stderr, z->name, 16, 0);
                     fprintf(stderr, "': channel %d not found.\n", cnum);
                     nerrors++;
                 }
@@ -663,11 +882,11 @@ static int d868uv_verify_config(radio_device_t *radio)
             int cnum = zext->member_b[k];
 
             if (cnum != 0) {
-                channel_t *ch = GET_CHANNEL(cnum - 1);
+                channel_t *ch = get_channel(cnum - 1);
 
-                if (!VALID_CHANNEL(ch)) {
+                if (!ch) {
                     fprintf(stderr, "Zone %db '", i+1);
-                    print_unicode(stderr, z->name, 16, 0);
+                    print_ascii(stderr, z->name, 16, 0);
                     fprintf(stderr, "': channel %d not found.\n", cnum);
                     nerrors++;
                 }
@@ -687,11 +906,11 @@ static int d868uv_verify_config(radio_device_t *radio)
             int cnum = sl->member[k];
 
             if (cnum != 0) {
-                channel_t *ch = GET_CHANNEL(cnum - 1);
+                channel_t *ch = get_channel(cnum - 1);
 
-                if (!VALID_CHANNEL(ch)) {
+                if (!ch) {
                     fprintf(stderr, "Scanlist %d '", i+1);
-                    print_unicode(stderr, sl->name, 16, 0);
+                    print_ascii(stderr, sl->name, 16, 0);
                     fprintf(stderr, "': channel %d not found.\n", cnum);
                     nerrors++;
                 }
@@ -715,7 +934,7 @@ static int d868uv_verify_config(radio_device_t *radio)
 
                 if (!VALID_CONTACT(ct)) {
                     fprintf(stderr, "Grouplist %d '", i+1);
-                    print_unicode(stderr, gl->name, 16, 0);
+                    print_ascii(stderr, gl->name, 16, 0);
                     fprintf(stderr, "': contact %d not found.\n", cnum);
                     nerrors++;
                 }
