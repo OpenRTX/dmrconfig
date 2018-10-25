@@ -104,8 +104,11 @@ typedef struct {
 #define BW_12_5_KHZ     0
 #define BW_25_KHZ       1
 
-                _unused8        : 2,    // 0
-                neg_tx_offset   : 1;    // Negative TX offset?
+                _unused8        : 1,    // 0
+                repeater_mode   : 2;    // Sign of TX frequency offset
+#define RM_SIMPLEX      0               // TX frequency = RX frequency
+#define RM_TXPOS        1               // Positive TX offset
+#define RM_TXNEG        2               // Negative TX offset
 
     // Byte 9
     uint8_t     rx_ctcss        : 1,    // CTCSS Decode
@@ -454,6 +457,73 @@ static int have_channels(int mode)
 }
 
 //
+// Print frequency (BCD value).
+//
+static void print_rx_freq(FILE *out, unsigned data)
+{
+    fprintf(out, "%d%d%d.%d%d%d", (data >> 4) & 15, data & 15,
+        (data >> 12) & 15, (data >> 8) & 15,
+        (data >> 20) & 15, (data >> 16) & 15);
+
+    if ((data & 0xff) == 0) {
+        fputs("  ", out);
+    } else {
+        fprintf(out, "%d", (data >> 28) & 15);
+        if (((data >> 24) & 15) == 0) {
+            fputs(" ", out);
+        } else {
+            fprintf(out, "%d", (data >> 24) & 15);
+        }
+    }
+}
+
+//
+// Convert a 4-byte frequency value from binary coded decimal
+// to integer format (in Hertz).
+//
+static int bcd_to_hz(unsigned bcd)
+{
+    int a = (bcd >> 4)  & 15;
+    int b =  bcd        & 15;
+    int c = (bcd >> 12) & 15;
+    int d = (bcd >> 8)  & 15;
+    int e = (bcd >> 20) & 15;
+    int f = (bcd >> 16) & 15;
+    int g = (bcd >> 28) & 15;
+    int h = (bcd >> 24) & 15;
+
+    return (((((((a*10 + b) * 10 + c) * 10 + d) * 10 + e) * 10 + f) * 10 + g) * 10 + h) * 10;
+}
+
+//
+// Print the transmit offset or frequency.
+// TX value is a delta.
+//
+static void print_tx_offset(FILE *out, unsigned tx_offset_bcd, unsigned mode)
+{
+    int offset;
+
+    switch (mode) {
+    default:
+    case RM_SIMPLEX:            // TX frequency = RX frequency
+        fprintf(out, "+0       ");
+        break;
+
+    case RM_TXPOS:              // Positive TX offset
+        offset = bcd_to_hz(tx_offset_bcd);
+        fprintf(out, "+");
+        print_mhz(out, offset);
+        break;
+
+    case RM_TXNEG:              // Negative TX offset
+        offset = bcd_to_hz(tx_offset_bcd);
+        fprintf(out, "-");
+        print_mhz(out, offset);
+        break;
+    }
+}
+
+//
 // Print base parameters of the channel:
 //      Name
 //      RX Frequency
@@ -469,16 +539,16 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
     fprintf(out, "%5d   ", cnum);
     print_ascii(out, ch->name, 16, 1);
     fprintf(out, " ");
-    print_freq(out, ch->rx_frequency);
+    print_rx_freq(out, ch->rx_frequency);
     fprintf(out, " ");
-    print_offset_delta(out, ch->rx_frequency, ch->tx_offset);
+    print_tx_offset(out, ch->tx_offset, ch->repeater_mode);
 
-    fprintf(out, "%-4s  ", POWER_NAME[ch->power]);
+    fprintf(out, "%-5s ", POWER_NAME[ch->power]);
 
-    if (ch->scan_list_index == 0)
+    if (ch->scan_list_index == 0xff)
         fprintf(out, "-    ");
     else
-        fprintf(out, "%-4d ", ch->scan_list_index);
+        fprintf(out, "%-4d ", ch->scan_list_index + 1);
 
     //TODO
 //    if (ch->tot == 0)
@@ -533,15 +603,15 @@ static void print_digital_channels(FILE *out, int verbose)
         //      Contact Name
         fprintf(out, "%-5d %-3d  ", ch->color_code, 1 + ch->slot2);
 
-        if (ch->group_list_index == 0)
+        if (ch->group_list_index == 0xff)
             fprintf(out, "-    ");
         else
-            fprintf(out, "%-4d ", ch->group_list_index);
+            fprintf(out, "%-4d ", ch->group_list_index + 1);
 
-        if (ch->contact_index == 0)
+        if (ch->contact_index == 0xffff)
             fprintf(out, "-");
         else
-            fprintf(out, "%-4d", ch->contact_index);
+            fprintf(out, "%-4d", ch->contact_index + 1);
 #if 0
         // Print contact name as a comment.
         //TODO
@@ -590,7 +660,7 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 13) Bandwidth in kHz: 12.5, 20, 25\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Analog  Name             Receive   Transmit Power Scan AS TOT RO Admit  Squelch RxTone TxTone Width");
+    fprintf(out, "Analog  Name             Receive   Transmit Power Scan TOT RO Admit  Squelch RxTone TxTone Width");
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = get_channel(i);
