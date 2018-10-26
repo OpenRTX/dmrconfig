@@ -271,6 +271,20 @@ static const char *ANALOG_ADMIT_NAME[] = { "-", "Tone", "Free", "Free" };
 static const char *BANDWIDTH[] = { "12.5", "25" };
 
 //
+// CTCSS tones, Hz*10.
+//
+#define NCTCSS  51
+
+static const int CTCSS_TONES[NCTCSS] = {
+     625,  670,  693,  719,  744,  770,  797,  825,  854,  885,
+     915,  948,  974, 1000, 1035, 1072, 1109, 1148, 1188, 1230,
+    1273, 1318, 1365, 1413, 1462, 1514, 1567, 1598, 1622, 1655,
+    1679, 1713, 1738, 1773, 1799, 1835, 1862, 1899, 1928, 1966,
+    1995, 2035, 2065, 2107, 2181, 2257, 2291, 2336, 2418, 2503,
+    2541,
+};
+
+//
 // Print a generic information about the device.
 //
 static void d868uv_print_version(radio_device_t *radio, FILE *out)
@@ -466,7 +480,7 @@ static void print_rx_freq(FILE *out, unsigned data)
         (data >> 12) & 15, (data >> 8) & 15,
         (data >> 20) & 15, (data >> 16) & 15);
 
-    if ((data & 0xff) == 0) {
+    if (((data >> 24) & 0xff) == 0) {
         fputs("  ", out);
     } else {
         fprintf(out, "%d", (data >> 28) & 15);
@@ -626,16 +640,34 @@ static void print_digital_channels(FILE *out, int verbose)
     }
 }
 
-static void print_ctcss(FILE *out, unsigned ctcss)
+//
+// Print CTSS tone.
+//
+static void print_ctcss(FILE *out, unsigned index, unsigned custom)
 {
-    //TODO
-    fprintf(out, "0x%02x ", ctcss);
+    int      dhz = (index < NCTCSS) ? CTCSS_TONES[index] : custom;
+    unsigned a   = dhz / 1000;
+    unsigned b   = (dhz / 100) % 10;
+    unsigned c   = (dhz / 10) % 10;
+    unsigned d   = dhz % 10;
+
+    if (a == 0)
+        fprintf(out, "%d%d.%d ", b, c, d);
+    else
+        fprintf(out, "%d%d%d.%d", a, b, c, d);
 }
 
+//
+// Print DCS tone.
+//
 static void print_dcs(FILE *out, unsigned dcs)
 {
-    //TODO
-    fprintf(out, "0x%04x ", dcs);
+    unsigned i = (dcs >> 9) & 1;
+    unsigned a = (dcs >> 6) & 7;
+    unsigned b = (dcs >> 3) & 7;
+    unsigned c = dcs & 7;
+
+    fprintf(out, "D%d%d%d%c", a, b, c, i ? 'I' : 'N');
 }
 
 static void print_analog_channels(FILE *out, int verbose)
@@ -682,19 +714,19 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "%-7s ", "Normal");
 
         if (ch->rx_ctcss)
-            print_ctcss(out, ch->ctcss_receive);
+            print_ctcss(out, ch->ctcss_receive, ch->custom_ctcss);
         else if (ch->rx_dcs)
             print_dcs(out, ch->dcs_receive);
         else
-            fprintf(out, "-      ");
+            fprintf(out, "-    ");
 
         fprintf(out, "  ");
         if (ch->tx_ctcss)
-            print_ctcss(out, ch->ctcss_transmit);
+            print_ctcss(out, ch->ctcss_transmit, ch->custom_ctcss);
         else if (ch->tx_dcs)
             print_dcs(out, ch->dcs_transmit);
         else
-            fprintf(out, "-      ");
+            fprintf(out, "-    ");
 
         fprintf(out, "  %s", BANDWIDTH[ch->bandwidth]);
         fprintf(out, "\n");
