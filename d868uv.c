@@ -266,7 +266,8 @@ typedef struct {
 } radioid_t;
 
 static const char *POWER_NAME[] = { "Low", "Mid", "High", "Turbo" };
-static const char *ADMIT_NAME[] = { "-", "Free", "DiffCC", "Color" };
+static const char *DIGITAL_ADMIT_NAME[] = { "-", "Free", "NColor", "Color" };
+static const char *ANALOG_ADMIT_NAME[] = { "-", "Tone", "Free", "Free" };
 static const char *BANDWIDTH[] = { "12.5", "25" };
 
 //
@@ -532,7 +533,6 @@ static void print_tx_offset(FILE *out, unsigned tx_offset_bcd, unsigned mode)
 //      Scan List
 //      TOT
 //      RX Only
-//      Admit Criteria
 //
 static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 {
@@ -557,9 +557,6 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 //        fprintf(out, "%-3d ", ch->tot * 15);
 
     fprintf(out, "%c  ", "-+"[ch->rx_only]);
-
-    fprintf(out, "%-6s ", ADMIT_NAME[ch->tx_permit]);
-    //TODO: Busy Lock for analog channels
 }
 
 static void print_digital_channels(FILE *out, int verbose)
@@ -597,10 +594,12 @@ static void print_digital_channels(FILE *out, int verbose)
         print_chan_base(out, ch, i+1);
 
         // Print digital parameters of the channel:
+        //      Admit Criteria
         //      Color Code
         //      Repeater Slot
         //      Group List
         //      Contact Name
+        fprintf(out, "%-6s ", DIGITAL_ADMIT_NAME[ch->tx_permit]);
         fprintf(out, "%-5d %-3d  ", ch->color_code, 1 + ch->slot2);
 
         if (ch->group_list_index == 0xff)
@@ -674,10 +673,12 @@ static void print_analog_channels(FILE *out, int verbose)
         print_chan_base(out, ch, i+1);
 
         // Print analog parameters of the channel:
+        //      Admit Criteria
         //      Squelch
         //      CTCSS/DCS Dec
         //      CTCSS/DCS Enc
         //      Bandwidth
+        fprintf(out, "%-6s ", ANALOG_ADMIT_NAME[ch->tx_permit]);
         fprintf(out, "%-7s ", "Normal");
 
         if (ch->rx_ctcss)
