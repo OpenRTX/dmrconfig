@@ -50,10 +50,8 @@
 
 #ifdef __APPLE__
 #   include <CoreFoundation/CoreFoundation.h>
-#   include <IOKit/IOBSD.h>
-#   include <IOKit/storage/IOMedia.h>
-#   include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 #   include <IOKit/usb/IOUSBLib.h>
+#   include <IOKit/serial/IOSerialKeys.h>
 #endif
 
 static char *dev_path;
@@ -436,82 +434,80 @@ static char *find_path(int vid, int pid)
     return result;
 
 #elif defined(__APPLE__)
-    // Create a list of the devices in the 'IOMedia' class.
-    CFMutableDictionaryRef dict = IOServiceMatching(kIOMediaClass);
+    // Create a list of the devices in the 'IOSerialBSDClient' class.
+    CFMutableDictionaryRef dict = IOServiceMatching(kIOSerialBSDServiceValue);
     if (! dict) {
         printf("Cannot create IO Service dictionary.\n");
-        return;
+        return 0;
     }
 
-    // Select devices with attributes Removeable=True and Whole=True.
-    CFDictionarySetValue(dict, CFSTR(kIOMediaRemovableKey), kCFBooleanTrue);
-    CFDictionarySetValue(dict, CFSTR(kIOMediaWholeKey), kCFBooleanTrue);
-
     io_iterator_t devices = IO_OBJECT_NULL;
-    kern_return_t result = IOServiceGetMatchingServices(kIOMasterPortDefault,
+    kern_return_t ret = IOServiceGetMatchingServices(kIOMasterPortDefault,
         dict, &devices);
-    if (result != KERN_SUCCESS) {
+    if (ret != KERN_SUCCESS) {
         printf("Cannot find matching IO services.\n");
-        return;
+        return 0;
     }
 
     // For each matching device, print out its information.
     io_object_t device;
     while ((device = IOIteratorNext(devices)) != MACH_PORT_NULL) {
         // Get device path.
-        char devname[1024] = "/dev/r";
+        char devname[1024];
         CFStringRef ref = (CFStringRef) IORegistryEntrySearchCFProperty(device,
-            kIOServicePlane, CFSTR(kIOBSDNameKey),
+            kIOServicePlane, CFSTR(kIOCalloutDeviceKey),
             kCFAllocatorDefault, kIORegistryIterateRecursively);
-        if (! ref || ! CFStringGetCString(ref, devname + 6,
-            sizeof(devname) - 6, kCFStringEncodingUTF8)) {
+        if (! ref || ! CFStringGetCString(ref, devname, sizeof(devname), kCFStringEncodingUTF8)) {
             // Cannot get device path.
             continue;
         }
-#if 0
-        // Get device size in bytes.
-        long long size;
-        ref = IORegistryEntryCreateCFProperty(device,
-            CFSTR(kIOMediaSizeKey), kCFAllocatorDefault, 0);
-        if (! ref || ! CFNumberGetValue((CFNumberRef)ref, kCFNumberLongLongType, &size)) {
-            // Cannot get device size.
-            continue;
-        }
-#endif
-        // Get a list of device characteristics.
-        CFMutableDictionaryRef dict = (CFMutableDictionaryRef)
-            IORegistryEntrySearchCFProperty(device, kIOServicePlane,
-            CFSTR(kIOPropertyDeviceCharacteristicsKey),
-            kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
-        if (! dict) {
-            // Cannot get device characteristics.
+        //printf("%s\n", devname);
+
+        // Get device parent.
+        io_registry_entry_t parent = 0;
+        if (KERN_SUCCESS != IORegistryEntryGetParentEntry(device, kIOServicePlane, &parent)) {
+            //printf("Cannot get device parent.\n");
             continue;
         }
 
-        // Get vendor and product names.
-        char vendor[1024], product[1024];
-        ref = CFDictionaryGetValue(dict, CFSTR(kIOPropertyVendorNameKey));
-        if (! ref || ! CFStringGetCString(ref, vendor,
-            sizeof(vendor), kCFStringEncodingUTF8)) {
-            // Cannot get vendor name.
-            continue;
-        }
-        ref = CFDictionaryGetValue(dict, CFSTR(kIOPropertyProductNameKey));
-        if (! ref || ! CFStringGetCString(ref, product,
-            sizeof(product), kCFStringEncodingUTF8)) {
-            // Cannot get product name.
+        // Get device grandparent.
+        io_registry_entry_t grandparent = 0;
+        if (KERN_SUCCESS != IORegistryEntryGetParentEntry(parent, kIOServicePlane, &grandparent)) {
+            //printf("Cannot get device grandparent.\n");
             continue;
         }
 
-        char buf[1024];
-        sprintf(buf, "%s - size %u MB, %s %s",
-            devname, (unsigned) (size / 1000000), vendor, product);
-        IOObjectRelease(device);
-        devtab[ndev++] = strdup(buf);
+        // Get vendor ID.
+        int vendor_id;
+        ref = IORegistryEntryCreateCFProperty(grandparent,
+            CFSTR(kUSBVendorID), kCFAllocatorDefault, 0);
+        if (! ref || ! CFNumberGetValue((CFNumberRef)ref, kCFNumberIntType, &vendor_id)) {
+            //printf("Cannot get vendor ID.\n");
+            continue;
+        }
+
+        // Get product ID.
+        int product_id;
+        ref = IORegistryEntryCreateCFProperty(grandparent,
+            CFSTR(kUSBProductID), kCFAllocatorDefault, 0);
+        if (! ref || ! CFNumberGetValue((CFNumberRef)ref, kCFNumberIntType, &product_id)) {
+            //printf("Cannot get product ID.\n");
+            continue;
+        }
+
+        if (vendor_id != vid || product_id != pid) {
+            // Wrong ID.
+            continue;
+        }
+
+        result = strdup(devname);
+        break;
     }
 
     // Free the iterator object
     IOObjectRelease(devices);
+    return result;
+
 #else
     printf("Don't know how to get the list of CD devices on this system.\n");
     return 0;

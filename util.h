@@ -27,19 +27,6 @@
  */
 
 //
-// Localization.
-//
-#if 0
-#include <libintl.h>
-#define _(str)              gettext(str)
-#else
-#define _(str)              str
-#define setlocale(x,y)      /* empty */
-#define bindtextdomain(x,y) /* empty */
-#define textdomain(x)       /* empty */
-#endif
-
-//
 // Program version.
 //
 extern const char version[];
