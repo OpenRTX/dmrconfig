@@ -47,13 +47,19 @@
 //
 // Offsets in the image file.
 //
-#define OFFSET_BANK1        0x000040
-#define OFFSET_CHAN_BITMAP  0x070a40
-#define OFFSET_SETTINGS     0x071600
-#define OFFSET_RADIOID      0x073d00
+#define OFFSET_BANK1        0x000040    // Channels
+#define OFFSET_ZONELISTS    0x03e8c0    // Channel lists of zones
+#define OFFSET_CHAN_BITMAP  0x070a40    // Bitmap of valid channels
+#define OFFSET_ZONEMAP      0x070940    // Bitmap of valid zones
+#define OFFSET_SETTINGS     0x071600    // General settings
+#define OFFSET_ZONENAMES    0x071dc0    // Names of zones
+#define OFFSET_RADIOID      0x073d00    // Table of radio IDs
 
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
+#define GET_ZONEMAP()       (&radio_mem[OFFSET_ZONEMAP])
+#define GET_ZONENAME(i)     (&radio_mem[OFFSET_ZONENAMES + (i)*32])
+#define GET_ZONELIST(i)     ((uint16_t*) &radio_mem[OFFSET_ZONELISTS + (i)*512])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
 
@@ -583,11 +589,11 @@ static void print_digital_channels(FILE *out, int verbose)
         fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
         fprintf(out, "# 3) Receive frequency in MHz\n");
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
-        fprintf(out, "# 5) Transmit power: High, Low\n");
+        fprintf(out, "# 5) Transmit power: High, Mid, Low, Turbo\n");
         fprintf(out, "# 6) Scan list: - or index in Scanlist table\n");
-        fprintf(out, "# 7) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 7) Transmit timeout timer: (unused)\n");
         fprintf(out, "# 8) Receive only: -, +\n");
-        fprintf(out, "# 9) Admit criteria: -, Free, Color\n");
+        fprintf(out, "# 9) Admit criteria: -, Free, Color, NColor\n");
         fprintf(out, "# 10) Color code: 0, 1, 2, 3... 15\n");
         fprintf(out, "# 11) Time slot: 1 or 2\n");
         fprintf(out, "# 12) Receive group list: - or index in Grouplist table\n");
@@ -680,15 +686,15 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
         fprintf(out, "# 3) Receive frequency in MHz\n");
         fprintf(out, "# 4) Transmit frequency or +/- offset in MHz\n");
-        fprintf(out, "# 5) Transmit power: High, Low\n");
+        fprintf(out, "# 5) Transmit power: High, Mid, Low, Turbo\n");
         fprintf(out, "# 6) Scan list: - or index\n");
-        fprintf(out, "# 7) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
+        fprintf(out, "# 7) Transmit timeout timer: (unused)\n");
         fprintf(out, "# 8) Receive only: -, +\n");
         fprintf(out, "# 9) Admit criteria: -, Free, Tone\n");
-        fprintf(out, "# 10) Squelch level: Normal, Tight\n");
+        fprintf(out, "# 10) Squelch level: Normal (unused)\n");
         fprintf(out, "# 11) Guard tone for receive, or '-' to disable\n");
         fprintf(out, "# 12) Guard tone for transmit, or '-' to disable\n");
-        fprintf(out, "# 13) Bandwidth in kHz: 12.5, 20, 25\n");
+        fprintf(out, "# 13) Bandwidth in kHz: 12.5, 25\n");
         fprintf(out, "#\n");
     }
     fprintf(out, "Analog  Name             Receive   Transmit Power Scan TOT RO Admit  Squelch RxTone TxTone Width");
@@ -734,10 +740,80 @@ static void print_analog_channels(FILE *out, int verbose)
 }
 
 //
+// Return true when any zones are present.
+//
+static int have_zones()
+{
+    uint8_t *zmap = GET_ZONEMAP();
+    int i;
+
+    for (i=0; i<(NZONES+7)/8; i++) {
+        if (zmap[i] != 0)
+            return 1;
+    }
+    return 0;
+}
+
+//
+// Find a zone with given index.
+// Return false when zone is not valid.
+// Set zname and zlist to a zone name and member list.
+//
+static int get_zone(int i, uint8_t **zname, uint16_t **zlist)
+{
+    uint8_t *zmap = GET_ZONEMAP();
+
+    if ((zmap[i / 8] >> (i & 7)) & 1) {
+        // Zone is valid.
+        *zname = GET_ZONENAME(i);
+        *zlist = GET_ZONELIST(i);
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
+{
+    int last  = -1;
+    int range = 0;
+    int n;
+    uint16_t data[nchan];
+
+    // Sort the list before printing.
+    memcpy(data, unsorted, nchan * sizeof(uint16_t));
+    qsort(data, nchan, sizeof(uint16_t), compare_index_ffff);
+    for (n=0; n<nchan; n++) {
+        int cnum = data[n];
+
+        if (cnum == 0xffff)
+            break;
+        cnum++;
+
+        if (cnum == last+1) {
+            range = 1;
+        } else {
+            if (range) {
+                fprintf(out, "-%d", last);
+                range = 0;
+            }
+            if (n > 0)
+                fprintf(out, ",");
+            fprintf(out, "%d", cnum);
+        }
+        last = cnum;
+    }
+    if (range)
+        fprintf(out, "-%d", last);
+}
+
+//
 // Print full information about the device configuration.
 //
 static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
 {
+    int i;
+
     fprintf(out, "Radio: %s\n", radio->name);
     if (verbose)
         d868uv_print_version(radio, out);
@@ -752,6 +828,40 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
     if (have_channels(MODE_ANALOG)) {
         fprintf(out, "\n");
         print_analog_channels(out, verbose);
+    }
+
+    //
+    // Zones.
+    //
+    if (have_zones()) {
+        fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of channel zones.\n");
+            fprintf(out, "# 1) Zone number: 1-%d\n", NZONES);
+            fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
+            fprintf(out, "# 3) List of channels: numbers and ranges (N-M) separated by comma\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "Zone    Name             Channels\n");
+        for (i=0; i<NZONES; i++) {
+            uint8_t *zname;
+            uint16_t *zlist;
+
+            if (!get_zone(i, &zname, &zlist)) {
+                // Zone is disabled.
+                continue;
+            }
+
+            fprintf(out, "%4d    ", i + 1);
+            print_ascii(out, zname, 16, 1);
+            fprintf(out, " ");
+            if (*zlist != 0xffff) {
+                print_chanlist(out, zlist, 250);
+            } else {
+                fprintf(out, "-");
+            }
+            fprintf(out, "\n");
+        }
     }
 
     //TODO
@@ -942,54 +1052,23 @@ static int d868uv_verify_config(radio_device_t *radio)
 
     // Zones: check references to channels.
     for (i=0; i<NZONES; i++) {
-        zone_t     *z    = GET_ZONE(i);
-        zone_ext_t *zext = GET_ZONEXT(i);
+        uint8_t *zname;
+        uint16_t *zlist;
 
-        if (!VALID_ZONE(z))
+        if (!get_zone(i, &zname, &zlist))
             continue;
 
         nzones++;
 
-        // Zone A
-        for (k=0; k<16; k++) {
-            int cnum = z->member_a[k];
+        for (k=0; k<250; k++) {
+            int cnum = zlist[k] + 1;
 
-            if (cnum != 0) {
+            if (cnum != 0xffff) {
                 channel_t *ch = get_channel(cnum - 1);
 
                 if (!ch) {
                     fprintf(stderr, "Zone %da '", i+1);
-                    print_ascii(stderr, z->name, 16, 0);
-                    fprintf(stderr, "': channel %d not found.\n", cnum);
-                    nerrors++;
-                }
-            }
-        }
-        for (k=0; k<48; k++) {
-            int cnum = zext->ext_a[k];
-
-            if (cnum != 0) {
-                channel_t *ch = get_channel(cnum - 1);
-
-                if (!ch) {
-                    fprintf(stderr, "Zone %da '", i+1);
-                    print_ascii(stderr, z->name, 16, 0);
-                    fprintf(stderr, "': channel %d not found.\n", cnum);
-                    nerrors++;
-                }
-            }
-        }
-
-        // Zone B
-        for (k=0; k<64; k++) {
-            int cnum = zext->member_b[k];
-
-            if (cnum != 0) {
-                channel_t *ch = get_channel(cnum - 1);
-
-                if (!ch) {
-                    fprintf(stderr, "Zone %db '", i+1);
-                    print_ascii(stderr, z->name, 16, 0);
+                    print_ascii(stderr, zname, 16, 0);
                     fprintf(stderr, "': channel %d not found.\n", cnum);
                     nerrors++;
                 }

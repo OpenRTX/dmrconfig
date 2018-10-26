@@ -193,6 +193,7 @@ void print_offset(FILE *out, unsigned rx_bcd, unsigned tx_bcd);
 // Compare channel index for qsort().
 //
 int compare_index(const void *pa, const void *pb);
+int compare_index_ffff(const void *pa, const void *pb);
 
 //
 // Print CTSS or DCS tone.

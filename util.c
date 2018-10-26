@@ -559,6 +559,7 @@ void print_offset(FILE *out, unsigned rx_bcd, unsigned tx_bcd)
 
 //
 // Compare channel index for qsort().
+// Treat 0 as empty element.
 //
 int compare_index(const void *pa, const void *pb)
 {
@@ -568,6 +569,26 @@ int compare_index(const void *pa, const void *pb)
     if (a == 0)
         return (b != 0);
     if (b == 0)
+        return -1;
+    if (a < b)
+        return -1;
+    if (a > b)
+        return 1;
+    return 0;
+}
+
+//
+// Compare channel index for qsort().
+// Treat 0xffff as empty element.
+//
+int compare_index_ffff(const void *pa, const void *pb)
+{
+    unsigned short a = *(unsigned short*) pa;
+    unsigned short b = *(unsigned short*) pb;
+
+    if (a == 0xffff)
+        return (b != 0xffff);
+    if (b == 0xffff)
         return -1;
     if (a < b)
         return -1;
