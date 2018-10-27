@@ -53,7 +53,7 @@ static struct {
     { 0, 0 }
 };
 
-unsigned char radio_mem [1024*1024*67]; // Radio memory contents, up to 67 Mbytes
+unsigned char radio_mem [1024*1024*2];  // Radio memory contents, up to 2 Mbytes
 int radio_progress;                     // Read/write progress counter
 
 static radio_device_t *device;          // Device-dependent interface
