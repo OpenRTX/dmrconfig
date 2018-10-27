@@ -598,6 +598,26 @@ int compare_index_ffff(const void *pa, const void *pb)
 }
 
 //
+// Compare channel index for qsort().
+// Treat 0xffffffff as empty element.
+//
+int compare_index_ffffffff(const void *pa, const void *pb)
+{
+    uint32_t a = *(uint32_t*) pa;
+    uint32_t b = *(uint32_t*) pb;
+
+    if (a == 0xffffffff)
+        return (b != 0xffffffff);
+    if (b == 0xffffffff)
+        return -1;
+    if (a < b)
+        return -1;
+    if (a > b)
+        return 1;
+    return 0;
+}
+
+//
 // Print CTSS or DCS tone.
 //
 void print_tone(FILE *out, unsigned data)

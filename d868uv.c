@@ -56,6 +56,7 @@
 #define OFFSET_RADIOID      0x073d00    // Table of radio IDs
 #define OFFSET_CONTACT_MAP  0x080140    // Bitmap of invalid contacts
 #define OFFSET_CONTACTS     0x080640    // Contacts
+#define OFFSET_GLISTS       0x174b00    // RX group lists
 
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
@@ -64,8 +65,10 @@
 #define GET_ZONENAME(i)     (&radio_mem[OFFSET_ZONENAMES + (i)*32])
 #define GET_ZONELIST(i)     ((uint16_t*) &radio_mem[OFFSET_ZONELISTS + (i)*512])
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*100])
+#define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*320])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
+#define VALID_GROUPLIST(gl) ((gl)->member[0] != 0xffffffff && VALID_TEXT((gl)->name))
 
 //
 // Size of memory image.
@@ -226,6 +229,7 @@ typedef struct {
 // TODO: verify the general settings with official CPS
 //
 typedef struct {
+
     // Bytes 0-5.
     uint8_t  _unused0[6];
 
@@ -254,6 +258,7 @@ typedef struct {
 // Radio ID table: 250 entries, 0x1f40 bytes at 0x02580000.
 //
 typedef struct {
+
     // Bytes 0-3.
     uint8_t id[4];              // Up to 8 BCD digits
 #define GET_ID(x) (((x)[0] >> 4) * 10000000 +\
@@ -314,6 +319,20 @@ typedef struct {
     uint8_t _unused40[60];              // 0
 
 } contact_t;
+
+//
+// Group list data.
+//
+typedef struct {
+
+    // Bytes 0-255
+    uint32_t member[64];                // Contacts: 0=Contact1, 0xffffffff=Empty
+
+    // Bytes 256-319
+    uint8_t name[35];                   // Group List Name (ASCII)
+    uint8_t unused[29];                 // 0
+
+} grouplist_t;
 
 static const char *POWER_NAME[] = { "Low", "Mid", "High", "Turbo" };
 static const char *DIGITAL_ADMIT_NAME[] = { "-", "Free", "NColor", "Color" };
@@ -846,7 +865,7 @@ static int get_zone(int i, uint8_t **zname, uint16_t **zlist)
     }
 }
 
-static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
+static void print_chanlist16(FILE *out, uint16_t *unsorted, int nchan)
 {
     int last  = -1;
     int range = 0;
@@ -878,6 +897,52 @@ static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
     }
     if (range)
         fprintf(out, "-%d", last);
+}
+
+static void print_chanlist32(FILE *out, uint32_t *unsorted, int nchan)
+{
+    int last  = -1;
+    int range = 0;
+    int n;
+    uint32_t data[nchan];
+
+    // Sort the list before printing.
+    memcpy(data, unsorted, nchan * sizeof(uint32_t));
+    qsort(data, nchan, sizeof(uint32_t), compare_index_ffffffff);
+    for (n=0; n<nchan; n++) {
+        int cnum = data[n];
+        if (cnum == 0xffffffff)
+            break;
+        cnum++;
+
+        if (cnum == last+1) {
+            range = 1;
+        } else {
+            if (range) {
+                fprintf(out, "-%d", last);
+                range = 0;
+            }
+            if (n > 0)
+                fprintf(out, ",");
+            fprintf(out, "%d", cnum);
+        }
+        last = cnum;
+    }
+    if (range)
+        fprintf(out, "-%d", last);
+}
+
+static int have_grouplists()
+{
+    int i;
+
+    for (i=0; i<NGLISTS; i++) {
+        grouplist_t *gl = GET_GROUPLIST(i);
+
+        if (VALID_GROUPLIST(gl))
+            return 1;
+    }
+    return 0;
 }
 
 //
@@ -925,11 +990,11 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
                 continue;
             }
 
-            fprintf(out, "%4d    ", i + 1);
+            fprintf(out, "%5d   ", i + 1);
             print_ascii(out, zname, 16, 1);
             fprintf(out, " ");
             if (*zlist != 0xffff) {
-                print_chanlist(out, zlist, 250);
+                print_chanlist16(out, zlist, 250);
             } else {
                 fprintf(out, "-");
             }
@@ -975,7 +1040,31 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
     //
     // Group lists.
     //
-    //TODO
+    if (have_grouplists()) {
+        fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of group lists.\n");
+            fprintf(out, "# 1) Group list number: 1-%d\n", NGLISTS);
+            fprintf(out, "# 2) Name: up to 35 characters, use '_' instead of space\n");
+            fprintf(out, "# 3) List of contacts: numbers and ranges (N-M) separated by comma\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "Grouplist Name                              Contacts\n");
+        for (i=0; i<NGLISTS; i++) {
+            grouplist_t *gl = GET_GROUPLIST(i);
+
+            if (!VALID_GROUPLIST(gl)) {
+                // Group list is disabled.
+                continue;
+            }
+
+            fprintf(out, "%5d   ", i + 1);
+            print_ascii(out, gl->name, 35, 1);
+            fprintf(out, " ");
+            print_chanlist32(out, gl->member, 64);
+            fprintf(out, "\n");
+        }
+    }
 
     //
     // Text messages.
