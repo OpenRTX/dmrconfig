@@ -1,0 +1,38 @@
+--- d868uv-contacts.hd	2018-10-26 16:58:56.070106184 -0700
++++ d868uv-contacts-delete5.hd	2018-10-26 17:10:11.651995288 -0700
+@@ -18204,10 +18204,9 @@
+ 000764e0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+ 000764f0  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+ 00076500  00 00 00 00 01 00 00 00  02 00 00 00 03 00 00 00  |................| --- List of contacts?
+-00076510  04 00 00 00 ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+-00076520  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
++00076510  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+ *
+-00080140  e0 ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
++00080140  f0 ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................| --- Bitmap of invalid contacts
+ 00080150  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+ *
+ 00080620  ff ff ff 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+@@ -18233,43 +18232,12 @@
+ 00080790  44 44 44 01 00 00 00 00  00 00 00 00 00 00 00 00  |DDD.............|
+ 000807a0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+ *
+-000807d0  00 43 6f 6e 74 61 63 74  20 35 00 00 00 00 00 00  |.Contact 5......| --- Contact5 structure
+-000807e0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+-000807f0  00 00 00 15 55 55 55 02  00 00 00 00 00 00 00 00  |....UUU.........|
+-00080800  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+-*
+-00080840  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
++000807d0  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+ *
+@@ -18306,8 +18274,7 @@
+ 00174c30  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+ *
+ 00188380  f1 ac 68 24 00 00 00 00  66 66 66 26 02 00 00 00  |..h$....fff&....|
+-00188390  88 88 88 28 03 00 00 00  aa aa aa 2a 04 00 00 00  |...(.......*....|
+-001883a0  2a e4 ee 2c 01 00 00 00  ff ff ff ff ff ff ff ff  |*..,............|
+-001883b0  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
++00188390  88 88 88 28 03 00 00 00  2a e4 ee 2c 01 00 00 00  |...(....*..,....| --- Unknown data
++001883a0  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+ *
+ 00188680

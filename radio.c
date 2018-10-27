@@ -44,15 +44,16 @@ static struct {
     { "MD-UV390",   &radio_uv390 },     // TYT MD-UV390, Retevis RT3S
     { "2017",       &radio_md2017 },    // TYT MD-2017, Retevis RT82
     { "MD9600",     &radio_md9600 },    // TYT MD-9600
+    { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R
+    { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
+    { "D868UVE",    &radio_d868uv },    // Anytone AT-D868UV
     { "ZD3688",     &radio_d900 },      // Zastone D900
     { "TP660",      &radio_dp880 },     // Zastone DP880
     { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
-    { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R
-    { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
     { 0, 0 }
 };
 
-unsigned char radio_mem [1024*1024];    // Radio memory contents, up to 1Mbyte
+unsigned char radio_mem [1024*1024*67]; // Radio memory contents, up to 67 Mbytes
 int radio_progress;                     // Read/write progress counter
 
 static radio_device_t *device;          // Device-dependent interface
@@ -68,6 +69,7 @@ void radio_disconnect()
     dfu_reboot();
     dfu_close();
     hid_close();
+    serial_close();
 }
 
 //
@@ -89,9 +91,14 @@ void radio_connect()
     // Try TYT MD family.
     ident = dfu_init(0x0483, 0xdf11);
     if (! ident) {
-        // Try RD-5R.
+        // Try RD-5R and GD-77.
         if (hid_init(0x15a2, 0x0073) >= 0)
             ident = hid_identify();
+    }
+    if (! ident) {
+        // Try AT-D868UV.
+        if (serial_init(0x28e9, 0x018a) >= 0)
+            ident = serial_identify();
     }
     if (! ident) {
         fprintf(stderr, "No radio detected.\n");
@@ -192,6 +199,9 @@ void radio_read_image(const char *filename)
     case 262144:
     case 262709:
         device = &radio_md380;
+        break;
+    case 1607296:
+        device = &radio_d868uv;
         break;
     case 131072:
         if (fread(ident, 1, 8, img) != 8) {

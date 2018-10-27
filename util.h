@@ -27,19 +27,6 @@
  */
 
 //
-// Localization.
-//
-#if 0
-#include <libintl.h>
-#define _(str)              gettext(str)
-#else
-#define _(str)              str
-#define setlocale(x,y)      /* empty */
-#define bindtextdomain(x,y) /* empty */
-#define textdomain(x)       /* empty */
-#endif
-
-//
 // Program version.
 //
 extern const char version[];
@@ -76,6 +63,15 @@ void hid_read_block(int bno, unsigned char *data, int nbytes);
 void hid_read_finish(void);
 void hid_write_block(int bno, unsigned char *data, int nbytes);
 void hid_write_finish(void);
+
+//
+// Serial functions.
+//
+int serial_init(int vid, int pid);
+const char *serial_identify(void);
+void serial_close(void);
+void serial_read_region(int addr, unsigned char *data, int nbytes);
+void serial_write_region(int addr, unsigned char *data, int nbytes);
 
 //
 // Delay in milliseconds.
@@ -153,7 +149,8 @@ void utf8_decode(unsigned short *dst, const char *src, unsigned nsym);
 // Copy ASCII string, at most nsym characters.
 // Replace underscore by space.
 //
-void ascii_decode(unsigned char *dst, const char *src, unsigned nsym);
+void ascii_decode(unsigned char *dst, const char *src, unsigned nsym, unsigned fill);
+void ascii_decode_uppercase(unsigned char *dst, const char *src, unsigned nsym, unsigned fill);
 
 //
 // Get local time in format: YYYYMMDDhhmmss
@@ -196,6 +193,7 @@ void print_offset(FILE *out, unsigned rx_bcd, unsigned tx_bcd);
 // Compare channel index for qsort().
 //
 int compare_index(const void *pa, const void *pb);
+int compare_index_ffff(const void *pa, const void *pb);
 
 //
 // Print CTSS or DCS tone.

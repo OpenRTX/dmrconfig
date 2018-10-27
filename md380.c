@@ -402,7 +402,7 @@ static void md380_upload(radio_device_t *radio, int cont_flag)
 //
 static int md380_is_compatible(radio_device_t *radio)
 {
-    return 1;
+    return strncmp("D868UVE", (char*)&radio_mem[0], 7) == 0;
 }
 
 //
@@ -948,9 +948,9 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 13) Bandwidth in kHz: 12.5, 20, 25\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Analog  Name             Receive   Transmit Power Scan AS TOT RO Admit  Squelch RxTone TxTone Width");
+    fprintf(out, "Analog  Name             Receive   Transmit Power Scan TOT RO Admit  Squelch RxTone TxTone Width");
 #ifdef PRINT_RARE_PARAMS
-    fprintf(out, " Dly RxRef TxRef LW VOX TA RxSign TxSign ID");
+    fprintf(out, " AS Dly RxRef TxRef LW VOX TA RxSign TxSign ID");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {

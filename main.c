@@ -39,29 +39,29 @@ extern int optind;
 
 void usage()
 {
-    fprintf(stderr, _("DMR Config, Version %s, %s\n"), version, copyright);
-    fprintf(stderr, _("Usage:\n"));
-    fprintf(stderr, _("    dmrconfig -r [-t]\n"));
-    fprintf(stderr, _("                         Read codeplug from the radio to a file 'device.img'.\n"));
-    fprintf(stderr, _("                         Save configuration to a text file 'device.conf'.\n"));
-    fprintf(stderr, _("    dmrconfig -w [-t] file.img\n"));
-    fprintf(stderr, _("                         Write codeplug to the radio.\n"));
-    fprintf(stderr, _("    dmrconfig -c [-t] file.conf\n"));
-    fprintf(stderr, _("                         Apply configuration script to the radio.\n"));
-    fprintf(stderr, _("    dmrconfig -c file.img file.conf\n"));
-    fprintf(stderr, _("                         Apply configuration script to the codeplug image.\n"));
-    fprintf(stderr, _("                         Store modified copy to a file 'device.img'.\n"));
-    fprintf(stderr, _("    dmrconfig file.img\n"));
-    fprintf(stderr, _("                         Display configuration from the codeplug image.\n"));
-    fprintf(stderr, _("    dmrconfig -u [-t] file.csv\n"));
-    fprintf(stderr, _("                         Update contacts database from CSV file.\n"));
-    fprintf(stderr, _("Options:\n"));
-    fprintf(stderr, _("    -r           Read codeplug from the radio.\n"));
-    fprintf(stderr, _("    -w           Write codeplug to the radio.\n"));
-    fprintf(stderr, _("    -c           Configure the radio from a text script.\n"));
-    fprintf(stderr, _("    -u           Update contacts database.\n"));
-    fprintf(stderr, _("    -l           List all supported radios.\n"));
-    fprintf(stderr, _("    -t           Trace USB protocol.\n"));
+    fprintf(stderr, "DMR Config, Version %s, %s\n", version, copyright);
+    fprintf(stderr, "Usage:\n");
+    fprintf(stderr, "    dmrconfig -r [-t]\n");
+    fprintf(stderr, "                         Read codeplug from the radio to a file 'device.img'.\n");
+    fprintf(stderr, "                         Save configuration to a text file 'device.conf'.\n");
+    fprintf(stderr, "    dmrconfig -w [-t] file.img\n");
+    fprintf(stderr, "                         Write codeplug to the radio.\n");
+    fprintf(stderr, "    dmrconfig -c [-t] file.conf\n");
+    fprintf(stderr, "                         Apply configuration script to the radio.\n");
+    fprintf(stderr, "    dmrconfig -c file.img file.conf\n");
+    fprintf(stderr, "                         Apply configuration script to the codeplug image.\n");
+    fprintf(stderr, "                         Store modified copy to a file 'device.img'.\n");
+    fprintf(stderr, "    dmrconfig file.img\n");
+    fprintf(stderr, "                         Display configuration from the codeplug image.\n");
+    fprintf(stderr, "    dmrconfig -u [-t] file.csv\n");
+    fprintf(stderr, "                         Update contacts database from CSV file.\n");
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    -r           Read codeplug from the radio.\n");
+    fprintf(stderr, "    -w           Write codeplug to the radio.\n");
+    fprintf(stderr, "    -c           Configure the radio from a text script.\n");
+    fprintf(stderr, "    -u           Update contacts database.\n");
+    fprintf(stderr, "    -l           List all supported radios.\n");
+    fprintf(stderr, "    -t           Trace USB protocol.\n");
     exit(-1);
 }
 
@@ -70,18 +70,7 @@ int main(int argc, char **argv)
     int read_flag = 0, write_flag = 0, config_flag = 0, csv_flag = 0;
     int list_flag = 0;
 
-    // Set locale and message catalogs.
-    setlocale(LC_ALL, "");
-#ifdef MINGW32
-    // Files with localized messages should be placed in
-    // in c:/Program Files/dmrconfig/ directory.
-    bindtextdomain("dmrconfig", "c:/Program Files/dmrconfig");
-#else
-    bindtextdomain("dmrconfig", "/usr/local/share/locale");
-#endif
-    textdomain("dmrconfig");
-
-    copyright = _("Copyright (C) 2018 Serge Vakulenko KK6ABQ");
+    copyright = "Copyright (C) 2018 Serge Vakulenko KK6ABQ";
     trace_flag = 0;
     for (;;) {
         switch (getopt(argc, argv, "tcwrul")) {
