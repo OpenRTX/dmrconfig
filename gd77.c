@@ -2334,4 +2334,5 @@ radio_device_t radio_gd77 = {
     gd77_parse_header,
     gd77_parse_row,
     gd77_update_timestamp,
+    //TODO: gd77_write_csv,
 };

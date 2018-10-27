@@ -3,15 +3,16 @@ DMRconfig is a utility for programming digital radios via USB programming cable.
 Supported radios:
 
  * TYT MD-380, Retevis RT3, RT8
- * TYT MD-2017, Retevis RT82 (untested)
+ * TYT MD-2017, Retevis RT82
  * TYT MD-UV380
- * TYT MD-UV390, Retevis RT3S (untested)
- * TYT MD-9600 (untested)
+ * TYT MD-UV390, Retevis RT3S
+ * TYT MD-9600
  * Baofeng RD-5R
  * Radioddity GD-77
- * Zastone D900 (untested)
- * Zastone DP880 (untested)
- * Radtel RT-27D (untested)
+ * Anytone AT-D868UV (in development)
+ * Zastone D900
+ * Zastone DP880
+ * Radtel RT-27D
 
 ## Usage
 
@@ -55,6 +56,9 @@ Create a file /etc/udev/rules.d/99-dmr.rules with the following contents:
 
     # Baofeng RD-5R
     SUBSYSTEM=="usb", ATTRS{idVendor}=="15a2", ATTRS{idProduct}=="0073", MODE="666"
+
+    # Anytone AT-D868UV: ignore this device in Modem Manager
+    ATTRS{idVendor}=="28e9" ATTRS{idProduct}=="018a", ENV{ID_MM_DEVICE_IGNORE}="1"
 
 To activate it, run:
 
