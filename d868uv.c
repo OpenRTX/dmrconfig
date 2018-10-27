@@ -49,17 +49,21 @@
 //
 #define OFFSET_BANK1        0x000040    // Channels
 #define OFFSET_ZONELISTS    0x03e8c0    // Channel lists of zones
-#define OFFSET_CHAN_BITMAP  0x070a40    // Bitmap of valid channels
-#define OFFSET_ZONEMAP      0x070940    // Bitmap of valid zones
+#define OFFSET_CHAN_MAP     0x070a40    // Bitmap of valid channels
+#define OFFSET_ZONE_MAP     0x070940    // Bitmap of valid zones
 #define OFFSET_SETTINGS     0x071600    // General settings
 #define OFFSET_ZONENAMES    0x071dc0    // Names of zones
 #define OFFSET_RADIOID      0x073d00    // Table of radio IDs
+#define OFFSET_CONTACT_MAP  0x080140    // Bitmap of invalid contacts
+#define OFFSET_CONTACTS     0x080640    // Contacts
 
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
-#define GET_ZONEMAP()       (&radio_mem[OFFSET_ZONEMAP])
+#define GET_ZONEMAP()       (&radio_mem[OFFSET_ZONE_MAP])
+#define GET_CONTACT_MAP()   (&radio_mem[OFFSET_CONTACT_MAP])
 #define GET_ZONENAME(i)     (&radio_mem[OFFSET_ZONENAMES + (i)*32])
 #define GET_ZONELIST(i)     ((uint16_t*) &radio_mem[OFFSET_ZONELISTS + (i)*512])
+#define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*100])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
 
@@ -271,10 +275,52 @@ typedef struct {
 
 } radioid_t;
 
+//
+// Contact data: 100 bytes per record.
+//
+typedef struct {
+
+    // Byte 0
+    uint8_t type;                       // Call Type: Group Call, Private Call or All Call
+#define CALL_PRIVATE    0
+#define CALL_GROUP      1
+#define CALL_ALL        2
+
+    // Bytes 1-16
+    uint8_t name[16];                   // Contact Name (ASCII)
+
+    // Bytes 17-34
+    uint8_t _unused17[18];              // 0
+
+    // Bytes 35-38
+    uint8_t id[4];                      // Call ID: BCD coded 8 digits
+#define GET_ID(x) (((x)[0] >> 4) * 10000000 +\
+                   ((x)[0] & 15) * 1000000 +\
+                   ((x)[1] >> 4) * 100000 +\
+                   ((x)[1] & 15) * 10000 +\
+                   ((x)[2] >> 4) * 1000 +\
+                   ((x)[2] & 15) * 100 +\
+                   ((x)[3] >> 4) * 10 +\
+                   ((x)[3] & 15))
+#define CONTACT_ID(ct) GET_ID((ct)->id)
+
+    // Byte 39
+    uint8_t call_alert;                 // Call Alert: None, Ring, Online Alert
+#define ALERT_NONE      0
+#define ALERT_RING      1
+#define ALERT_ONLINE    2
+
+    // Bytes 40-99
+    uint8_t _unused40[60];              // 0
+
+} contact_t;
+
 static const char *POWER_NAME[] = { "Low", "Mid", "High", "Turbo" };
 static const char *DIGITAL_ADMIT_NAME[] = { "-", "Free", "NColor", "Color" };
 static const char *ANALOG_ADMIT_NAME[] = { "-", "Tone", "Free", "Free" };
 static const char *BANDWIDTH[] = { "12.5", "25" };
+static const char *CONTACT_TYPE[] = { "Private", "Group", "All", "Unknown" };
+static const char *ALERT_TYPE[] = { "-", "+", "Online", "Unknown" };
 
 //
 // CTCSS tones, Hz*10.
@@ -443,7 +489,7 @@ static channel_t *get_bank(int i)
 static channel_t *get_channel(int i)
 {
     channel_t *bank   = get_bank(i >> 7);
-    uint8_t   *bitmap = &radio_mem[OFFSET_CHAN_BITMAP];
+    uint8_t   *bitmap = &radio_mem[OFFSET_CHAN_MAP];
 
     if ((bitmap[i / 8] >> (i & 7)) & 1)
         return &bank[i % 128];
@@ -475,6 +521,34 @@ static int have_channels(int mode)
             return 1;
     }
     return 0;
+}
+
+//
+// Return true when any contacts are present.
+//
+static int have_contacts()
+{
+    uint8_t *cmap = GET_CONTACT_MAP();
+    int i;
+
+    for (i=0; i<(NCONTACTS+7)/8; i++) {
+        if (cmap[i] != 0xff)
+            return 1;
+    }
+    return 0;
+}
+
+//
+// Get contact by index.
+//
+static contact_t *get_contact(int i)
+{
+    uint8_t *cmap = GET_CONTACT_MAP();
+
+    if ((cmap[i / 8] >> (i & 7)) & 1)
+        return 0;
+
+    return GET_CONTACT(i);
 }
 
 //
@@ -631,17 +705,16 @@ static void print_digital_channels(FILE *out, int verbose)
             fprintf(out, "-");
         else
             fprintf(out, "%-4d", ch->contact_index + 1);
-#if 0
+
         // Print contact name as a comment.
-        //TODO
-        if (ch->contact_index > 0) {
-            contact_t *ct = GET_CONTACT(ch->contact_index - 1);
-            if (VALID_CONTACT(ct)) {
+        if (ch->contact_index != 0xffff) {
+            contact_t *ct = get_contact(ch->contact_index);
+
+            if (ct) {
                 fprintf(out, " # ");
                 print_ascii(out, ct->name, 16, 0);
             }
         }
-#endif
         fprintf(out, "\n");
     }
 }
@@ -864,6 +937,49 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
     }
 
+    //
+    // Scan lists.
+    //
+    //TODO
+
+    //
+    // Contacts.
+    //
+    if (have_contacts()) {
+        fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of contacts.\n");
+            fprintf(out, "# 1) Contact number: 1-%d\n", NCONTACTS);
+            fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
+            fprintf(out, "# 3) Call type: Group, Private, All\n");
+            fprintf(out, "# 4) Call ID: 1...16777215\n");
+            fprintf(out, "# 5) Incoming call alert: -, +, Online\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "Contact Name             Type    ID       RxTone\n");
+        for (i=0; i<NCONTACTS; i++) {
+            contact_t *ct = get_contact(i);
+
+            if (!ct) {
+                // Contact is disabled
+                continue;
+            }
+
+            fprintf(out, "%5d   ", i+1);
+            print_ascii(out, ct->name, 16, 1);
+            fprintf(out, " %-7s %-8d %s\n", CONTACT_TYPE[ct->type & 3],
+                CONTACT_ID(ct), ALERT_TYPE[ct->call_alert & 3]);
+        }
+    }
+
+    //
+    // Group lists.
+    //
+    //TODO
+
+    //
+    // Text messages.
+    //
     //TODO
 
     // General settings.
@@ -1029,9 +1145,9 @@ static int d868uv_verify_config(radio_device_t *radio)
             }
         }
         if (ch->contact_index != 0) {
-            contact_t *ct = GET_CONTACT(ch->contact_index - 1);
+            contact_t *ct = get_contact(ch->contact_index - 1);
 
-            if (!VALID_CONTACT(ct)) {
+            if (!ct) {
                 fprintf(stderr, "Channel %d '", i+1);
                 print_ascii(stderr, ch->name, 16, 0);
                 fprintf(stderr, "': contact %d not found.\n", ch->contact_index);
@@ -1112,9 +1228,9 @@ static int d868uv_verify_config(radio_device_t *radio)
             int cnum = gl->member[k];
 
             if (cnum != 0) {
-                contact_t *ct = GET_CONTACT(cnum - 1);
+                contact_t *ct = get_contact(cnum - 1);
 
-                if (!VALID_CONTACT(ct)) {
+                if (!ct) {
                     fprintf(stderr, "Grouplist %d '", i+1);
                     print_ascii(stderr, gl->name, 16, 0);
                     fprintf(stderr, "': contact %d not found.\n", cnum);
@@ -1126,9 +1242,9 @@ static int d868uv_verify_config(radio_device_t *radio)
 
     // Count contacts.
     for (i=0; i<NCONTACTS; i++) {
-        contact_t *ct = GET_CONTACT(i);
+        contact_t *ct = get_contact(i);
 
-        if (VALID_CONTACT(ct))
+        if (ct)
             ncontacts++;
     }
 
