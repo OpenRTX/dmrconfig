@@ -64,6 +64,9 @@ static const unsigned char CMD_READ[]  = "Raaaan";
 static const unsigned char CMD_WRITE[] = "Waaaan...";
 static const unsigned char CMD_END[]   = "END";
 
+#if defined(__WIN32__) || defined(WIN32)
+    // No need for this function.
+#else
 //
 // Encode the speed in bits per second into bit value
 // accepted by cfsetspeed() function.
@@ -71,10 +74,6 @@ static const unsigned char CMD_END[]   = "END";
 //
 static int baud_encode(int bps)
 {
-#if defined(__WIN32__) || defined(WIN32) || B115200 == 115200
-    // Windows, BSD, Mac OS: any baud rate allowed.
-    return bps;
-#else
     // Linux: only a limited set of values permitted.
     switch (bps) {
 #ifdef B75
@@ -165,10 +164,9 @@ static int baud_encode(int bps)
     case 4000000: return B4000000;
 #endif
     }
-printf("Unknown baud\n");
     return -1;
-#endif
 }
+#endif /* WIN32 */
 
 //
 // Send data to device.
@@ -431,7 +429,6 @@ static char *find_path(int vid, int pid)
     // Free the enumerator object
     udev_enumerate_unref(enumerate);
     udev_unref(udev);
-    return result;
 
 #elif defined(__APPLE__)
     // Create a list of the devices in the 'IOSerialBSDClient' class.
@@ -506,12 +503,12 @@ static char *find_path(int vid, int pid)
 
     // Free the iterator object
     IOObjectRelease(devices);
-    return result;
 
 #else
     printf("Don't know how to get the list of CD devices on this system.\n");
-    return 0;
 #endif
+
+    return result;
 }
 
 //
@@ -620,6 +617,11 @@ const char *serial_identify()
     }
 
 again:
+#if defined(__WIN32__) || defined(WIN32)
+    //TODO: flush pending input and output buffers.
+#else
+    tcflush(fd, TCIOFLUSH);
+#endif
     send_recv(CMD_PRG, 7, ack, 3);
     if (memcmp(ack, CMD_QX, 3) != 0) {
         if (++retry >= 10) {
@@ -628,7 +630,6 @@ again:
             return 0;
         }
         usleep(500000);
-        tcflush(fd, TCIOFLUSH);
         goto again;
     }
 
@@ -643,7 +644,6 @@ again:
             return 0;
         }
         usleep(500000);
-        tcflush(fd, TCIOFLUSH);
         goto again;
     }
 
