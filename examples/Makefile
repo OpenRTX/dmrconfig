@@ -17,19 +17,28 @@ CONF  = md2017-7-23-2017.conf \
         rd5r-factory.conf \
         gd77-ver311-W5NOR-Oklahoma.conf \
         gd77-empty.conf \
-        gd77-factory.conf
+        gd77-factory.conf \
+        d868uv-rmham-2018-10-20.conf \
+        d868uv-empty.conf
 
-VPATH = ../../dmrconfig.wiki/files
+VPATH = ../../dmrconfig.wiki/files/uv380 \
+        ../../dmrconfig.wiki/files/md380 \
+        ../../dmrconfig.wiki/files/rd5r \
+        ../../dmrconfig.wiki/files/gd77 \
+        ../../dmrconfig.wiki/files/d868uv
 
 all:    $(CONF)
 
 clean:
 	rm -f $(CONF)
 
-.SUFFIXES: .conf .rdt .dat
+.SUFFIXES: .conf .rdt .dat .img
 
 .rdt.conf:
 	dmrconfig $< > $@
 
 .dat.conf:
+	dmrconfig $< > $@
+
+.img.conf:
 	dmrconfig $< > $@
