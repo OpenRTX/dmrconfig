@@ -35,6 +35,7 @@
 
 #if defined(__WIN32__) || defined(WIN32)
     #include <windows.h>
+    #include <setupapi.h>
     #include <malloc.h>
     static void *fd = INVALID_HANDLE_VALUE;
     static DCB saved_mode;
@@ -505,7 +506,67 @@ static char *find_path(int vid, int pid)
     IOObjectRelease(devices);
 
 #else
-    printf("Don't know how to get the list of CD devices on this system.\n");
+    // Prepare a pattern for device name matching.
+    char pattern[128];
+    int pattern_len;
+    sprintf(pattern, "\\\\?\\usb#vid_%04x&pid_%04x", vid, pid);
+    pattern_len = strlen(pattern);
+
+    // Get access to serial device information.
+    static GUID guid = { 0xa5dcbf10, 0x6530, 0x11d2, { 0x90, 0x1f, 0x00, 0xc0, 0x4f, 0xb9, 0x51, 0xed } };
+    HDEVINFO devinfo = SetupDiGetClassDevs(&guid, NULL, NULL,
+        DIGCF_PRESENT | DIGCF_INTERFACEDEVICE);
+    if (devinfo == INVALID_HANDLE_VALUE) {
+        printf("Cannot get devinfo!\n");
+        return 0;
+    }
+
+    // Loop through available devices with a given GUID.
+    int index;
+    SP_INTERFACE_DEVICE_DATA iface;
+    iface.cbSize = sizeof(iface);
+    for (index=0; SetupDiEnumDeviceInterfaces(devinfo, NULL, &guid, index, &iface); ++index) {
+
+        // Obtain a required size of device detail structure.
+        DWORD needed;
+        SetupDiGetDeviceInterfaceDetail(devinfo, &iface, NULL, 0, &needed, NULL);
+
+        // Allocate the device detail structure.
+        PSP_INTERFACE_DEVICE_DETAIL_DATA detail = (PSP_INTERFACE_DEVICE_DETAIL_DATA)alloca(needed);
+        detail->cbSize = sizeof(SP_INTERFACE_DEVICE_DETAIL_DATA);
+        SP_DEVINFO_DATA did = { sizeof(SP_DEVINFO_DATA) };
+
+        // Get device information.
+        if (!SetupDiGetDeviceInterfaceDetail(devinfo, &iface, detail, needed, NULL, &did)) {
+            //printf("Device %d: cannot get path!\n", index);
+            continue;
+        }
+        //printf("Device %d: path %s\n", index, detail->DevicePath);
+
+        // Check vid/pid.
+        if (strncmp(detail->DevicePath, pattern, pattern_len) != 0) {
+            //printf("Wrong vid/pid.\n");
+            continue;
+        }
+
+        // Figure out the COM port name.
+        HKEY key = SetupDiOpenDevRegKey(devinfo, &did, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_READ);
+        static char comname[128];
+        DWORD size = sizeof(comname), type = REG_SZ;
+        if (ERROR_SUCCESS != RegQueryValueEx(key, "PortName",
+            NULL, &type, (LPBYTE)comname, &size)) {
+            //printf("Cannot find 'portname' in registry!\n");
+            RegCloseKey(key);
+            continue;
+        }
+        RegCloseKey(key);
+        //printf("COM port: %s\n", comname);
+
+        // Required device found.
+        result = comname;
+        break;
+    }
+    SetupDiDestroyDeviceInfoList(devinfo);
 #endif
 
     return result;
@@ -585,6 +646,10 @@ void serial_close()
 {
 #if defined(__WIN32__) || defined(WIN32)
     if (fd != INVALID_HANDLE_VALUE) {
+        unsigned char ack[1];
+
+        send_recv(CMD_END, 3, ack, 1);
+
         SetCommState(fd, &saved_mode);
         CloseHandle(fd);
         fd = INVALID_HANDLE_VALUE;
