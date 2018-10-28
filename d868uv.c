@@ -49,8 +49,10 @@
 //
 #define OFFSET_BANK1        0x000040    // Channels
 #define OFFSET_ZONELISTS    0x03e8c0    // Channel lists of zones
+#define OFFSET_SCANLISTS    0x05dcc0    // Scanlists
 #define OFFSET_CHAN_MAP     0x070a40    // Bitmap of valid channels
 #define OFFSET_ZONE_MAP     0x070940    // Bitmap of valid zones
+#define OFFSET_SCANL_MAP    0x070980    // Bitmap of valid scanlists
 #define OFFSET_SETTINGS     0x071600    // General settings
 #define OFFSET_ZONENAMES    0x071dc0    // Names of zones
 #define OFFSET_RADIOID      0x073d00    // Table of radio IDs
@@ -62,10 +64,12 @@
 #define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
 #define GET_ZONEMAP()       (&radio_mem[OFFSET_ZONE_MAP])
 #define GET_CONTACT_MAP()   (&radio_mem[OFFSET_CONTACT_MAP])
+#define GET_SCANL_MAP()     (&radio_mem[OFFSET_SCANL_MAP])
 #define GET_ZONENAME(i)     (&radio_mem[OFFSET_ZONENAMES + (i)*32])
 #define GET_ZONELIST(i)     ((uint16_t*) &radio_mem[OFFSET_ZONELISTS + (i)*512])
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*100])
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*320])
+#define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANLISTS + (i)*192])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
 #define VALID_GROUPLIST(gl) ((gl)->member[0] != 0xffffffff && VALID_TEXT((gl)->name))
@@ -226,7 +230,6 @@ typedef struct {
 
 //
 // General settings: 0x640 bytes at 0x02500000.
-// TODO: verify the general settings with official CPS
 //
 typedef struct {
 
@@ -334,6 +337,52 @@ typedef struct {
 
 } grouplist_t;
 
+//
+// Scan list data: 192 bytes.
+//
+typedef struct {
+
+    // Bytes 0-1
+    uint8_t     _unused0;               // 0
+    uint8_t     prio_ch_select;         // Priority Channel Select
+#define PRIO_CHAN_OFF   0               // Off
+#define PRIO_CHAN_SEL1  1               // Priority Channel Select1
+#define PRIO_CHAN_SEL2  2               // Priority Channel Select2
+#define PRIO_CHAN_SEL12 3               // Priority Channel Select1 + Priority Channel Select2
+
+    // Bytes 2-5
+    uint16_t    priority_ch1;           // Priority Channel 1: 0=Current Channel, 0xffff=Off
+    uint16_t    priority_ch2;           // Priority Channel 2: 0=Current Channel, 0xffff=Off
+
+    // Bytes 6-13
+    uint16_t    look_back_a;            // Look Back Time A, sec*10
+    uint16_t    look_back_b;            // Look Back Time B, sec*10
+    uint16_t    dropout_delay;          // Dropout Delay Time, sec*10
+    uint16_t    dwell;                  // Dwell Time, sec*10
+
+    // Byte 14
+    uint8_t     revert_channel;         // Revert Channel
+#define REVCH_SELECTED      0           // Selected
+#define REVCH_SEL_TB        1           // Selected + TalkBack
+#define REVCH_PRIO_CH1      2           // Priority Channel Select1
+#define REVCH_PRIO_CH2      3           // Priority Channel Select2
+#define REVCH_LAST_CALLED   4           // Last Called
+#define REVCH_LAST_USED     5           // Last Used
+#define REVCH_PRIO_CH1_TB   6           // Priority Channel Select1 + TalkBack
+#define REVCH_PRIO_CH2_TB   7           // Priority Channel Select2 + TalkBack
+
+    // Bytes 15-31
+    uint8_t     name[16];               // Scan List Name (ASCII)
+    uint8_t     _unused31;              // 0
+
+    // Bytes 32-131
+    uint16_t member[50];                // Channels, 0xffff=empty
+
+    // Bytes 132-191
+    uint8_t _unused132[60];             // 0
+
+} scanlist_t;
+
 static const char *POWER_NAME[] = { "Low", "Mid", "High", "Turbo" };
 static const char *DIGITAL_ADMIT_NAME[] = { "-", "Free", "NColor", "Color" };
 static const char *ANALOG_ADMIT_NAME[] = { "-", "Tone", "Free", "Free" };
@@ -360,23 +409,7 @@ static const int CTCSS_TONES[NCTCSS] = {
 //
 static void d868uv_print_version(radio_device_t *radio, FILE *out)
 {
-    //TODO
-#if 0
-    unsigned char *timestamp = GET_TIMESTAMP();
-    static const char charmap[16] = "0123456789:;<=>?";
-
-    if (*timestamp != 0xff) {
-        fprintf(out, "Last Programmed Date: %d%d%d%d-%d%d-%d%d",
-            timestamp[0] >> 4, timestamp[0] & 15, timestamp[1] >> 4, timestamp[1] & 15,
-            timestamp[2] >> 4, timestamp[2] & 15, timestamp[3] >> 4, timestamp[3] & 15);
-        fprintf(out, " %d%d:%d%d:%d%d\n",
-            timestamp[4] >> 4, timestamp[4] & 15, timestamp[5] >> 4, timestamp[5] & 15,
-            timestamp[6] >> 4, timestamp[6] & 15);
-        fprintf(out, "CPS Software Version: V%c%c.%c%c\n",
-            charmap[timestamp[7] & 15], charmap[timestamp[8] & 15],
-            charmap[timestamp[9] & 15], charmap[timestamp[10] & 15]);
-    }
-#endif
+    // Empty.
 }
 
 //
@@ -663,11 +696,9 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
     else
         fprintf(out, "%-4d ", ch->scan_list_index + 1);
 
-    //TODO
-//    if (ch->tot == 0)
-        fprintf(out, "-   ");
-//    else
-//        fprintf(out, "%-3d ", ch->tot * 15);
+    // Transmit timeout timer on D868UV is configured globally,
+    // not per channel. So we don't print it here.
+    fprintf(out, "-   ");
 
     fprintf(out, "%c  ", "-+"[ch->rx_only]);
 }
@@ -847,6 +878,21 @@ static int have_zones()
 }
 
 //
+// Return true when any scanlists are present.
+//
+static int have_scanlists()
+{
+    uint8_t *slmap = GET_SCANL_MAP();
+    int i;
+
+    for (i=0; i<(NSCANL+7)/8; i++) {
+        if (slmap[i] != 0)
+            return 1;
+    }
+    return 0;
+}
+
+//
 // Find a zone with given index.
 // Return false when zone is not valid.
 // Set zname and zlist to a zone name and member list.
@@ -863,6 +909,19 @@ static int get_zone(int i, uint8_t **zname, uint16_t **zlist)
     } else {
         return 0;
     }
+}
+
+//
+// Get scanlist by index.
+//
+static scanlist_t *get_scanlist(int i)
+{
+    uint8_t *slmap = GET_SCANL_MAP();
+
+    if ((slmap[i / 8] >> (i & 7)) & 1)
+        return GET_SCANLIST(i);
+
+    return 0;
 }
 
 static void print_chanlist16(FILE *out, uint16_t *unsorted, int nchan)
@@ -1005,7 +1064,68 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
     //
     // Scan lists.
     //
-    //TODO
+    if (have_scanlists()) {
+        fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of scan lists.\n");
+            fprintf(out, "# 1) Scan list number: 1-%d\n", NSCANL);
+            fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
+            fprintf(out, "# 3) Priority channel 1: -, Curr or index\n");
+            fprintf(out, "# 4) Priority channel 2: -, Curr or index\n");
+            fprintf(out, "# 5) Designated transmit channel: Sel or Last\n");
+            fprintf(out, "# 6) List of channels: numbers and ranges (N-M) separated by comma\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "Scanlist Name             PCh1 PCh2 TxCh Channels\n");
+        for (i=0; i<NSCANL; i++) {
+            scanlist_t *sl = get_scanlist(i);
+
+            if (!sl) {
+                // Scan list is disabled.
+                continue;
+            }
+
+            fprintf(out, "%5d    ", i + 1);
+            print_ascii(out, sl->name, 16, 1);
+
+            if ((sl->prio_ch_select == PRIO_CHAN_SEL1 ||
+                 sl->prio_ch_select == PRIO_CHAN_SEL12) &&
+                sl->priority_ch1 != 0xffff) {
+                if (sl->priority_ch1 == 0) {
+                    fprintf(out, " Curr ");
+                } else {
+                    fprintf(out, " %-4d ", sl->priority_ch1);
+                }
+            } else {
+                fprintf(out, " -    ");
+            }
+
+            if ((sl->prio_ch_select == PRIO_CHAN_SEL2 ||
+                 sl->prio_ch_select == PRIO_CHAN_SEL12) &&
+                sl->priority_ch2 != 0xffff) {
+                if (sl->priority_ch2 == 0) {
+                    fprintf(out, "Curr ");
+                } else {
+                    fprintf(out, "%-4d ", sl->priority_ch2);
+                }
+            } else {
+                fprintf(out, "-    ");
+            }
+
+            if (sl->revert_channel == REVCH_LAST_CALLED) {
+                fprintf(out, "Last ");
+            } else {
+                fprintf(out, "Sel  ");
+            }
+
+            if (sl->member[0] != 0xffff) {
+                print_chanlist16(out, sl->member, 50);
+            } else {
+                fprintf(out, "-");
+            }
+            fprintf(out, "\n");
+        }
+    }
 
     //
     // Contacts.
@@ -1224,7 +1344,7 @@ static int d868uv_verify_config(radio_device_t *radio)
 
         nchannels++;
         if (ch->scan_list_index != 0) {
-            scanlist_t *sl = GET_SCANLIST(ch->scan_list_index - 1);
+            scanlist_t *sl = get_scanlist(ch->scan_list_index - 1);
 
             if (!VALID_SCANLIST(sl)) {
                 fprintf(stderr, "Channel %d '", i+1);
@@ -1283,9 +1403,9 @@ static int d868uv_verify_config(radio_device_t *radio)
 
     // Scanlists: check references to channels.
     for (i=0; i<NSCANL; i++) {
-        scanlist_t *sl = GET_SCANLIST(i);
+        scanlist_t *sl = get_scanlist(i);
 
-        if (!VALID_SCANLIST(sl))
+        if (!sl)
             continue;
 
         nscanlists++;
@@ -1313,15 +1433,15 @@ static int d868uv_verify_config(radio_device_t *radio)
             continue;
 
         ngrouplists++;
-        for (k=0; k<32; k++) {
+        for (k=0; k<64; k++) {
             int cnum = gl->member[k];
 
-            if (cnum != 0) {
-                contact_t *ct = get_contact(cnum - 1);
+            if (cnum != 0xffffffff) {
+                contact_t *ct = get_contact(cnum);
 
                 if (!ct) {
                     fprintf(stderr, "Grouplist %d '", i+1);
-                    print_ascii(stderr, gl->name, 16, 0);
+                    print_ascii(stderr, gl->name, 35, 0);
                     fprintf(stderr, "': contact %d not found.\n", cnum);
                     nerrors++;
                 }
