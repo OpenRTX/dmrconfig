@@ -50,6 +50,7 @@
 #define OFFSET_BANK1        0x000040    // Channels
 #define OFFSET_ZONELISTS    0x03e8c0    // Channel lists of zones
 #define OFFSET_SCANLISTS    0x05dcc0    // Scanlists
+#define OFFSET_MESSAGES     0x069f40    // Messages
 #define OFFSET_CHAN_MAP     0x070a40    // Bitmap of valid channels
 #define OFFSET_ZONE_MAP     0x070940    // Bitmap of valid zones
 #define OFFSET_SCANL_MAP    0x070980    // Bitmap of valid scanlists
@@ -70,6 +71,7 @@
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*100])
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*320])
 #define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANLISTS + (i)*192])
+#define GET_MESSAGE(i)      ((uint8_t*) &radio_mem[OFFSET_MESSAGES + (i)*256])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
 #define VALID_GROUPLIST(gl) ((gl)->member[0] != 0xffffffff && VALID_TEXT((gl)->name))
@@ -1004,6 +1006,19 @@ static int have_grouplists()
     return 0;
 }
 
+static int have_messages()
+{
+    int i;
+
+    for (i=0; i<NMESSAGES; i++) {
+        uint8_t *msg = GET_MESSAGE(i);
+
+        if (VALID_TEXT(msg))
+            return 1;
+    }
+    return 0;
+}
+
 //
 // Print full information about the device configuration.
 //
@@ -1076,7 +1091,7 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
             fprintf(out, "# 6) List of channels: numbers and ranges (N-M) separated by comma\n");
             fprintf(out, "#\n");
         }
-        fprintf(out, "Scanlist Name             PCh1 PCh2 TxCh Channels\n");
+        fprintf(out, "Scanlist Name            PCh1 PCh2 TxCh Channels\n");
         for (i=0; i<NSCANL; i++) {
             scanlist_t *sl = get_scanlist(i);
 
@@ -1085,7 +1100,7 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
                 continue;
             }
 
-            fprintf(out, "%5d    ", i + 1);
+            fprintf(out, "%5d   ", i + 1);
             print_ascii(out, sl->name, 16, 1);
 
             if ((sl->prio_ch_select == PRIO_CHAN_SEL1 ||
@@ -1189,7 +1204,28 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
     //
     // Text messages.
     //
-    //TODO
+    if (have_messages()) {
+        fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of text messages.\n");
+            fprintf(out, "# 1) Message number: 1-%d\n", NMESSAGES);
+            fprintf(out, "# 2) Text: up to 200 characters\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "Message Text\n");
+        for (i=0; i<NMESSAGES; i++) {
+            uint8_t *msg = GET_MESSAGE(i);
+
+            if (!VALID_TEXT(msg)) {
+                // Message is disabled
+                continue;
+            }
+
+            fprintf(out, "%5d   ", i+1);
+            print_ascii(out, msg, 200, 0);
+            fprintf(out, "\n");
+        }
+    }
 
     // General settings.
     print_id(out, verbose);
