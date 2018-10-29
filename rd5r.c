@@ -1,5 +1,5 @@
 /*
- * Interface to Baofeng RD-5R.
+ * Interface to Baofeng RD-5R, TD-5R.
  *
  * Copyright (C) 2018 Serge Vakulenko, KK6ABQ
  *
@@ -369,7 +369,7 @@ static void download(radio_device_t *radio)
 }
 
 //
-// Baofeng RD-5R: read memory image.
+// Read memory image.
 //
 static void rd5r_download(radio_device_t *radio)
 {
