@@ -1,4 +1,3 @@
-
 DMRconfig is a utility for programming digital radios via USB programming cable.
 Supported radios:
 
@@ -13,6 +12,8 @@ Supported radios:
  * Zastone D900
  * Zastone DP880
  * Radtel RT-27D
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/dmrconfig.svg)](https://repology.org/metapackage/dmrconfig/versions)
 
 ## Usage
 
