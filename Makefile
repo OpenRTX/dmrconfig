@@ -7,7 +7,7 @@ CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -g
 
 OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o serial.o d868uv.o
-LIBS            = -lusb-1.0 -ludev
+LIBS            = -lusb-1.0
 
 #
 # Linux
@@ -17,6 +17,7 @@ LIBS            = -lusb-1.0 -ludev
 #
 ifeq ($(UNAME),Linux)
     OBJS        += hid-libusb.o
+    LIBS        += -ludev
     LIBUSB      = /usr/lib/x86_64-linux-gnu/libusb-1.0.a
     ifeq ($(wildcard $(LIBUSB)),$(LIBUSB))
         # Link libusb statically, when possible
