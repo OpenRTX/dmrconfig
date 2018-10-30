@@ -415,12 +415,99 @@ static void d868uv_print_version(radio_device_t *radio, FILE *out)
 }
 
 //
+// Return true when the specified region has to be skipped.
+// Skip unused channels, contacts, zones and scanlists.
+//
+static int skip_region(unsigned addr, unsigned file_offset, uint8_t *mem, unsigned nbytes)
+{
+    int index;
+
+    // Channels.
+    if (addr >= 0x00800000 && addr < 0x01000000) {
+        index = (file_offset - OFFSET_BANK1) / 64;
+        if (index < NCHAN) {
+            uint8_t *bitmap = &radio_mem[OFFSET_CHAN_MAP];
+
+            if ((bitmap[index / 8] >> (index & 7)) & 1) {
+                // Channel is valid, don't skip.
+                return 0;
+            }
+
+            // Invalid channel: skip it, erase data.
+            if (mem) {
+                memset(mem, 0xff, nbytes);
+            }
+            return 1;
+        }
+    }
+
+    // Contacts.
+    if (addr >= 0x02680000 && addr < 0x02900000) {
+        index = (file_offset - OFFSET_CONTACTS) / 100;
+        if (index < NCONTACTS) {
+            uint8_t *cmap = GET_CONTACT_MAP();
+
+            if ((cmap[index / 8] >> (index & 7)) & 1) {
+                // Invalid contact: skip it, erase data.
+                if (mem) {
+                    memset(mem, 0xff, nbytes);
+                }
+                return 1;
+            }
+
+            // Contact is valid, don't skip.
+            return 0;
+        }
+    }
+
+    // Zones.
+    if (addr >= 0x01000000 && addr < 0x01080000) {
+        index = (file_offset - OFFSET_ZONELISTS) / 512;
+        if (index < NZONES) {
+            uint8_t *zmap = GET_ZONEMAP();
+
+            if ((zmap[index / 8] >> (index & 7)) & 1) {
+                // Zone is valid, don't skip.
+                return 0;
+            }
+
+            // Invalid zone: skip it, erase data.
+            if (mem) {
+                memset(mem, 0xff, nbytes);
+            }
+            return 1;
+        }
+    }
+
+    // Scanlists.
+    if (addr >= 0x01080000 && addr < 0x01640000) {
+        index = (file_offset - OFFSET_SCANLISTS) / 192;
+        if (index < NSCANL) {
+            uint8_t *slmap = GET_SCANL_MAP();
+
+            if ((slmap[index / 8] >> (index & 7)) & 1) {
+                // Scanlist is valid, don't skip.
+                return 0;
+            }
+
+            // Invalid scanlist: skip it, erase data.
+            if (mem) {
+                memset(mem, 0xff, nbytes);
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
+
+//
 // Read memory image from the device.
 //
 static void d868uv_download(radio_device_t *radio)
 {
     fragment_t *f;
     unsigned file_offset = 0;
+    unsigned bytes_transferred = 0;
     unsigned last_printed = 0;
 
     //printf("Address     Offset\n");
@@ -431,15 +518,19 @@ static void d868uv_download(radio_device_t *radio)
         //printf("%08x    %06x\n", addr, file_offset);
         while (nbytes > 0) {
             unsigned n = (nbytes > 64) ? 64 : nbytes;
-            serial_read_region(addr, &radio_mem[file_offset], n);
+
+            if (! skip_region(addr, file_offset, &radio_mem[file_offset], n)) {
+                serial_read_region(addr, &radio_mem[file_offset], n);
+                bytes_transferred += n;
+            }
             file_offset += n;
             addr += n;
             nbytes -= n;
 
-            if (file_offset / (32*1024) != last_printed) {
+            if (bytes_transferred / (32*1024) != last_printed) {
                 fprintf(stderr, "#");
                 fflush(stderr);
-                last_printed = file_offset / (32*1024);
+                last_printed = bytes_transferred / (32*1024);
             }
         }
     }
@@ -457,6 +548,7 @@ static void d868uv_upload(radio_device_t *radio, int cont_flag)
 {
     fragment_t *f;
     unsigned file_offset = 0;
+    unsigned bytes_transferred = 0;
     unsigned last_printed = 0;
 
     for (f=region_map; f->length; f++) {
@@ -465,15 +557,19 @@ static void d868uv_upload(radio_device_t *radio, int cont_flag)
 
         while (nbytes > 0) {
             unsigned n = (nbytes > 64) ? 64 : nbytes;
-            serial_write_region(addr, &radio_mem[file_offset], n);
+
+            if (! skip_region(addr, file_offset, 0, 0)) {
+                serial_write_region(addr, &radio_mem[file_offset], n);
+                bytes_transferred += n;
+            }
             file_offset += n;
             addr += n;
             nbytes -= n;
 
-            if (file_offset / (32*1024) != last_printed) {
+            if (bytes_transferred / (32*1024) != last_printed) {
                 fprintf(stderr, "#");
                 fflush(stderr);
-                last_printed = file_offset / (32*1024);
+                last_printed = bytes_transferred / (32*1024);
             }
         }
     }

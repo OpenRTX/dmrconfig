@@ -1,8 +1,6 @@
 /*
  * Address map of D868UV memory space.
  */
-
-// Read only.
 { 0x02fa0010, 0x40 },       // 000000 Radio name and timestamp
 
 // Load bitmaps first.
