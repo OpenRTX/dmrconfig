@@ -456,12 +456,10 @@ static void d868uv_download(radio_device_t *radio)
 static void d868uv_upload(radio_device_t *radio, int cont_flag)
 {
     fragment_t *f;
-    unsigned file_offset;
+    unsigned file_offset = 0;
     unsigned last_printed = 0;
 
-    // Skip first region.
-    file_offset = region_map[0].length;
-    for (f=region_map+1; f->length; f++) {
+    for (f=region_map; f->length; f++) {
         unsigned addr = f->address;
         unsigned nbytes = f->length;
 
