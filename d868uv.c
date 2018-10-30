@@ -47,17 +47,17 @@
 //
 // Offsets in the image file.
 //
-#define OFFSET_BANK1        0x000040    // Channels
-#define OFFSET_ZONELISTS    0x03e8c0    // Channel lists of zones
-#define OFFSET_SCANLISTS    0x05dcc0    // Scanlists
-#define OFFSET_MESSAGES     0x069f40    // Messages
-#define OFFSET_ZONE_MAP     0x070940    // Bitmap of valid zones
-#define OFFSET_SCANL_MAP    0x070980    // Bitmap of valid scanlists
-#define OFFSET_CHAN_MAP     0x070a40    // Bitmap of valid channels
-#define OFFSET_SETTINGS     0x071600    // General settings
-#define OFFSET_ZONENAMES    0x071dc0    // Names of zones
-#define OFFSET_RADIOID      0x073d00    // Table of radio IDs
-#define OFFSET_CONTACT_MAP  0x080140    // Bitmap of invalid contacts
+#define OFFSET_ZONE_MAP     0x000040    // Bitmap of valid zones
+#define OFFSET_SCANL_MAP    0x000080    // Bitmap of valid scanlists
+#define OFFSET_CHAN_MAP     0x0000c0    // Bitmap of valid channels
+#define OFFSET_CONTACT_MAP  0x000300    // Bitmap of invalid contacts
+#define OFFSET_BANK1        0x000800    // Channels
+#define OFFSET_ZONELISTS    0x03f080    // Channel lists of zones
+#define OFFSET_SCANLISTS    0x05e480    // Scanlists
+#define OFFSET_MESSAGES     0x06a700    // Messages
+#define OFFSET_SETTINGS     0x071b00    // General settings
+#define OFFSET_ZONENAMES    0x0722c0    // Names of zones
+#define OFFSET_RADIOID      0x074200    // Table of radio IDs
 #define OFFSET_CONTACTS     0x080640    // Contacts
 #define OFFSET_GLISTS       0x174b00    // RX group lists
 
@@ -423,14 +423,14 @@ static void d868uv_download(radio_device_t *radio)
     unsigned file_offset = 0;
     unsigned last_printed = 0;
 
-//printf("Address     Offset\n");
+    //printf("Address     Offset\n");
     for (f=region_map; f->length; f++) {
         unsigned addr = f->address;
         unsigned nbytes = f->length;
-//printf("%08x    %06x\n", addr, file_offset);
 
+        //printf("%08x    %06x\n", addr, file_offset);
         while (nbytes > 0) {
-            unsigned n = (nbytes > 32*1024) ? 32*1024 : nbytes;
+            unsigned n = (nbytes > 64) ? 64 : nbytes;
             serial_read_region(addr, &radio_mem[file_offset], n);
             file_offset += n;
             addr += n;
@@ -466,7 +466,7 @@ static void d868uv_upload(radio_device_t *radio, int cont_flag)
         unsigned nbytes = f->length;
 
         while (nbytes > 0) {
-            unsigned n = (nbytes > 32*1024) ? 32*1024 : nbytes;
+            unsigned n = (nbytes > 64) ? 64 : nbytes;
             serial_write_region(addr, &radio_mem[file_offset], n);
             file_offset += n;
             addr += n;

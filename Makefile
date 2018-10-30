@@ -49,7 +49,7 @@ dmrconfig.linux: dmrconfig
 		strip $@
 
 ###
-d868uv.o: d868uv.c radio.h util.h
+d868uv.o: d868uv.c radio.h util.h d868uv-map.h
 dfu-libusb.o: dfu-libusb.c util.h
 dfu-windows.o: dfu-windows.c util.h
 gd77.o: gd77.c radio.h util.h
