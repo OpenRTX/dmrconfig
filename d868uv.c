@@ -1415,6 +1415,654 @@ static void d868uv_parse_parameter(radio_device_t *radio, char *param, char *val
 }
 
 //
+// Parse one line of Digital channel table.
+// Start_flag is 1 for the first table row.
+// Return 0 on failure.
+//
+static int parse_digital_channel(radio_device_t *radio, int first_row, char *line)
+{
+    //TODO
+#if 0
+    char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
+    char power_str[256], scanlist_str[256];
+    char tot_str[256], rxonly_str[256], admit_str[256], colorcode_str[256];
+    char slot_str[256], grouplist_str[256], contact_str[256];
+    int num, power, scanlist, tot, rxonly, admit;
+    int colorcode, timeslot, grouplist, contact;
+    double rx_mhz, tx_mhz;
+
+    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
+        num_str, name_str, rxfreq_str, offset_str,
+        power_str, scanlist_str,
+        tot_str, rxonly_str, admit_str, colorcode_str,
+        slot_str, grouplist_str, contact_str) != 13)
+        return 0;
+
+    num = atoi(num_str);
+    if (num < 1 || num > NCHAN) {
+        fprintf(stderr, "Bad channel number.\n");
+        return 0;
+    }
+
+    if (sscanf(rxfreq_str, "%lf", &rx_mhz) != 1 ||
+        !is_valid_frequency(rx_mhz)) {
+        fprintf(stderr, "Bad receive frequency.\n");
+        return 0;
+    }
+    if (sscanf(offset_str, "%lf", &tx_mhz) != 1) {
+badtx:  fprintf(stderr, "Bad transmit frequency.\n");
+        return 0;
+    }
+    if (offset_str[0] == '-' || offset_str[0] == '+')
+        tx_mhz += rx_mhz;
+    if (! is_valid_frequency(tx_mhz))
+        goto badtx;
+
+    if (strcasecmp("High", power_str) == 0) {
+        power = POWER_HIGH;
+    } else if (strcasecmp("Low", power_str) == 0) {
+        power = POWER_LOW;
+    } else {
+        fprintf(stderr, "Bad power level.\n");
+        return 0;
+    }
+
+    if (*scanlist_str == '-') {
+        scanlist = 0;
+    } else {
+        scanlist = atoi(scanlist_str);
+        if (scanlist == 0 || scanlist > NSCANL) {
+            fprintf(stderr, "Bad scanlist.\n");
+            return 0;
+        }
+    }
+
+    tot = atoi(tot_str);
+    if (tot > 555 || tot % 15 != 0) {
+        fprintf(stderr, "Bad timeout timer.\n");
+        return 0;
+    }
+    tot /= 15;
+
+    if (*rxonly_str == '-') {
+        rxonly = 0;
+    } else if (*rxonly_str == '+') {
+        rxonly = 1;
+    } else {
+        fprintf(stderr, "Bad receive only flag.\n");
+        return 0;
+    }
+
+    if (*admit_str == '-' || strcasecmp("Always", admit_str) == 0) {
+        admit = ADMIT_ALWAYS;
+    } else if (strcasecmp("Free", admit_str) == 0) {
+        admit = ADMIT_CH_FREE;
+    } else if (strcasecmp("Color", admit_str) == 0) {
+        admit = ADMIT_COLOR;
+    } else {
+        fprintf(stderr, "Bad admit criteria.\n");
+        return 0;
+    }
+
+    colorcode = atoi(colorcode_str);
+    if (colorcode < 0 || colorcode > 15) {
+        fprintf(stderr, "Bad color code.\n");
+        return 0;
+    }
+
+    timeslot = atoi(slot_str);
+    if (timeslot < 1 || timeslot > 2) {
+        fprintf(stderr, "Bad timeslot.\n");
+        return 0;
+    }
+
+    if (*grouplist_str == '-') {
+        grouplist = 0;
+    } else {
+        grouplist = atoi(grouplist_str);
+        if (grouplist == 0 || grouplist > NGLISTS) {
+            fprintf(stderr, "Bad receive grouplist.\n");
+            return 0;
+        }
+    }
+
+    if (*contact_str == '-') {
+        contact = 0;
+    } else {
+        contact = atoi(contact_str);
+        if (contact == 0 || contact > NCONTACTS) {
+            fprintf(stderr, "Bad transmit contact.\n");
+            return 0;
+        }
+    }
+
+    if (first_row && radio->channel_count == 0) {
+        // On first entry, erase all channels, zones and scanlists.
+        erase_channels();
+        erase_zones();
+        erase_scanlists();
+    }
+
+    setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
+        power, scanlist, SQ_NORMAL, tot, rxonly, admit,
+        colorcode, timeslot, grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
+
+    radio->channel_count++;
+#endif
+    return 1;
+}
+
+//
+// Parse one line of Analog channel table.
+// Start_flag is 1 for the first table row.
+// Return 0 on failure.
+//
+static int parse_analog_channel(radio_device_t *radio, int first_row, char *line)
+{
+    //TODO
+#if 0
+    char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
+    char power_str[256], scanlist_str[256], squelch_str[256];
+    char tot_str[256], rxonly_str[256], admit_str[256];
+    char rxtone_str[256], txtone_str[256], width_str[256];
+    int num, power, scanlist, squelch, tot, rxonly, admit;
+    int rxtone, txtone, width;
+    double rx_mhz, tx_mhz;
+
+    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
+        num_str, name_str, rxfreq_str, offset_str,
+        power_str, scanlist_str,
+        tot_str, rxonly_str, admit_str, squelch_str,
+        rxtone_str, txtone_str, width_str) != 13)
+        return 0;
+
+    num = atoi(num_str);
+    if (num < 1 || num > NCHAN) {
+        fprintf(stderr, "Bad channel number.\n");
+        return 0;
+    }
+
+    if (sscanf(rxfreq_str, "%lf", &rx_mhz) != 1 ||
+        !is_valid_frequency(rx_mhz)) {
+        fprintf(stderr, "Bad receive frequency.\n");
+        return 0;
+    }
+    if (sscanf(offset_str, "%lf", &tx_mhz) != 1) {
+badtx:  fprintf(stderr, "Bad transmit frequency.\n");
+        return 0;
+    }
+    if (offset_str[0] == '-' || offset_str[0] == '+')
+        tx_mhz += rx_mhz;
+    if (! is_valid_frequency(tx_mhz))
+        goto badtx;
+
+    if (strcasecmp("High", power_str) == 0) {
+        power = POWER_HIGH;
+    } else if (strcasecmp("Low", power_str) == 0) {
+        power = POWER_LOW;
+    } else {
+        fprintf(stderr, "Bad power level.\n");
+        return 0;
+    }
+
+    if (*scanlist_str == '-') {
+        scanlist = 0;
+    } else {
+        scanlist = atoi(scanlist_str);
+        if (scanlist == 0 || scanlist > NSCANL) {
+            fprintf(stderr, "Bad scanlist.\n");
+            return 0;
+        }
+    }
+
+    if (strcasecmp ("Normal", squelch_str) == 0) {
+        squelch = SQ_NORMAL;
+    } else if (strcasecmp ("Tight", squelch_str) == 0) {
+        squelch = SQ_TIGHT;
+    } else {
+        fprintf (stderr, "Bad squelch level.\n");
+        return 0;
+    }
+
+    tot = atoi(tot_str);
+    if (tot > 555 || tot % 15 != 0) {
+        fprintf(stderr, "Bad timeout timer.\n");
+        return 0;
+    }
+    tot /= 15;
+
+    if (*rxonly_str == '-') {
+        rxonly = 0;
+    } else if (*rxonly_str == '+') {
+        rxonly = 1;
+    } else {
+        fprintf(stderr, "Bad receive only flag.\n");
+        return 0;
+    }
+
+    if (*admit_str == '-' || strcasecmp("Always", admit_str) == 0) {
+        admit = ADMIT_ALWAYS;
+    } else if (strcasecmp("Free", admit_str) == 0) {
+        admit = ADMIT_CH_FREE;
+    } else if (strcasecmp("Tone", admit_str) == 0) {
+        admit = ADMIT_TONE;
+    } else {
+        fprintf(stderr, "Bad admit criteria.\n");
+        return 0;
+    }
+
+    rxtone = encode_tone(rxtone_str);
+    if (rxtone < 0) {
+        fprintf(stderr, "Bad receive tone.\n");
+        return 0;
+    }
+    txtone = encode_tone(txtone_str);
+    if (txtone < 0) {
+        fprintf(stderr, "Bad transmit tone.\n");
+        return 0;
+    }
+
+    if (strcasecmp ("12.5", width_str) == 0) {
+        width = BW_12_5_KHZ;
+    } else if (strcasecmp ("20", width_str) == 0) {
+        width = BW_20_KHZ;
+    } else if (strcasecmp ("25", width_str) == 0) {
+        width = BW_25_KHZ;
+    } else {
+        fprintf (stderr, "Bad width.\n");
+        return 0;
+    }
+
+    if (first_row && radio->channel_count == 0) {
+        // On first entry, erase all channels, zones and scanlists.
+        erase_channels();
+    }
+
+    setup_channel(num-1, MODE_ANALOG, name_str, rx_mhz, tx_mhz,
+        power, scanlist, squelch, tot, rxonly, admit,
+        1, 1, 0, 0, rxtone, txtone, width);
+
+    radio->channel_count++;
+#endif
+    return 1;
+}
+
+//
+// Parse one line of Zones table.
+// Return 0 on failure.
+//
+static int parse_zones(int first_row, char *line)
+{
+    //TODO
+#if 0
+    char num_str[256], name_str[256], chan_str[256];
+    int znum;
+
+    if (sscanf(line, "%s %s %s", num_str, name_str, chan_str) != 3)
+        return 0;
+
+    znum = strtoul(num_str, 0, 10);
+    if (znum < 1 || znum > NZONES) {
+        fprintf(stderr, "Bad zone number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Zones table.
+        erase_zones();
+    }
+
+    setup_zone(znum-1, name_str);
+
+    if (*chan_str != '-') {
+        char *str   = chan_str;
+        int   nchan = 0;
+        int   range = 0;
+        int   last  = 0;
+
+        // Parse channel list.
+        for (;;) {
+            char *eptr;
+            int cnum = strtoul(str, &eptr, 10);
+
+            if (eptr == str) {
+                fprintf(stderr, "Zone %d: wrong channel list '%s'.\n", znum, str);
+                return 0;
+            }
+            if (cnum < 1 || cnum > NCHAN) {
+                fprintf(stderr, "Zone %d: wrong channel number %d.\n", znum, cnum);
+                return 0;
+            }
+
+            if (range) {
+                // Add range.
+                int c;
+                for (c=last+1; c<=cnum; c++) {
+                    if (!zone_append(znum-1, c)) {
+                        fprintf(stderr, "Zone %d: too many channels.\n", znum);
+                        return 0;
+                    }
+                    nchan++;
+                }
+            } else {
+                // Add single channel.
+                if (!zone_append(znum-1, cnum)) {
+                    fprintf(stderr, "Zone %d: too many channels.\n", znum);
+                    return 0;
+                }
+                nchan++;
+            }
+
+            if (*eptr == 0)
+                break;
+
+            if (*eptr != ',' && *eptr != '-') {
+                fprintf(stderr, "Zone %d: wrong channel list '%s'.\n", znum, eptr);
+                return 0;
+            }
+            range = (*eptr == '-');
+            last = cnum;
+            str = eptr + 1;
+        }
+    }
+#endif
+    return 1;
+}
+
+//
+// Parse one line of Scanlist table.
+// Return 0 on failure.
+//
+static int parse_scanlist(int first_row, char *line)
+{
+    //TODO
+#if 0
+    char num_str[256], name_str[256], prio1_str[256], prio2_str[256];
+    char tx_str[256], chan_str[256];
+    int snum, prio1, prio2, txchan;
+
+    if (sscanf(line, "%s %s %s %s %s %s",
+        num_str, name_str, prio1_str, prio2_str, tx_str, chan_str) != 6)
+        return 0;
+
+    snum = atoi(num_str);
+    if (snum < 1 || snum > NSCANL) {
+        fprintf(stderr, "Bad scan list number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Scanlists table.
+        erase_scanlists();
+    }
+
+    if (*prio1_str == '-') {
+        prio1 = 0xffff;
+    } else if (strcasecmp("Sel", prio1_str) == 0) {
+        prio1 = 0;
+    } else {
+        prio1 = atoi(prio1_str);
+        if (prio1 < 1 || prio1 > NCHAN) {
+            fprintf(stderr, "Bad priority channel 1.\n");
+            return 0;
+        }
+    }
+
+    if (*prio2_str == '-') {
+        prio2 = 0xffff;
+    } else if (strcasecmp("Sel", prio2_str) == 0) {
+        prio2 = 0;
+    } else {
+        prio2 = atoi(prio2_str);
+        if (prio2 < 1 || prio2 > NCHAN) {
+            fprintf(stderr, "Bad priority channel 2.\n");
+            return 0;
+        }
+    }
+
+    if (strcasecmp("Last", tx_str) == 0) {
+        txchan = 0xffff;
+    } else if (strcasecmp("Sel", tx_str) == 0) {
+        txchan = 0;
+    } else {
+        txchan = atoi(tx_str);
+        if (txchan < 1 || txchan > NCHAN) {
+            fprintf(stderr, "Bad transmit channel.\n");
+            return 0;
+        }
+    }
+
+    setup_scanlist(snum-1, name_str, prio1, prio2, txchan);
+
+    if (*chan_str != '-') {
+        char *str   = chan_str;
+        int   nchan = 0;
+        int   range = 0;
+        int   last  = 0;
+
+        // Parse channel list.
+        for (;;) {
+            char *eptr;
+            int cnum = strtoul(str, &eptr, 10);
+
+            if (eptr == str) {
+                fprintf(stderr, "Scan list %d: wrong channel list '%s'.\n", snum, str);
+                return 0;
+            }
+            if (cnum < 1 || cnum > NCHAN) {
+                fprintf(stderr, "Scan list %d: wrong channel number %d.\n", snum, cnum);
+                return 0;
+            }
+
+            if (range) {
+                // Add range.
+                int c;
+                for (c=last+1; c<=cnum; c++) {
+                    if (!scanlist_append(snum-1, c)) {
+                        fprintf(stderr, "Scan list %d: too many channels.\n", snum);
+                        return 0;
+                    }
+                    nchan++;
+                }
+            } else {
+                // Add single channel.
+                if (!scanlist_append(snum-1, cnum)) {
+                    fprintf(stderr, "Scan list %d: too many channels.\n", snum);
+                    return 0;
+                }
+                nchan++;
+            }
+
+            if (*eptr == 0)
+                break;
+
+            if (*eptr != ',' && *eptr != '-') {
+                fprintf(stderr, "Scan list %d: wrong channel list '%s'.\n", snum, eptr);
+                return 0;
+            }
+            range = (*eptr == '-');
+            last = cnum;
+            str = eptr + 1;
+        }
+    }
+#endif
+    return 1;
+}
+
+//
+// Parse one line of Contacts table.
+// Return 0 on failure.
+//
+static int parse_contact(int first_row, char *line)
+{
+    //TODO
+#if 0
+    char num_str[256], name_str[256], type_str[256], id_str[256], rxtone_str[256];
+    int cnum, type, id, rxtone;
+
+    if (sscanf(line, "%s %s %s %s %s",
+        num_str, name_str, type_str, id_str, rxtone_str) != 5)
+        return 0;
+
+    cnum = atoi(num_str);
+    if (cnum < 1 || cnum > NCONTACTS) {
+        fprintf(stderr, "Bad contact number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Contacts table.
+        erase_contacts();
+    }
+
+    if (strcasecmp("Group", type_str) == 0) {
+        type = CALL_GROUP;
+    } else if (strcasecmp("Private", type_str) == 0) {
+        type = CALL_PRIVATE;
+    } else if (strcasecmp("All", type_str) == 0) {
+        type = CALL_ALL;
+    } else {
+        fprintf(stderr, "Bad call type.\n");
+        return 0;
+    }
+
+    id = atoi(id_str);
+    if (id < 1 || id > 0xffffff) {
+        fprintf(stderr, "Bad call ID.\n");
+        return 0;
+    }
+
+    if (*rxtone_str == '-' || strcasecmp("No", rxtone_str) == 0) {
+        rxtone = 0;
+    } else if (*rxtone_str == '+' || strcasecmp("Yes", rxtone_str) == 0) {
+        rxtone = 1;
+    } else {
+        fprintf(stderr, "Bad receive tone flag.\n");
+        return 0;
+    }
+
+    setup_contact(cnum-1, name_str, type, id, rxtone);
+#endif
+    return 1;
+}
+
+//
+// Parse one line of Grouplist table.
+// Return 0 on failure.
+//
+static int parse_grouplist(int first_row, char *line)
+{
+    //TODO
+#if 0
+    char num_str[256], name_str[256], list_str[256];
+    int glnum;
+
+    if (sscanf(line, "%s %s %s", num_str, name_str, list_str) != 3)
+        return 0;
+
+    glnum = strtoul(num_str, 0, 10);
+    if (glnum < 1 || glnum > NGLISTS) {
+        fprintf(stderr, "Bad group list number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Grouplists table.
+        memset(&radio_mem[OFFSET_GLISTS], 0, NGLISTS*96);
+    }
+
+    setup_grouplist(glnum-1, name_str);
+
+    if (*list_str != '-') {
+        char *str   = list_str;
+        int   range = 0;
+        int   last  = 0;
+
+        // Parse contact list.
+        for (;;) {
+            char *eptr;
+            int cnum = strtoul(str, &eptr, 10);
+
+            if (eptr == str) {
+                fprintf(stderr, "Group list %d: wrong contact list '%s'.\n", glnum, str);
+                return 0;
+            }
+            if (cnum < 1 || cnum > NCONTACTS) {
+                fprintf(stderr, "Group list %d: wrong contact number %d.\n", glnum, cnum);
+                return 0;
+            }
+
+            if (range) {
+                // Add range.
+                int c;
+                for (c=last+1; c<=cnum; c++) {
+                    if (!grouplist_append(glnum-1, c)) {
+                        fprintf(stderr, "Group list %d: too many contacts.\n", glnum);
+                        return 0;
+                    }
+                }
+            } else {
+                // Add single contact.
+                if (!grouplist_append(glnum-1, cnum)) {
+                    fprintf(stderr, "Group list %d: too many contacts.\n", glnum);
+                    return 0;
+                }
+            }
+
+            if (*eptr == 0)
+                break;
+
+            if (*eptr != ',' && *eptr != '-') {
+                fprintf(stderr, "Group list %d: wrong contact list '%s'.\n", glnum, eptr);
+                return 0;
+            }
+            range = (*eptr == '-');
+            last = cnum;
+            str = eptr + 1;
+        }
+    }
+#endif
+    return 1;
+}
+
+//
+// Set text for a given message.
+//
+static void setup_message(int index, const char *text)
+{
+    uint8_t *msg = GET_MESSAGE(index);
+
+    // Skip spaces and tabs.
+    while (*text == ' ' || *text == '\t')
+        text++;
+    ascii_decode(msg, text, 200, 0);
+}
+
+//
+// Parse one line of Messages table.
+// Return 0 on failure.
+//
+static int parse_messages(int first_row, char *line)
+{
+    char *text;
+    int mnum;
+
+    mnum = strtoul(line, &text, 10);
+    if (text == line || mnum < 1 || mnum > NMESSAGES) {
+        fprintf(stderr, "Bad message number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Messages table.
+        memset(&radio_mem[OFFSET_MESSAGES], 0xff, NMESSAGES*256);
+    }
+
+    setup_message(mnum-1, text);
+    return 1;
+}
+
+//
 // Parse table header.
 // Return table id, or 0 in case of error.
 //
@@ -1443,8 +2091,6 @@ static int d868uv_parse_header(radio_device_t *radio, char *line)
 //
 static int d868uv_parse_row(radio_device_t *radio, int table_id, int first_row, char *line)
 {
-    //TODO
-#if 0
     switch (table_id) {
     case 'D': return parse_digital_channel(radio, first_row, line);
     case 'A': return parse_analog_channel(radio, first_row, line);
@@ -1454,7 +2100,6 @@ static int d868uv_parse_row(radio_device_t *radio, int table_id, int first_row, 
     case 'G': return parse_grouplist(first_row, line);
     case 'M': return parse_messages(first_row, line);
     }
-#endif
     return 0;
 }
 
