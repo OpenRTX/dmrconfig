@@ -1415,19 +1415,201 @@ static void d868uv_parse_parameter(radio_device_t *radio, char *param, char *val
 }
 
 //
+// Check that the radio does support this frequency.
+//
+static int is_valid_frequency(int mhz)
+{
+    if (mhz >= 136 && mhz <= 174)
+        return 1;
+    if (mhz >= 400 && mhz <= 480)
+        return 1;
+    return 0;
+}
+
+//
+// Set the parameters for a given memory channel.
+//
+static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_mhz,
+    int power, int scanlist, int rxonly,
+    int admit, int colorcode, int timeslot, int grouplist, int contact,
+    int rxtone, int txtone, int width)
+{
+    channel_t *ch     = get_bank(i >> 7) + (i % 128);
+    uint8_t   *bitmap = &radio_mem[OFFSET_CHAN_MAP];
+
+    bitmap[i / 8] |= 1 << (i & 7);
+
+    ascii_decode(ch->name, name, 16, 0);
+
+    //TODO
+#if 0
+    ch->rx_frequency = freq_to_bcd(rx_mhz);
+    if (tx_mhz > rx_mhz) {
+        ch->repeater_mode   = RM_TXPOS;
+        ch->tx_offset       = offset_to_bcd(tx_mhz - rx_mhz);
+    } else if (tx_mhz < rx_mhz) {
+        ch->repeater_mode   = RM_TXNEG;
+        ch->tx_offset       = offset_to_bcd(rx_mhz - tx_mhz);
+    } else {
+        ch->repeater_mode   = RM_SIMPLEX;
+        ch->tx_offset       = 0;
+    }
+#endif
+
+    ch->channel_mode        = mode;
+    ch->power               = power;
+    ch->bandwidth           = width;
+    ch->_unused8            = 0;
+    ch->rx_only             = rxonly;
+    ch->slot2               = (timeslot == 2);
+    ch->color_code          = colorcode;
+    ch->tx_permit           = admit;
+    ch->contact_index       = contact - 1;
+    ch->scan_list_index     = scanlist - 1;
+    ch->group_list_index    = grouplist - 1;
+
+    //TODO
+#if 0
+    ch->ctcss_dcs_receive   = rxtone;
+    ch->ctcss_dcs_transmit  = txtone;
+#endif
+
+#if 0
+    // Byte 9
+    uint8_t     rx_ctcss        : 1,    // CTCSS Decode
+                rx_dcs          : 1,    // DCS Decode
+                tx_ctcss        : 1,    // CTCSS Encode
+                tx_dcs          : 1,    // DCS Encode
+                reverse         : 1,    // Reverse
+                call_confirm    : 1,    // Call Confirmation
+                talkaround      : 1;    // Talk Around
+
+    // Bytes 10-15
+    uint8_t     ctcss_transmit;         // CTCSS Encode: 0=62.5, 50=254.1, 51=Define
+    uint8_t     ctcss_receive;          // CTCSS Decode: 0=62.5, 50=254.1, 51=Define
+    uint16_t    dcs_transmit;           // DCS Encode: 0=D000N, 17=D021N, 1023=D777N
+    uint16_t    dcs_receive;            // DCS Decode: 0=D000N, 17=D021N, 1023=D777N
+
+    // Bytes 16-19
+    uint16_t    custom_ctcss;           // 0x09cf=251.1, 0x0a28=260
+    uint8_t     tone2_decode;           // 2Tone Decode: 0x00=1, 0x0f=16
+    uint8_t     _unused19;              // 0
+
+    // Bytes 20-23
+    uint16_t    _unused22;              // 0
+
+    // Byte 24
+    uint8_t     id_index;               // Index in Radio ID table
+
+    // Byte 25
+    uint8_t     ptt_id          : 2,    // PTT ID
+#define PTTID_OFF       0
+#define PTTID_START     1
+#define PTTID_END       2
+#define PTTID_START_END 3
+
+                _unused25_1     : 2,    // 0
+
+                squelch_mode    : 1,    // Squelch Mode
+#define SQ_CARRIER      0               // Carrier
+#define SQ_TONE         1               // CTCSS/DCS
+
+                _unused25_2     : 3;    // 0
+
+                _unused26_1     : 2,    // 0
+
+                _opt_signal     : 2,    // Optional Signal
+#define OPTSIG_OFF      0               // Off
+#define OPTSIG_DTMF     1               // DTMF
+#define OPTSIG_2TONE    2               // 2Tone
+#define OPTSIG_5TONE    3               // 5Tone
+
+                _unused26_2     : 2;    // 0
+
+    // Bytes 27-31
+    uint8_t     id_2tone;               // 2Tone ID: 0=1, 0x17=24
+    uint8_t     id_5tone;               // 5Tone ID: 0=1, 0x63=100
+    uint8_t     id_dtmf;                // DTMF ID: 0=1, 0x0f=16
+
+    // Byte 33
+                _unused33_1     : 1,    // 0
+                simplex_tdma    : 1,    // Simplex TDMA: On
+                _unused33_2     : 1,    // 0
+                tdma_adaptive   : 1,    // TDMA Adaptive: On
+                _unused33_3     : 1,    // 0
+                enh_encryption  : 1,    // Encryption Type: Enhanced Encryption
+                work_alone      : 1;    // Work Alone: On
+
+    // Byte 34
+    uint8_t     encryption;             // Digital Encryption: 1-32, 0=Off
+
+    // Bytes 35-51
+    uint8_t     name[16];               // Channel Name, zero filled
+    uint8_t     _unused51;              // 0
+
+    // Byte 52
+    uint8_t     ranging         : 1,    // Ranging: On
+                through_mode    : 1,    // Through Mode: On
+                _unused52       : 6;    // 0
+
+    // Byte 53
+    uint8_t     aprs_report     : 1,    // APRS Report: On
+                _unused53       : 7;    // 0
+
+    // Bytes 54-63
+    uint8_t     aprs_channel;           // APRS Report Channel: 0x00=1, ... 0x07=8
+    uint8_t     _unused55[9];           // 0
+#endif
+}
+
+//
+// Erase all channels.
+//
+static void erase_channels()
+{
+    memset(&radio_mem[OFFSET_BANK1], 0xff, NCHAN * 64);
+    memset(&radio_mem[OFFSET_CHAN_MAP], 0, (NCHAN + 7) / 8);
+}
+
+//
+// Erase all zones.
+//
+static void erase_zones()
+{
+    int i;
+
+    for (i=0; i<NZONES; i++) {
+        memset(GET_ZONENAME(i), 0xff, 16);
+        memset(GET_ZONELIST(i), 0xff, 2*250);
+    }
+    memset(GET_ZONEMAP(), 0, (NZONES + 7) / 8);
+}
+
+//
+// Erase all scanlists.
+//
+static void erase_scanlists()
+{
+    int i;
+
+    for (i=0; i<NSCANL; i++) {
+        memset(GET_SCANLIST(i), 0xff, 192);
+    }
+    memset(GET_SCANL_MAP(), 0, (NSCANL + 7) / 8);
+}
+
+//
 // Parse one line of Digital channel table.
 // Start_flag is 1 for the first table row.
 // Return 0 on failure.
 //
 static int parse_digital_channel(radio_device_t *radio, int first_row, char *line)
 {
-    //TODO
-#if 0
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
     char power_str[256], scanlist_str[256];
     char tot_str[256], rxonly_str[256], admit_str[256], colorcode_str[256];
     char slot_str[256], grouplist_str[256], contact_str[256];
-    int num, power, scanlist, tot, rxonly, admit;
+    int num, power, scanlist, rxonly, admit;
     int colorcode, timeslot, grouplist, contact;
     double rx_mhz, tx_mhz;
 
@@ -1462,6 +1644,10 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         power = POWER_HIGH;
     } else if (strcasecmp("Low", power_str) == 0) {
         power = POWER_LOW;
+    } else if (strcasecmp("Mid", power_str) == 0) {
+        power = POWER_MIDDLE;
+    } else if (strcasecmp("Turbo", power_str) == 0) {
+        power = POWER_TURBO;
     } else {
         fprintf(stderr, "Bad power level.\n");
         return 0;
@@ -1477,12 +1663,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         }
     }
 
-    tot = atoi(tot_str);
-    if (tot > 555 || tot % 15 != 0) {
-        fprintf(stderr, "Bad timeout timer.\n");
-        return 0;
-    }
-    tot /= 15;
+    // Ignore TOT.
 
     if (*rxonly_str == '-') {
         rxonly = 0;
@@ -1494,11 +1675,13 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     if (*admit_str == '-' || strcasecmp("Always", admit_str) == 0) {
-        admit = ADMIT_ALWAYS;
+        admit = PERMIT_ALWAYS;
     } else if (strcasecmp("Free", admit_str) == 0) {
-        admit = ADMIT_CH_FREE;
+        admit = PERMIT_CH_FREE;
     } else if (strcasecmp("Color", admit_str) == 0) {
-        admit = ADMIT_COLOR;
+        admit = PERMIT_CC_SAME;
+    } else if (strcasecmp("NColor", admit_str) == 0) {
+        admit = PERMIT_CC_DIFF;
     } else {
         fprintf(stderr, "Bad admit criteria.\n");
         return 0;
@@ -1544,11 +1727,10 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
-        power, scanlist, SQ_NORMAL, tot, rxonly, admit,
-        colorcode, timeslot, grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
+        power, scanlist, rxonly, admit, colorcode, timeslot,
+        grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
 
     radio->channel_count++;
-#endif
     return 1;
 }
 
@@ -1565,7 +1747,7 @@ static int parse_analog_channel(radio_device_t *radio, int first_row, char *line
     char power_str[256], scanlist_str[256], squelch_str[256];
     char tot_str[256], rxonly_str[256], admit_str[256];
     char rxtone_str[256], txtone_str[256], width_str[256];
-    int num, power, scanlist, squelch, tot, rxonly, admit;
+    int num, power, scanlist, squelch, rxonly, admit;
     int rxtone, txtone, width;
     double rx_mhz, tx_mhz;
 
@@ -1600,6 +1782,10 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         power = POWER_HIGH;
     } else if (strcasecmp("Low", power_str) == 0) {
         power = POWER_LOW;
+    } else if (strcasecmp("Mid", power_str) == 0) {
+        power = POWER_MIDDLE;
+    } else if (strcasecmp("Turbo", power_str) == 0) {
+        power = POWER_TURBO;
     } else {
         fprintf(stderr, "Bad power level.\n");
         return 0;
@@ -1615,21 +1801,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         }
     }
 
-    if (strcasecmp ("Normal", squelch_str) == 0) {
-        squelch = SQ_NORMAL;
-    } else if (strcasecmp ("Tight", squelch_str) == 0) {
-        squelch = SQ_TIGHT;
-    } else {
-        fprintf (stderr, "Bad squelch level.\n");
-        return 0;
-    }
-
-    tot = atoi(tot_str);
-    if (tot > 555 || tot % 15 != 0) {
-        fprintf(stderr, "Bad timeout timer.\n");
-        return 0;
-    }
-    tot /= 15;
+    // Ignore TOT.
 
     if (*rxonly_str == '-') {
         rxonly = 0;
@@ -1651,6 +1823,8 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         return 0;
     }
 
+    // Ignore squelch.
+
     rxtone = encode_tone(rxtone_str);
     if (rxtone < 0) {
         fprintf(stderr, "Bad receive tone.\n");
@@ -1664,8 +1838,6 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 
     if (strcasecmp ("12.5", width_str) == 0) {
         width = BW_12_5_KHZ;
-    } else if (strcasecmp ("20", width_str) == 0) {
-        width = BW_20_KHZ;
     } else if (strcasecmp ("25", width_str) == 0) {
         width = BW_25_KHZ;
     } else {
@@ -1679,8 +1851,8 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     setup_channel(num-1, MODE_ANALOG, name_str, rx_mhz, tx_mhz,
-        power, scanlist, squelch, tot, rxonly, admit,
-        1, 1, 0, 0, rxtone, txtone, width);
+        power, scanlist, rxonly, admit, 1, 1,
+        0, 0, rxtone, txtone, width);
 
     radio->channel_count++;
 #endif
