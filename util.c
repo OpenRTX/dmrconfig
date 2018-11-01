@@ -483,19 +483,41 @@ void print_freq(FILE *out, unsigned data)
 //
 // Convert frequency in MHz from floating point to
 // a binary coded decimal format (8 digits).
+// Format: abcdefgh
 //
-unsigned mhz_to_bcd(double mhz)
+unsigned mhz_to_abcdefgh(double mhz)
 {
     unsigned hz = iround(mhz * 1000000.0);
+    unsigned a  = (hz / 100000000) % 10;
+    unsigned b  = (hz / 10000000)  % 10;
+    unsigned c  = (hz / 1000000)   % 10;
+    unsigned d  = (hz / 100000)    % 10;
+    unsigned e  = (hz / 10000)     % 10;
+    unsigned f  = (hz / 1000)      % 10;
+    unsigned g  = (hz / 100)       % 10;
+    unsigned h  = (hz / 10)        % 10;
 
-    return ((hz / 100000000) % 10) << 28 |
-           ((hz / 10000000)  % 10) << 24 |
-           ((hz / 1000000)   % 10) << 20 |
-           ((hz / 100000)    % 10) << 16 |
-           ((hz / 10000)     % 10) << 12 |
-           ((hz / 1000)      % 10) << 8 |
-           ((hz / 100)       % 10) << 4 |
-           ((hz / 10)        % 10);
+    return a << 28 | b << 24 | c << 20 | d << 16 | e << 12 | f << 8 | g << 4 | h;
+}
+
+//
+// Convert frequency in MHz from floating point to
+// a binary coded decimal format (8 digits).
+// Format: ghefcdab
+//
+unsigned mhz_to_ghefcdab(double mhz)
+{
+    unsigned hz = iround(mhz * 1000000.0);
+    unsigned a  = (hz / 100000000) % 10;
+    unsigned b  = (hz / 10000000)  % 10;
+    unsigned c  = (hz / 1000000)   % 10;
+    unsigned d  = (hz / 100000)    % 10;
+    unsigned e  = (hz / 10000)     % 10;
+    unsigned f  = (hz / 1000)      % 10;
+    unsigned g  = (hz / 100)       % 10;
+    unsigned h  = (hz / 10)        % 10;
+
+    return g << 28 | h << 24 | e << 20 | f << 16 | c << 12 | d << 8 | a << 4 | b;
 }
 
 //

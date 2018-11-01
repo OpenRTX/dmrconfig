@@ -648,8 +648,8 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->scan_list_index     = scanlist;
     ch->group_list_index    = grouplist;
     ch->squelch             = squelch;
-    ch->rx_frequency        = mhz_to_bcd(rx_mhz);
-    ch->tx_frequency        = mhz_to_bcd(tx_mhz);
+    ch->rx_frequency        = mhz_to_abcdefgh(rx_mhz);
+    ch->tx_frequency        = mhz_to_abcdefgh(tx_mhz);
     ch->ctcss_dcs_receive   = rxtone;
     ch->ctcss_dcs_transmit  = txtone;
     ch->power               = power;

@@ -87,7 +87,8 @@ int is_file(char *filename);
 // Convert frequency in MHz from floating point to
 // a binary coded decimal format (8 digits).
 //
-unsigned mhz_to_bcd(double mhz);
+unsigned mhz_to_abcdefgh(double mhz);
+unsigned mhz_to_ghefcdab(double mhz);
 
 //
 // Get a binary value of the parameter: On/Off,

@@ -1456,20 +1456,17 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     memset(ch, 0, sizeof(channel_t));
     ascii_decode(ch->name, name, 16, 0);
 
-    //TODO
-#if 0
-    ch->rx_frequency = freq_to_bcd(rx_mhz);
+    ch->rx_frequency = mhz_to_ghefcdab(rx_mhz);
     if (tx_mhz > rx_mhz) {
         ch->repeater_mode   = RM_TXPOS;
-        ch->tx_offset       = offset_to_bcd(tx_mhz - rx_mhz);
+        ch->tx_offset       = mhz_to_ghefcdab(tx_mhz - rx_mhz);
     } else if (tx_mhz < rx_mhz) {
         ch->repeater_mode   = RM_TXNEG;
-        ch->tx_offset       = offset_to_bcd(rx_mhz - tx_mhz);
+        ch->tx_offset       = mhz_to_ghefcdab(rx_mhz - tx_mhz);
     } else {
         ch->repeater_mode   = RM_SIMPLEX;
         ch->tx_offset       = 0;
     }
-#endif
 
     ch->channel_mode        = mode;
     ch->power               = power;
