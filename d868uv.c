@@ -1849,13 +1849,42 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 }
 
 //
+// Set name for a given zone.
+//
+static void setup_zone(int index, const char *name)
+{
+    uint8_t *zmap = GET_ZONEMAP();
+
+    zmap[index / 8] |= 1 << (index & 7);
+    ascii_decode(GET_ZONENAME(index), name, 16, 0);
+}
+
+//
+// Add channel to a zone.
+// Return 0 on failure.
+//
+static int zone_append(int index, int cnum)
+{
+    uint16_t *zlist = GET_ZONELIST(index);
+    int i;
+
+    for (i=0; i<250; i++) {
+        if (zlist[i] == cnum)
+            return 1;
+        if (zlist[i] == 0xffff) {
+            zlist[i] = cnum;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+//
 // Parse one line of Zones table.
 // Return 0 on failure.
 //
 static int parse_zones(int first_row, char *line)
 {
-    //TODO
-#if 0
     char num_str[256], name_str[256], chan_str[256];
     int znum;
 
@@ -1899,7 +1928,7 @@ static int parse_zones(int first_row, char *line)
                 // Add range.
                 int c;
                 for (c=last+1; c<=cnum; c++) {
-                    if (!zone_append(znum-1, c)) {
+                    if (!zone_append(znum-1, c-1)) {
                         fprintf(stderr, "Zone %d: too many channels.\n", znum);
                         return 0;
                     }
@@ -1907,7 +1936,7 @@ static int parse_zones(int first_row, char *line)
                 }
             } else {
                 // Add single channel.
-                if (!zone_append(znum-1, cnum)) {
+                if (!zone_append(znum-1, cnum-1)) {
                     fprintf(stderr, "Zone %d: too many channels.\n", znum);
                     return 0;
                 }
@@ -1926,7 +1955,6 @@ static int parse_zones(int first_row, char *line)
             str = eptr + 1;
         }
     }
-#endif
     return 1;
 }
 
