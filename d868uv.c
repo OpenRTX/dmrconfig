@@ -143,8 +143,8 @@ typedef struct {
     // Bytes 10-15
     uint8_t     ctcss_transmit;         // CTCSS Encode: 0=62.5, 50=254.1, 51=Define
     uint8_t     ctcss_receive;          // CTCSS Decode: 0=62.5, 50=254.1, 51=Define
-    uint16_t    dcs_transmit;           // DCS Encode: 0=D000N, 17=D021N, 1023=D777N
-    uint16_t    dcs_receive;            // DCS Decode: 0=D000N, 17=D021N, 1023=D777N
+    uint16_t    dcs_transmit;           // DCS Encode: 0=D000N, 17=D021N, 1023=D777I
+    uint16_t    dcs_receive;            // DCS Decode: 0=D000N, 17=D021N, 1023=D777I
 
     // Bytes 16-19
     uint16_t    custom_ctcss;           // 0x09cf=251.1, 0x0a28=260
@@ -1427,6 +1427,20 @@ static int is_valid_frequency(int mhz)
 }
 
 //
+// Find CTCSS value in standard table.
+// Otherwise return NCTCSS.
+//
+static int ctcss_index(unsigned value)
+{
+    int i;
+
+    for (i=0; i<NCTCSS; i++)
+        if (value == CTCSS_TONES[i])
+            break;
+    return i;
+}
+
+//
 // Set the parameters for a given memory channel.
 //
 static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_mhz,
@@ -1439,6 +1453,7 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
 
     bitmap[i / 8] |= 1 << (i & 7);
 
+    memset(ch, 0, sizeof(channel_t));
     ascii_decode(ch->name, name, 16, 0);
 
     //TODO
@@ -1459,7 +1474,6 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->channel_mode        = mode;
     ch->power               = power;
     ch->bandwidth           = width;
-    ch->_unused8            = 0;
     ch->rx_only             = rxonly;
     ch->slot2               = (timeslot == 2);
     ch->color_code          = colorcode;
@@ -1468,98 +1482,27 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->scan_list_index     = scanlist - 1;
     ch->group_list_index    = grouplist - 1;
 
-    //TODO
-#if 0
-    ch->ctcss_dcs_receive   = rxtone;
-    ch->ctcss_dcs_transmit  = txtone;
-#endif
-
-#if 0
-    // Byte 9
-    uint8_t     rx_ctcss        : 1,    // CTCSS Decode
-                rx_dcs          : 1,    // DCS Decode
-                tx_ctcss        : 1,    // CTCSS Encode
-                tx_dcs          : 1,    // DCS Encode
-                reverse         : 1,    // Reverse
-                call_confirm    : 1,    // Call Confirmation
-                talkaround      : 1;    // Talk Around
-
-    // Bytes 10-15
-    uint8_t     ctcss_transmit;         // CTCSS Encode: 0=62.5, 50=254.1, 51=Define
-    uint8_t     ctcss_receive;          // CTCSS Decode: 0=62.5, 50=254.1, 51=Define
-    uint16_t    dcs_transmit;           // DCS Encode: 0=D000N, 17=D021N, 1023=D777N
-    uint16_t    dcs_receive;            // DCS Decode: 0=D000N, 17=D021N, 1023=D777N
-
-    // Bytes 16-19
-    uint16_t    custom_ctcss;           // 0x09cf=251.1, 0x0a28=260
-    uint8_t     tone2_decode;           // 2Tone Decode: 0x00=1, 0x0f=16
-    uint8_t     _unused19;              // 0
-
-    // Bytes 20-23
-    uint16_t    _unused22;              // 0
-
-    // Byte 24
-    uint8_t     id_index;               // Index in Radio ID table
-
-    // Byte 25
-    uint8_t     ptt_id          : 2,    // PTT ID
-#define PTTID_OFF       0
-#define PTTID_START     1
-#define PTTID_END       2
-#define PTTID_START_END 3
-
-                _unused25_1     : 2,    // 0
-
-                squelch_mode    : 1,    // Squelch Mode
-#define SQ_CARRIER      0               // Carrier
-#define SQ_TONE         1               // CTCSS/DCS
-
-                _unused25_2     : 3;    // 0
-
-                _unused26_1     : 2,    // 0
-
-                _opt_signal     : 2,    // Optional Signal
-#define OPTSIG_OFF      0               // Off
-#define OPTSIG_DTMF     1               // DTMF
-#define OPTSIG_2TONE    2               // 2Tone
-#define OPTSIG_5TONE    3               // 5Tone
-
-                _unused26_2     : 2;    // 0
-
-    // Bytes 27-31
-    uint8_t     id_2tone;               // 2Tone ID: 0=1, 0x17=24
-    uint8_t     id_5tone;               // 5Tone ID: 0=1, 0x63=100
-    uint8_t     id_dtmf;                // DTMF ID: 0=1, 0x0f=16
-
-    // Byte 33
-                _unused33_1     : 1,    // 0
-                simplex_tdma    : 1,    // Simplex TDMA: On
-                _unused33_2     : 1,    // 0
-                tdma_adaptive   : 1,    // TDMA Adaptive: On
-                _unused33_3     : 1,    // 0
-                enh_encryption  : 1,    // Encryption Type: Enhanced Encryption
-                work_alone      : 1;    // Work Alone: On
-
-    // Byte 34
-    uint8_t     encryption;             // Digital Encryption: 1-32, 0=Off
-
-    // Bytes 35-51
-    uint8_t     name[16];               // Channel Name, zero filled
-    uint8_t     _unused51;              // 0
-
-    // Byte 52
-    uint8_t     ranging         : 1,    // Ranging: On
-                through_mode    : 1,    // Through Mode: On
-                _unused52       : 6;    // 0
-
-    // Byte 53
-    uint8_t     aprs_report     : 1,    // APRS Report: On
-                _unused53       : 7;    // 0
-
-    // Bytes 54-63
-    uint8_t     aprs_channel;           // APRS Report Channel: 0x00=1, ... 0x07=8
-    uint8_t     _unused55[9];           // 0
-#endif
+    // rxtone and txtone are positive for DCS and negative for CTCSS.
+    if (rxtone > 0) {                   // Receive DCS
+        ch->rx_dcs = 1;
+        ch->dcs_receive = rxtone - 1;
+    } else if (rxtone < 0) {            // Receive CTCSS
+        ch->rx_ctcss = 1;
+        ch->ctcss_receive = ctcss_index(-rxtone);
+        if (ch->ctcss_receive == NCTCSS) {
+            ch->custom_ctcss = -rxtone;
+        }
+    }
+    if (txtone > 0) {                   // Transmit DCS
+        ch->tx_dcs = 1;
+        ch->dcs_transmit = txtone - 1;
+    } else if (txtone < 0) {            // Transmit CTCSS
+        ch->tx_ctcss = 1;
+        ch->ctcss_transmit = ctcss_index(-txtone);
+        if (ch->ctcss_transmit == NCTCSS) {
+            ch->custom_ctcss = -txtone;
+        }
+    }
 }
 
 //
@@ -1728,10 +1671,62 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 
     setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
         power, scanlist, rxonly, admit, colorcode, timeslot,
-        grouplist, contact, 0xffff, 0xffff, BW_12_5_KHZ);
+        grouplist, contact, 0, 0, BW_12_5_KHZ);
 
     radio->channel_count++;
     return 1;
+}
+
+//
+// Convert tone string to positive for DCS and negative for CTCSS.
+// On error, return -1.
+// Four possible formats:
+// nnn.n - CTCSS frequency
+// DnnnN - DCS normal
+// DnnnI - DCS inverted
+// '-'   - Disabled
+//
+static int encode_ctcss_dcs(char *str)
+{
+    int val;
+
+    if (*str == '-') {
+        // Disabled
+        return 0;
+
+    } else if (*str == 'D' || *str == 'd') {
+        //
+        // DCS tone
+        //
+        char *e;
+        val = strtoul(++str, &e, 8);
+        if (val < 0 || val > 511) {
+            return -1;
+        }
+
+        if (*e == 'N' || *e == 'n') {
+            val += 1;
+        } else if (*e == 'I' || *e == 'i') {
+            val += 513;
+        } else {
+            return -1;
+        }
+    } else if (*str >= '0' && *str <= '9') {
+        //
+        // CTCSS tone
+        //
+        float hz;
+        if (sscanf(str, "%f", &hz) != 1)
+            return -1;
+
+        // Round to integer.
+        val = hz * 10.0 + 0.5;
+        val = -val;
+    } else {
+        return -1;
+    }
+
+    return val;
 }
 
 //
@@ -1741,13 +1736,11 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 //
 static int parse_analog_channel(radio_device_t *radio, int first_row, char *line)
 {
-    //TODO
-#if 0
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
     char power_str[256], scanlist_str[256], squelch_str[256];
     char tot_str[256], rxonly_str[256], admit_str[256];
     char rxtone_str[256], txtone_str[256], width_str[256];
-    int num, power, scanlist, squelch, rxonly, admit;
+    int num, power, scanlist, rxonly, admit;
     int rxtone, txtone, width;
     double rx_mhz, tx_mhz;
 
@@ -1813,11 +1806,11 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     if (*admit_str == '-' || strcasecmp("Always", admit_str) == 0) {
-        admit = ADMIT_ALWAYS;
-    } else if (strcasecmp("Free", admit_str) == 0) {
-        admit = ADMIT_CH_FREE;
-    } else if (strcasecmp("Tone", admit_str) == 0) {
-        admit = ADMIT_TONE;
+        admit = PERMIT_ALWAYS;
+    } else if (strcasecmp("Free", admit_str) == 0) {    // Busy Lock = Repeater
+        admit = PERMIT_CH_FREE;
+    } else if (strcasecmp("Tone", admit_str) == 0) {    // Busy Lock = Busy
+        admit = PERMIT_CC_SAME;
     } else {
         fprintf(stderr, "Bad admit criteria.\n");
         return 0;
@@ -1825,13 +1818,13 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
 
     // Ignore squelch.
 
-    rxtone = encode_tone(rxtone_str);
-    if (rxtone < 0) {
+    rxtone = encode_ctcss_dcs(rxtone_str);
+    if (rxtone == -1) {
         fprintf(stderr, "Bad receive tone.\n");
         return 0;
     }
-    txtone = encode_tone(txtone_str);
-    if (txtone < 0) {
+    txtone = encode_ctcss_dcs(txtone_str);
+    if (txtone == -1) {
         fprintf(stderr, "Bad transmit tone.\n");
         return 0;
     }
@@ -1855,7 +1848,6 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         0, 0, rxtone, txtone, width);
 
     radio->channel_count++;
-#endif
     return 1;
 }
 
