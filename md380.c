@@ -402,7 +402,8 @@ static void md380_upload(radio_device_t *radio, int cont_flag)
 //
 static int md380_is_compatible(radio_device_t *radio)
 {
-    return strncmp("D868UVE", (char*)&radio_mem[0], 7) == 0;
+    return strncmp("DfuSe", (char*)&radio_mem[0], 5) == 0 &&
+           strncmp("DR780", (char*)&radio_mem[0x125], 5) == 0;
 }
 
 //
