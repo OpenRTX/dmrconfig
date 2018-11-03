@@ -1959,13 +1959,67 @@ static int parse_zones(int first_row, char *line)
 }
 
 //
+// Set parameters for a given scan list.
+//
+static void setup_scanlist(int index, const char *name,
+    int prio1, int prio2, int txchan)
+{
+    scanlist_t *sl = GET_SCANLIST(index);
+
+    memset(sl, 0, 192);
+    memset(sl->member, 0xff, 100);
+    ascii_decode(sl->name, name, 16, 0);
+
+    sl->priority_ch1   = prio1;     // Priority Channel 1: 0=Current Channel, 0xffff=Off
+    sl->priority_ch2   = prio2;     // Priority Channel 2: 0=Current Channel, 0xffff=Off
+    sl->revert_channel = txchan;    // Revert Channel: Selected or Last Called
+
+    if (prio2 != 0xffff) {          // Priority Channel Select
+        if (prio1 != 0xffff) {
+            sl->prio_ch_select = PRIO_CHAN_SEL12;
+        } else {
+            sl->prio_ch_select = PRIO_CHAN_SEL2;
+        }
+    } else {
+        if (prio1 != 0xffff) {
+            sl->prio_ch_select = PRIO_CHAN_SEL1;
+        } else {
+            sl->prio_ch_select = PRIO_CHAN_OFF;
+        }
+    }
+
+    sl->look_back_a   = 20;         // Look Back Time A: 2.0s
+    sl->look_back_b   = 30;         // Look Back Time B: 3.0s
+    sl->dropout_delay = 31;         // Dropout Delay Time: 3.1s
+    sl->dwell         = 31;         // Dwell Time: 3.1s
+}
+
+//
+// Add channel to a zone.
+// Return 0 on failure.
+//
+static int scanlist_append(int index, int cnum)
+{
+    scanlist_t *sl = GET_SCANLIST(index);
+    int i;
+
+    for (i=0; i<50; i++) {
+        if (sl->member[i] == cnum-1)
+            return 1;
+        if (sl->member[i] == 0xffff) {
+            sl->member[i] = cnum-1;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+//
 // Parse one line of Scanlist table.
 // Return 0 on failure.
 //
 static int parse_scanlist(int first_row, char *line)
 {
-    //TODO
-#if 0
     char num_str[256], name_str[256], prio1_str[256], prio2_str[256];
     char tx_str[256], chan_str[256];
     int snum, prio1, prio2, txchan;
@@ -2010,15 +2064,12 @@ static int parse_scanlist(int first_row, char *line)
     }
 
     if (strcasecmp("Last", tx_str) == 0) {
-        txchan = 0xffff;
-    } else if (strcasecmp("Sel", tx_str) == 0) {
-        txchan = 0;
+        txchan = REVCH_LAST_CALLED;
+    } else if (strcasecmp("Sel", tx_str) == 0 || strcasecmp("-", tx_str) == 0) {
+        txchan = REVCH_SELECTED;
     } else {
-        txchan = atoi(tx_str);
-        if (txchan < 1 || txchan > NCHAN) {
-            fprintf(stderr, "Bad transmit channel.\n");
-            return 0;
-        }
+        fprintf(stderr, "Bad transmit channel.\n");
+        return 0;
     }
 
     setup_scanlist(snum-1, name_str, prio1, prio2, txchan);
@@ -2074,7 +2125,6 @@ static int parse_scanlist(int first_row, char *line)
             str = eptr + 1;
         }
     }
-#endif
     return 1;
 }
 
