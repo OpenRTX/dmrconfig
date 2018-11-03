@@ -1965,7 +1965,9 @@ static void setup_scanlist(int index, const char *name,
     int prio1, int prio2, int txchan)
 {
     scanlist_t *sl = GET_SCANLIST(index);
+    uint8_t *slmap = GET_SCANL_MAP();
 
+    slmap[index / 8] |= 1 << (index & 7);
     memset(sl, 0, 192);
     memset(sl->member, 0xff, 100);
     ascii_decode(sl->name, name, 16, 0);
@@ -2129,18 +2131,43 @@ static int parse_scanlist(int first_row, char *line)
 }
 
 //
+// Erase all contacts.
+//
+static void erase_contacts()
+{
+    memset(&radio_mem[OFFSET_CONTACTS], 0xff, NCONTACTS*100);
+    memset(GET_CONTACT_MAP(), 0xff, (NCONTACTS + 7) / 8);
+}
+
+static void setup_contact(int index, const char *name, int type, int id, int rxalert)
+{
+    contact_t *ct = GET_CONTACT(index);
+    uint8_t *cmap = GET_CONTACT_MAP();
+
+    cmap[index / 8] &= ~(1 << (index & 7));
+    memset(ct, 0, 100);
+    ascii_decode(ct->name, name, 16, 0);
+
+    ct->id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
+    ct->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
+    ct->id[2] = ((id / 1000 % 10) << 4) | ((id / 100) % 10);
+    ct->id[3] = ((id / 10 % 10) << 4) | (id % 10);
+
+    ct->type       = type;
+    ct->call_alert = rxalert;
+}
+
+//
 // Parse one line of Contacts table.
 // Return 0 on failure.
 //
 static int parse_contact(int first_row, char *line)
 {
-    //TODO
-#if 0
-    char num_str[256], name_str[256], type_str[256], id_str[256], rxtone_str[256];
-    int cnum, type, id, rxtone;
+    char num_str[256], name_str[256], type_str[256], id_str[256], rxalert_str[256];
+    int cnum, type, id, rxalert;
 
     if (sscanf(line, "%s %s %s %s %s",
-        num_str, name_str, type_str, id_str, rxtone_str) != 5)
+        num_str, name_str, type_str, id_str, rxalert_str) != 5)
         return 0;
 
     cnum = atoi(num_str);
@@ -2171,18 +2198,47 @@ static int parse_contact(int first_row, char *line)
         return 0;
     }
 
-    if (*rxtone_str == '-' || strcasecmp("No", rxtone_str) == 0) {
-        rxtone = 0;
-    } else if (*rxtone_str == '+' || strcasecmp("Yes", rxtone_str) == 0) {
-        rxtone = 1;
+    if (*rxalert_str == '-' || strcasecmp("No", rxalert_str) == 0) {
+        rxalert = ALERT_NONE;
+    } else if (*rxalert_str == '+' || strcasecmp("Yes", rxalert_str) == 0) {
+        rxalert = ALERT_RING;
+    } else if (strcasecmp("Online", rxalert_str) == 0) {
+        rxalert = ALERT_ONLINE;
     } else {
         fprintf(stderr, "Bad receive tone flag.\n");
         return 0;
     }
 
-    setup_contact(cnum-1, name_str, type, id, rxtone);
-#endif
+    setup_contact(cnum-1, name_str, type, id, rxalert);
     return 1;
+}
+
+static void setup_grouplist(int index, const char *name)
+{
+    grouplist_t *gl = GET_GROUPLIST(index);
+
+    ascii_decode(gl->name, name, 35, 0);
+    memset(gl->unused, 0, sizeof(gl->unused));
+}
+
+//
+// Add contact to a grouplist.
+// Return 0 on failure.
+//
+static int grouplist_append(int index, int cnum)
+{
+    grouplist_t *gl = GET_GROUPLIST(index);
+    int i;
+
+    for (i=0; i<64; i++) {
+        if (gl->member[i] == cnum-1)
+            return 1;
+        if (gl->member[i] == 0xffffffff) {
+            gl->member[i] = cnum-1;
+            return 1;
+        }
+    }
+    return 0;
 }
 
 //
@@ -2191,8 +2247,6 @@ static int parse_contact(int first_row, char *line)
 //
 static int parse_grouplist(int first_row, char *line)
 {
-    //TODO
-#if 0
     char num_str[256], name_str[256], list_str[256];
     int glnum;
 
@@ -2207,7 +2261,7 @@ static int parse_grouplist(int first_row, char *line)
 
     if (first_row) {
         // On first entry, erase the Grouplists table.
-        memset(&radio_mem[OFFSET_GLISTS], 0, NGLISTS*96);
+        memset(&radio_mem[OFFSET_GLISTS], 0xff, NGLISTS*320);
     }
 
     setup_grouplist(glnum-1, name_str);
@@ -2260,7 +2314,6 @@ static int parse_grouplist(int first_row, char *line)
             str = eptr + 1;
         }
     }
-#endif
     return 1;
 }
 
@@ -2356,8 +2409,6 @@ static void d868uv_update_timestamp(radio_device_t *radio)
 //
 static int d868uv_verify_config(radio_device_t *radio)
 {
-    //TODO
-#if 0
     int i, k, nchannels = 0, nzones = 0, nscanlists = 0, ngrouplists = 0;
     int ncontacts = 0, nerrors = 0;
 
@@ -2369,33 +2420,33 @@ static int d868uv_verify_config(radio_device_t *radio)
             continue;
 
         nchannels++;
-        if (ch->scan_list_index != 0) {
-            scanlist_t *sl = get_scanlist(ch->scan_list_index - 1);
+        if (ch->scan_list_index != 0xff) {
+            scanlist_t *sl = get_scanlist(ch->scan_list_index);
 
-            if (!VALID_SCANLIST(sl)) {
+            if (!sl) {
                 fprintf(stderr, "Channel %d '", i+1);
                 print_ascii(stderr, ch->name, 16, 0);
-                fprintf(stderr, "': scanlist %d not found.\n", ch->scan_list_index);
+                fprintf(stderr, "': scanlist %d not found.\n", ch->scan_list_index + 1);
                 nerrors++;
             }
         }
-        if (ch->contact_index != 0) {
-            contact_t *ct = get_contact(ch->contact_index - 1);
+        if (ch->contact_index != 0xffff) {
+            contact_t *ct = get_contact(ch->contact_index);
 
             if (!ct) {
                 fprintf(stderr, "Channel %d '", i+1);
                 print_ascii(stderr, ch->name, 16, 0);
-                fprintf(stderr, "': contact %d not found.\n", ch->contact_index);
+                fprintf(stderr, "': contact %d not found.\n", ch->contact_index + 1);
                 nerrors++;
             }
         }
-        if (ch->group_list_index != 0) {
-            grouplist_t *gl = GET_GROUPLIST(ch->group_list_index - 1);
+        if (ch->group_list_index != 0xff) {
+            grouplist_t *gl = GET_GROUPLIST(ch->group_list_index);
 
             if (!VALID_GROUPLIST(gl)) {
                 fprintf(stderr, "Channel %d '", i+1);
                 print_ascii(stderr, ch->name, 16, 0);
-                fprintf(stderr, "': grouplist %d not found.\n", ch->group_list_index);
+                fprintf(stderr, "': grouplist %d not found.\n", ch->group_list_index + 1);
                 nerrors++;
             }
         }
@@ -2435,7 +2486,7 @@ static int d868uv_verify_config(radio_device_t *radio)
             continue;
 
         nscanlists++;
-        for (k=0; k<31; k++) {
+        for (k=0; k<50; k++) {
             int cnum = sl->member[k];
 
             if (cnum != 0) {
@@ -2489,7 +2540,6 @@ static int d868uv_verify_config(radio_device_t *radio)
     }
     fprintf(stderr, "Total %d channels, %d zones, %d scanlists, %d contacts, %d grouplists.\n",
         nchannels, nzones, nscanlists, ncontacts, ngrouplists);
-#endif
     return 1;
 }
 
