@@ -388,7 +388,7 @@ typedef struct {
 
 static const char *POWER_NAME[] = { "Low", "Mid", "High", "Turbo" };
 static const char *DIGITAL_ADMIT_NAME[] = { "-", "Free", "NColor", "Color" };
-static const char *ANALOG_ADMIT_NAME[] = { "-", "Tone", "Free", "Free" };
+static const char *ANALOG_ADMIT_NAME[] = { "-", "Free", "Tone", "Tone" };
 static const char *BANDWIDTH[] = { "12.5", "25" };
 static const char *CONTACT_TYPE[] = { "Private", "Group", "All", "Unknown" };
 static const char *ALERT_TYPE[] = { "-", "+", "Online", "Unknown" };
@@ -2487,15 +2487,15 @@ static int d868uv_verify_config(radio_device_t *radio)
 
         nscanlists++;
         for (k=0; k<50; k++) {
-            int cnum = sl->member[k];
+            int cindex = sl->member[k];
 
-            if (cnum != 0) {
-                channel_t *ch = get_channel(cnum - 1);
+            if (cindex != 0xffff) {
+                channel_t *ch = get_channel(cindex);
 
                 if (!ch) {
                     fprintf(stderr, "Scanlist %d '", i+1);
                     print_ascii(stderr, sl->name, 16, 0);
-                    fprintf(stderr, "': channel %d not found.\n", cnum);
+                    fprintf(stderr, "': channel %d not found.\n", cindex+1);
                     nerrors++;
                 }
             }
