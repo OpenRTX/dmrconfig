@@ -374,13 +374,13 @@ void radio_write_csv(const char *filename)
 
     if (!device->write_csv) {
         fprintf(stderr, "%s does not support CSV database.\n", device->name);
-        exit(-1);
+        return;
     }
 
     csv = fopen(filename, "r");
     if (! csv) {
         perror(filename);
-        exit(-1);
+        return;
     }
     fprintf(stderr, "Read file '%s'.\n", filename);
 
