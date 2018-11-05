@@ -231,6 +231,11 @@ void print_unicode(FILE *out, const unsigned short *text, unsigned nchars, int f
 {
     unsigned i, ch;
 
+    if ((*text == 0xff || *text == 0) && fill_flag) {
+        // When text is empty, still print something.
+        unsigned short underscore[2] = { '_', 0 };
+        text = underscore;
+    }
     for (i=0; i<nchars && *text; i++) {
         ch = *text++;
         if (ch == '\t')
@@ -254,6 +259,10 @@ void print_ascii(FILE *out, const unsigned char *text, unsigned nchars, int fill
 {
     unsigned i, ch;
 
+    if ((*text == 0xff || *text == 0) && fill_flag) {
+        // When text is empty, still print something.
+        text = (const unsigned char*) "_";
+    }
     for (i=0; i<nchars && *text != 0xff && *text != 0; i++) {
         ch = *text++;
         if (ch == '\t')

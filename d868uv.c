@@ -1465,7 +1465,7 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
         ch->tx_offset       = mhz_to_ghefcdab(rx_mhz - tx_mhz);
     } else {
         ch->repeater_mode   = RM_SIMPLEX;
-        ch->tx_offset       = 0;
+        ch->tx_offset       = 0x00000100;
     }
 
     ch->channel_mode        = mode;
@@ -1478,6 +1478,7 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->contact_index       = contact - 1;
     ch->scan_list_index     = scanlist - 1;
     ch->group_list_index    = grouplist - 1;
+    ch->custom_ctcss        = 251.1 * 10;
 
     // rxtone and txtone are positive for DCS and negative for CTCSS.
     if (rxtone > 0) {                   // Receive DCS
@@ -1490,6 +1491,7 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
             ch->custom_ctcss = -rxtone;
         }
     }
+
     if (txtone > 0) {                   // Transmit DCS
         ch->tx_dcs = 1;
         ch->dcs_transmit = txtone - 1;
@@ -1841,7 +1843,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     setup_channel(num-1, MODE_ANALOG, name_str, rx_mhz, tx_mhz,
-        power, scanlist, rxonly, admit, 1, 1,
+        power, scanlist, rxonly, admit, 0, 1,
         0, 0, rxtone, txtone, width);
 
     radio->channel_count++;
