@@ -57,6 +57,7 @@
 #define OFFSET_SETTINGS     0x071600    // General settings
 #define OFFSET_ZONENAMES    0x071dc0    // Names of zones
 #define OFFSET_RADIOID      0x073d00    // Table of radio IDs
+#define OFFSET_CONTACT_LIST 0x076500    // List of valid contact indices
 #define OFFSET_CONTACT_MAP  0x080140    // Bitmap of invalid contacts
 #define OFFSET_CONTACTS     0x080640    // Contacts
 #define OFFSET_GLISTS       0x174b00    // RX group lists
@@ -65,6 +66,7 @@
 #define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
 #define GET_ZONEMAP()       (&radio_mem[OFFSET_ZONE_MAP])
 #define GET_CONTACT_MAP()   (&radio_mem[OFFSET_CONTACT_MAP])
+#define GET_CONTACT_LIST()  ((uint32_t*) &radio_mem[OFFSET_CONTACT_LIST])
 #define GET_SCANL_MAP()     (&radio_mem[OFFSET_SCANL_MAP])
 #define GET_ZONENAME(i)     (&radio_mem[OFFSET_ZONENAMES + (i)*32])
 #define GET_ZONELIST(i)     ((uint16_t*) &radio_mem[OFFSET_ZONELISTS + (i)*512])
@@ -2138,15 +2140,14 @@ static int parse_scanlist(int first_row, char *line)
 static void erase_contacts()
 {
     memset(&radio_mem[OFFSET_CONTACTS], 0xff, NCONTACTS*100);
+    memset(GET_CONTACT_LIST(), 0xff, NCONTACTS*4);
     memset(GET_CONTACT_MAP(), 0xff, (NCONTACTS + 7) / 8);
 }
 
 static void setup_contact(int index, const char *name, int type, int id, int rxalert)
 {
+    // Fill contact record.
     contact_t *ct = GET_CONTACT(index);
-    uint8_t *cmap = GET_CONTACT_MAP();
-
-    cmap[index / 8] &= ~(1 << (index & 7));
     memset(ct, 0, 100);
     ascii_decode(ct->name, name, 16, 0);
 
@@ -2157,6 +2158,33 @@ static void setup_contact(int index, const char *name, int type, int id, int rxa
 
     ct->type       = type;
     ct->call_alert = rxalert;
+
+    // Update contact map.
+    uint8_t *cmap = GET_CONTACT_MAP();
+    cmap[index / 8] &= ~(1 << (index & 7));
+
+    // Append to the contact list.
+    uint32_t *clist = GET_CONTACT_LIST();
+    int i;
+
+    for (i=0; i<NCONTACTS; i++) {
+        int item = clist[i];
+
+        if (item == index) {
+            // The channel is already in the list.
+            break;
+        }
+        if (item == 0xffffffff) {
+            // Append to the end of the list.
+            clist[i] = index;
+            break;
+        }
+        if (item > index) {
+            // Insert index there and shift the rest.
+            clist[i] = index;
+            index = item;
+        }
+    }
 }
 
 //
