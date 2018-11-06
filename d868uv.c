@@ -61,6 +61,7 @@
 #define OFFSET_CONTACT_MAP  0x080140    // Bitmap of invalid contacts
 #define OFFSET_CONTACTS     0x080640    // Contacts
 #define OFFSET_GLISTS       0x174b00    // RX group lists
+#define OFFSET_CONT_ID_LIST 0x188380    // Map of contact IDs to contacts
 
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
@@ -82,7 +83,7 @@
 // Size of memory image.
 // Essentialy a sum of all fragments defined ind868um-map.h.
 //
-#define MEMSZ           1607296
+#define MEMSZ           1606528
 
 //
 // D868UV radio has a huge internal address space, more than 64 Mbytes.
@@ -554,6 +555,19 @@ static void d868uv_download(radio_device_t *radio)
 }
 
 //
+// Get contact by index.
+//
+static contact_t *get_contact(int i)
+{
+    uint8_t *cmap = GET_CONTACT_MAP();
+
+    if ((cmap[i / 8] >> (i & 7)) & 1)
+        return 0;
+
+    return GET_CONTACT(i);
+}
+
+//
 // Write memory image to the device.
 //
 static void d868uv_upload(radio_device_t *radio, int cont_flag)
@@ -590,6 +604,54 @@ static void d868uv_upload(radio_device_t *radio, int cont_flag)
         fprintf(stderr, "Should be %u; check d868uv-map.h!\n", file_offset);
         exit(-1);
     }
+
+    //
+    // Build and upload a map of IDs to contacts.
+    // The map has to be sorted by ID.
+    //
+    uint64_t map[8*NCONTACTS + 72];
+    int index, ncontacts = 0;
+
+    memset(map, 0xff, sizeof(map));
+    for (index=0; index<NCONTACTS; index++) {
+        contact_t *ct = get_contact(index);
+        if (!ct)
+            continue;
+
+        // A map entry consists of 8 bytes.
+        // Bit 0: set for groups.
+        // Bits 31-1: DMR ID of the contact.
+        // Bytes 4-7: contact index.
+        uint64_t item = ct->id[0] << 25 | ct->id[1] << 17 |
+                        ct->id[2] << 9 | ct->id[3] << 1;
+        if (ct->type == CALL_GROUP)
+            item |= 1;
+        item |= (uint64_t) index << 32;
+
+        int k;
+        for (k=0; k<NCONTACTS; k++) {
+            if (map[k] == item) {
+                // The item is already in the list.
+                break;
+            }
+            if (map[k] == 0xffffffffffffffff) {
+                // Append to the end of the list.
+                map[k] = item;
+                ncontacts = k + 1;
+                break;
+            }
+            if ((uint32_t)map[k] > (uint32_t)item) {
+                // Insert item there and shift the rest.
+                uint64_t prev = map[k];
+                map[k] = item;
+                item = prev;
+            }
+        }
+    }
+    //printf("\n");
+    //print_hex((uint8_t*)map, ncontacts*8 + 8);
+    //printf("\n");
+    serial_write_region(OFFSET_CONT_ID_LIST, (uint8_t*)map, (ncontacts*8 + 8 + 63) / 64 * 64);
 }
 
 //
@@ -698,19 +760,6 @@ static int have_contacts()
             return 1;
     }
     return 0;
-}
-
-//
-// Get contact by index.
-//
-static contact_t *get_contact(int i)
-{
-    uint8_t *cmap = GET_CONTACT_MAP();
-
-    if ((cmap[i / 8] >> (i & 7)) & 1)
-        return 0;
-
-    return GET_CONTACT(i);
 }
 
 //
@@ -1354,6 +1403,7 @@ static void d868uv_read_image(radio_device_t *radio, FILE *img)
     }
     switch (st.st_size) {
     case MEMSZ:
+    case MEMSZ + 0x300: // TODO: delete
         // IMG file.
         if (fread(&radio_mem[0], 1, MEMSZ, img) != MEMSZ) {
             fprintf(stderr, "Error reading image data.\n");
