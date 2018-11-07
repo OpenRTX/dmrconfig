@@ -1403,7 +1403,6 @@ static void d868uv_read_image(radio_device_t *radio, FILE *img)
     }
     switch (st.st_size) {
     case MEMSZ:
-    case MEMSZ + 0x300: // TODO: delete
         // IMG file.
         if (fread(&radio_mem[0], 1, MEMSZ, img) != MEMSZ) {
             fprintf(stderr, "Error reading image data.\n");

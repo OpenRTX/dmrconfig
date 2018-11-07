@@ -201,7 +201,6 @@ void radio_read_image(const char *filename)
         device = &radio_md380;
         break;
     case 1606528:
-    case 1607296: // TODO: delete
         device = &radio_d868uv;
         break;
     case 131072:
