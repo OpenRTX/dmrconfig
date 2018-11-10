@@ -47,6 +47,7 @@ static struct {
     { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R, TD-5R
     { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
     { "D868UVE",    &radio_d868uv },    // Anytone AT-D868UV
+    { "D6X2UV",     &radio_dmr6x2 },    // BTECH DMR-6x2
     { "ZD3688",     &radio_d900 },      // Zastone D900
     { "TP660",      &radio_dp880 },     // Zastone DP880
     { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
@@ -201,7 +202,20 @@ void radio_read_image(const char *filename)
         device = &radio_md380;
         break;
     case 1606528:
-        device = &radio_d868uv;
+        if (fread(ident, 1, 8, img) != 8) {
+            fprintf(stderr, "%s: Cannot read header.\n", filename);
+            exit(-1);
+        }
+        fseek(img, 0, SEEK_SET);
+        if (memcmp(ident, "D868UVE", 7) == 0) {
+            device = &radio_d868uv;
+        } else if (memcmp(ident, "D6X2UV", 6) == 0) {
+            device = &radio_dmr6x2;
+        } else {
+            fprintf(stderr, "%s: Unrecognized header '%.6s'\n",
+                filename, ident);
+            exit(-1);
+        }
         break;
     case 131072:
         if (fread(ident, 1, 8, img) != 8) {

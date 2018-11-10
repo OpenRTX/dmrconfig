@@ -659,7 +659,11 @@ static void d868uv_upload(radio_device_t *radio, int cont_flag)
 //
 static int d868uv_is_compatible(radio_device_t *radio)
 {
-    return strncmp("D868UVE", (char*)&radio_mem[0], 7) == 0;
+    if (memcmp("D868UVE", (char*)&radio_mem[0], 7) == 0)
+        return 1;
+    if (memcmp("D6X2UV", (char*)&radio_mem[0], 6) == 0)
+        return 1;
+    return 0;
 }
 
 static void print_id(FILE *out, int verbose)
@@ -2623,10 +2627,30 @@ static int d868uv_verify_config(radio_device_t *radio)
 }
 
 //
-// TYT MD-UV380
+// Anytone AT-D868UV
 //
 radio_device_t radio_d868uv = {
     "Anytone AT-D868UV",
+    d868uv_download,
+    d868uv_upload,
+    d868uv_is_compatible,
+    d868uv_read_image,
+    d868uv_save_image,
+    d868uv_print_version,
+    d868uv_print_config,
+    d868uv_verify_config,
+    d868uv_parse_parameter,
+    d868uv_parse_header,
+    d868uv_parse_row,
+    d868uv_update_timestamp,
+    //TODO: d868uv_write_csv,
+};
+
+//
+// BTECH DMR-6x2
+//
+radio_device_t radio_dmr6x2 = {
+    "BTECH DMR-6x2",
     d868uv_download,
     d868uv_upload,
     d868uv_is_compatible,
