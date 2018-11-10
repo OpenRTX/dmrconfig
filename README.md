@@ -8,7 +8,8 @@ Supported radios:
  * TYT MD-9600
  * Baofeng RD-5R, TD-5R
  * Radioddity GD-77
- * Anytone AT-D868UV (in development)
+ * Anytone AT-D868UV
+ * BTECH DMR-6x2
  * Zastone D900
  * Zastone DP880
  * Radtel RT-27D
