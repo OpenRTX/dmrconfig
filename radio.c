@@ -361,8 +361,8 @@ void radio_print_config(FILE *out, int verbose)
         if (! tmp || ! strftime(buf, sizeof(buf), "%Y/%m/%d ", tmp))
             buf[0] = 0;
         fprintf(out, "#\n");
-        fprintf(out, "# This configuration was generated %sby dmrconfig,\n", buf);
-        fprintf(out, "# Version %s, %s\n", version, copyright);
+        fprintf(out, "# Configuration generated %sby dmrconfig, version %s\n",
+            buf, version);
         fprintf(out, "#\n");
     }
     device->print_config(device, out, verbose);
