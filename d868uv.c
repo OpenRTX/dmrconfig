@@ -55,6 +55,8 @@
 #define OFFSET_SCANL_MAP    0x070980    // Bitmap of valid scanlists
 #define OFFSET_CHAN_MAP     0x070a40    // Bitmap of valid channels
 #define OFFSET_SETTINGS     0x071600    // General settings
+#define OFFSET_ZCHAN_A      0x071700    // Zone A channel
+#define OFFSET_ZCHAN_B      0x071900    // Zone B channel
 #define OFFSET_ZONENAMES    0x071dc0    // Names of zones
 #define OFFSET_RADIOID      0x073d00    // Table of radio IDs
 #define OFFSET_CONTACT_LIST 0x076500    // List of valid contact indices
@@ -70,6 +72,8 @@
 #define GET_CONTACT_LIST()  ((uint32_t*) &radio_mem[OFFSET_CONTACT_LIST])
 #define GET_SCANL_MAP()     (&radio_mem[OFFSET_SCANL_MAP])
 #define GET_ZONENAME(i)     (&radio_mem[OFFSET_ZONENAMES + (i)*32])
+#define GET_ZONE_CHAN_A(i)  ((i) + (uint16_t*) &radio_mem[OFFSET_ZCHAN_A])
+#define GET_ZONE_CHAN_B(i)  ((i) + (uint16_t*) &radio_mem[OFFSET_ZCHAN_B])
 #define GET_ZONELIST(i)     ((uint16_t*) &radio_mem[OFFSET_ZONELISTS + (i)*512])
 #define GET_CONTACT(i)      ((contact_t*) &radio_mem[OFFSET_CONTACTS + (i)*100])
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*320])
@@ -1923,6 +1927,8 @@ static void setup_zone(int index, const char *name)
 static int zone_append(int index, int cnum)
 {
     uint16_t *zlist = GET_ZONELIST(index);
+    uint16_t *zchan_a = GET_ZONE_CHAN_A(index);
+    uint16_t *zchan_b = GET_ZONE_CHAN_B(index);
     int i;
 
     for (i=0; i<250; i++) {
@@ -1930,6 +1936,15 @@ static int zone_append(int index, int cnum)
             return 1;
         if (zlist[i] == 0xffff) {
             zlist[i] = cnum;
+
+            if (i == 0) {
+                // Set A and B channels.
+                zchan_a[index] = cnum;
+                zchan_b[index] = cnum;
+            } else if (i == 1) {
+                // Set B channel.
+                zchan_b[index] = cnum;
+            }
             return 1;
         }
     }
