@@ -1502,8 +1502,8 @@ static int ctcss_index(unsigned value)
 //
 // Set the parameters for a given memory channel.
 //
-static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_mhz,
-    int power, int scanlist, int rxonly,
+static void setup_channel(radio_device_t *radio, int i, int mode, char *name,
+    double rx_mhz, double tx_mhz, int power, int scanlist, int rxonly,
     int admit, int colorcode, int timeslot, int grouplist, int contact,
     int rxtone, int txtone, int width)
 {
@@ -1535,9 +1535,17 @@ static void setup_channel(int i, int mode, char *name, double rx_mhz, double tx_
     ch->color_code          = colorcode;
     ch->tx_permit           = admit;
     ch->contact_index       = contact - 1;
-    ch->scan_list_index     = scanlist - 1;
     ch->group_list_index    = grouplist - 1;
     ch->custom_ctcss        = 251.1 * 10;
+
+    if (radio == &radio_dmr6x2) {
+        // Radio DMR-6x2 has eight scan lists per channel.
+        ch->scan_list_index = 0;            // Channel Measure Mode = Off
+        ch->aprs_channel    = scanlist - 1; // Scan list 1
+        memset(ch->_unused55, 0xff, 7);     // Scan lists 2-8 = Disable
+    } else {
+        ch->scan_list_index = scanlist - 1;
+    }
 
     // rxtone and txtone are positive for DCS and negative for CTCSS.
     if (rxtone > 0) {                   // Receive DCS
@@ -1727,7 +1735,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         erase_scanlists();
     }
 
-    setup_channel(num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
+    setup_channel(radio, num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
         power, scanlist, rxonly, admit, colorcode, timeslot,
         grouplist, contact, 0, 0, BW_12_5_KHZ);
 
@@ -1901,7 +1909,7 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         erase_channels();
     }
 
-    setup_channel(num-1, MODE_ANALOG, name_str, rx_mhz, tx_mhz,
+    setup_channel(radio, num-1, MODE_ANALOG, name_str, rx_mhz, tx_mhz,
         power, scanlist, rxonly, admit, 0, 1,
         0, 0, rxtone, txtone, width);
 
