@@ -63,7 +63,11 @@
 #define OFFSET_CONTACT_MAP  0x080140    // Bitmap of invalid contacts
 #define OFFSET_CONTACTS     0x080640    // Contacts
 #define OFFSET_GLISTS       0x174b00    // RX group lists
-#define OFFSET_CONT_ID_LIST 0x188380    // Map of contact IDs to contacts
+
+//
+// Addresses in the radio flash memory.
+//
+#define ADDR_CONT_ID_LIST   0x04280000  // Map of contact IDs to contacts
 
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
@@ -655,7 +659,7 @@ static void d868uv_upload(radio_device_t *radio, int cont_flag)
     //printf("\n");
     //print_hex((uint8_t*)map, ncontacts*8 + 8);
     //printf("\n");
-    serial_write_region(OFFSET_CONT_ID_LIST, (uint8_t*)map, (ncontacts*8 + 8 + 63) / 64 * 64);
+    serial_write_region(ADDR_CONT_ID_LIST, (uint8_t*)map, (ncontacts*8 + 8 + 63) / 64 * 64);
 }
 
 //
