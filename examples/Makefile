@@ -20,7 +20,8 @@ CONF  = md2017-7-23-2017.conf \
         gd77-factory.conf \
         d868uv-rmham-2018-10-20.conf \
         d868uv-norcal-ka7qqv-2017-11-04.conf \
-        d868uv-empty.conf
+        d868uv-empty.conf \
+        dmr6x2-factory.conf
 
 VPATH = ../../dmrconfig.wiki/files/uv380 \
         ../../dmrconfig.wiki/files/md380 \

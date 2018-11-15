@@ -838,6 +838,20 @@ static void print_tx_offset(FILE *out, unsigned tx_offset_bcd, unsigned mode)
 }
 
 //
+// Return scan list index for specified channel.
+// It depends on radio type.
+//
+static int get_scanlist_index(radio_device_t *radio, channel_t *ch)
+{
+    if (radio == &radio_dmr6x2) {
+        // Radio DMR-6x2 has eight scan lists per channel.
+        return ch->aprs_channel;
+    } else {
+        return ch->scan_list_index;
+    }
+}
+
+//
 // Print base parameters of the channel:
 //      Name
 //      RX Frequency
@@ -847,7 +861,7 @@ static void print_tx_offset(FILE *out, unsigned tx_offset_bcd, unsigned mode)
 //      TOT
 //      RX Only
 //
-static void print_chan_base(FILE *out, channel_t *ch, int cnum)
+static void print_chan_base(FILE *out, radio_device_t *radio, channel_t *ch, int cnum)
 {
     fprintf(out, "%5d   ", cnum);
     print_ascii(out, ch->name, 16, 1);
@@ -858,10 +872,11 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 
     fprintf(out, "%-5s ", POWER_NAME[ch->power]);
 
-    if (ch->scan_list_index == 0xff)
+    int scanlist_index = get_scanlist_index(radio, ch);
+    if (scanlist_index == 0xff)
         fprintf(out, "-    ");
     else
-        fprintf(out, "%-4d ", ch->scan_list_index + 1);
+        fprintf(out, "%-4d ", scanlist_index + 1);
 
     // Transmit timeout timer on D868UV is configured globally,
     // not per channel. So we don't print it here.
@@ -870,7 +885,7 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
     fprintf(out, "%c  ", "-+"[ch->rx_only]);
 }
 
-static void print_digital_channels(FILE *out, int verbose)
+static void print_digital_channels(FILE *out, radio_device_t *radio, int verbose)
 {
     int i;
 
@@ -902,7 +917,7 @@ static void print_digital_channels(FILE *out, int verbose)
             // Select digital channels
             continue;
         }
-        print_chan_base(out, ch, i+1);
+        print_chan_base(out, radio, ch, i+1);
 
         // Print digital parameters of the channel:
         //      Admit Criteria
@@ -966,7 +981,7 @@ static void print_dcs(FILE *out, unsigned dcs)
     fprintf(out, "D%d%d%d%c", a, b, c, i ? 'I' : 'N');
 }
 
-static void print_analog_channels(FILE *out, int verbose)
+static void print_analog_channels(FILE *out, radio_device_t *radio, int verbose)
 {
     int i;
 
@@ -998,7 +1013,7 @@ static void print_analog_channels(FILE *out, int verbose)
             // Select analog channels
             continue;
         }
-        print_chan_base(out, ch, i+1);
+        print_chan_base(out, radio, ch, i+1);
 
         // Print analog parameters of the channel:
         //      Admit Criteria
@@ -1200,11 +1215,11 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
     //
     if (have_channels(MODE_DIGITAL)) {
         fprintf(out, "\n");
-        print_digital_channels(out, verbose);
+        print_digital_channels(out, radio, verbose);
     }
     if (have_channels(MODE_ANALOG)) {
         fprintf(out, "\n");
-        print_analog_channels(out, verbose);
+        print_analog_channels(out, radio, verbose);
     }
 
     //
@@ -2526,13 +2541,14 @@ static int d868uv_verify_config(radio_device_t *radio)
             continue;
 
         nchannels++;
-        if (ch->scan_list_index != 0xff) {
-            scanlist_t *sl = get_scanlist(ch->scan_list_index);
+        int scanlist_index = get_scanlist_index(radio, ch);
+        if (scanlist_index != 0xff) {
+            scanlist_t *sl = get_scanlist(scanlist_index);
 
             if (!sl) {
                 fprintf(stderr, "Channel %d '", i+1);
                 print_ascii(stderr, ch->name, 16, 0);
-                fprintf(stderr, "': scanlist %d not found.\n", ch->scan_list_index + 1);
+                fprintf(stderr, "': scanlist %d not found.\n", scanlist_index + 1);
                 nerrors++;
             }
         }
