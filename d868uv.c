@@ -67,7 +67,10 @@
 //
 // Addresses in the radio flash memory.
 //
+#define ADDR_CALLDB_LIST    0x04000000  // Map of callsign database
 #define ADDR_CONT_ID_LIST   0x04280000  // Map of contact IDs to contacts
+#define ADDR_CALLDB_SIZE    0x044c0000  // Sizes of callsign database
+#define ADDR_CALLDB_DATA    0x04500000  // Data of callsign database
 
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
 #define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
@@ -2670,6 +2673,121 @@ static int d868uv_verify_config(radio_device_t *radio)
 }
 
 //
+// Write CSV file to the callsign database.
+//
+// The callsign database consists of three parts:
+// (1) Map of DMR IDs to data offsets: 8 bytes per record.
+//      04000000: 02-60-04-02-00-00-00-00-04-60-04-02-35-00-00-00 .`.......`..5...
+//      04000010: 06-60-04-02-70-00-00-00-08-60-04-02-a7-00-00-00 .`..p....`......
+//                ^^^^^^^^^^^ ^^^^^^^^^^^
+//                radio id<<1 offset
+//
+// (2) Sizes: count of records and last data address.
+//      044c0000: bf-b7-01-00-bd-f6-34-05-00-00-00-00-00-00-00-00 ......4.........
+//                ^^^^^^^^^^^ ^^^^^^^^^^^
+//                count       last address
+//
+// (3) Data records: radio id, name, city, callsign, state, country, remarks.
+//      04500000: 00-01-02-30-01-00-57-61-79-6e-65-20-45-64-77-61 ...0..Wayne Edwa
+//      04500010: 72-64-00-54-6f-72-6f-6e-74-6f-00-56-45-33-54-48 rd.Toronto.VE3TH
+//      04500020: 57-00-4f-6e-74-61-72-69-6f-00-43-61-6e-61-64-61 W.Ontario.Canada
+//      04500030: 00-44-4d-52-00-                                 .DMR.
+//
+static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
+{
+    //TODO
+#if 0
+    uint8_t *mem;
+    char line[256], *callsign, *name;
+    int id, bno, nbytes, nrecords = 0;
+    unsigned finish;
+    callsign_t *cs;
+
+    // Allocate memory.
+    nbytes = CALLSIGN_FINISH - CALLSIGN_START;
+    mem = malloc(nbytes);
+    if (!mem) {
+        fprintf(stderr, "Out of memory!\n");
+        return;
+    }
+    memset(mem, 0xff, nbytes);
+
+    // Parse CSV file.
+    while (fgets(line, sizeof(line), csv)) {
+        if (line[0] < '0' || line[0] > '9') {
+            // Skip header.
+            continue;
+        }
+
+        // Strip trailing spaces and newline.
+        char *e = line + strlen(line) - 1;
+        while (e >= line && (*e=='\n' || *e=='\r' || *e==' ' || *e=='\t'))
+            *e-- = 0;
+
+        id = strtoul(line, 0, 10);
+        if (id < 1 || id > 0xffffff) {
+            fprintf(stderr, "Bad id: %d\n", id);
+            fprintf(stderr, "Line: '%s'\n", line);
+            return;
+        }
+
+        callsign = strchr(line, ',');
+        if (! callsign) {
+            fprintf(stderr, "Cannot find callsign!\n");
+            fprintf(stderr, "Line: '%s'\n", line);
+            return;
+        }
+        *callsign++ = 0;
+
+        name = strchr(callsign, ',');
+        if (! name) {
+            fprintf(stderr, "Cannot find name!\n");
+            fprintf(stderr, "Line: '%s,%s'\n", line, callsign);
+            return;
+        }
+        *name++ = 0;
+        //printf("%-10d%-10s%s\n", id, callsign, name);
+
+        cs = GET_CALLSIGN(mem, nrecords);
+        nrecords++;
+
+        // Fill callsign structure.
+        cs->dmrid = id;
+        strncpy(cs->callsign, callsign, sizeof(cs->callsign));
+        strncpy(cs->name, name, sizeof(cs->name));
+    }
+    fprintf(stderr, "Total %d contacts.\n", nrecords);
+
+    build_callsign_index(mem, nrecords);
+    //print_hex(mem, 0x4003);
+    //exit(0);
+
+    // Align to 1kbyte.
+    finish = CALLSIGN_START + (CALLSIGN_OFFSET + nrecords*120 + 1023) / 1024 * 1024;
+    if (finish > CALLSIGN_FINISH) {
+        // Limit is 122197 contacts.
+        fprintf(stderr, "Too many contacts!\n");
+        return;
+    }
+
+    // Write callsigns.
+    radio_progress = 0;
+    for (bno = CALLSIGN_START/1024; bno < finish/1024; bno++) {
+        dfu_write_block(bno, &mem[bno*1024 - CALLSIGN_START], 1024);
+
+        ++radio_progress;
+        if (radio_progress % 512 == 0) {
+            fprintf(stderr, "#");
+            fflush(stderr);
+        }
+    }
+    if (! trace_flag)
+        fprintf(stderr, "# done.\n");
+    free(mem);
+#endif
+}
+
+//
 // Anytone AT-D868UV
 //
 radio_device_t radio_d868uv = {
@@ -2686,7 +2804,7 @@ radio_device_t radio_d868uv = {
     d868uv_parse_header,
     d868uv_parse_row,
     d868uv_update_timestamp,
-    //TODO: d868uv_write_csv,
+    d868uv_write_csv,
 };
 
 //
@@ -2706,5 +2824,5 @@ radio_device_t radio_dmr6x2 = {
     d868uv_parse_header,
     d868uv_parse_row,
     d868uv_update_timestamp,
-    //TODO: d868uv_write_csv,
+    d868uv_write_csv,
 };
