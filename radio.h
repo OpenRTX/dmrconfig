@@ -126,6 +126,7 @@ extern radio_device_t radio_rd5r;       // Baofeng RD-5R
 extern radio_device_t radio_gd77;       // Radioddity GD-77, version 3.1.1 and later
 extern radio_device_t radio_d868uv;     // Anytone AT-D868UV
 extern radio_device_t radio_dmr6x2;     // BTECH DMR-6x2
+extern radio_device_t radio_rt84;       // Baofeng DM-1701, Retevis RT84
 
 //
 // Radio: memory contents.

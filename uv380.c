@@ -2604,3 +2604,23 @@ radio_device_t radio_md9600 = {
     uv380_update_timestamp,
     uv380_write_csv,
 };
+
+//
+// Baofeng DM-1701, Retevis RT84
+//
+radio_device_t radio_rt84 = {
+    "Retevis RT84",
+    uv380_download,
+    uv380_upload,
+    uv380_is_compatible,
+    uv380_read_image,
+    uv380_save_image,
+    uv380_print_version,
+    uv380_print_config,
+    uv380_verify_config,
+    uv380_parse_parameter,
+    uv380_parse_header,
+    uv380_parse_row,
+    uv380_update_timestamp,
+    uv380_write_csv,
+};

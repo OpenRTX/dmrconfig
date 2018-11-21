@@ -45,6 +45,7 @@ static struct {
     { "2017",       &radio_md2017 },    // TYT MD-2017, Retevis RT82
     { "MD9600",     &radio_md9600 },    // TYT MD-9600
     { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R, TD-5R
+    { "DM-1701",    &radio_rt84 },      // Baofeng DM-1701, Retevis RT84
     { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
     { "D868UVE",    &radio_d868uv },    // Anytone AT-D868UV
     { "D6X2UV",     &radio_dmr6x2 },    // BTECH DMR-6x2
