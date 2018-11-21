@@ -142,7 +142,10 @@ typedef struct {
             _unused50_6         : 2;    // 0
 
     // Byte 51
-    uint8_t _unused51_0         : 1,    // 0
+    uint8_t squelch             : 1,    // Squelch
+#define SQ_TIGHT        0
+#define SQ_NORMAL       1
+
             bandwidth           : 1,    // Bandwidth: 12.5 or 25 kHz
 #define BW_12_5_KHZ     0
 #define BW_25_KHZ       1
@@ -156,8 +159,7 @@ typedef struct {
 #define POWER_LOW       0
 
     // Bytes 52-55
-    uint8_t _unused52[3];               // 0
-    uint8_t squelch;                    // Squelch: 0...9
+    uint8_t _unused52[4];               // 0
 
 } channel_t;
 
@@ -314,6 +316,7 @@ typedef struct {
 } msgtab_t;
 
 static const char *POWER_NAME[] = { "Low", "High" };
+static const char *SQUELCH_NAME[] = { "Tight", "Normal" };
 static const char *BANDWIDTH[] = { "12.5", "25" };
 static const char *CONTACT_TYPE[] = {"Group", "Private", "All", "???" };
 static const char *ADMIT_NAME[] = { "-", "Free", "Color", "???" };
@@ -792,7 +795,6 @@ static void erase_channel(int i)
     ch->_unused50_6       = 0;
 
     // Byte 51
-    ch->_unused51_0 = 0;
     ch->bandwidth   = BW_25_KHZ;
     ch->rx_only     = 0;
     ch->talkaround  = 0;
@@ -804,7 +806,8 @@ static void erase_channel(int i)
     ch->_unused52[0] = 0;
     ch->_unused52[1] = 0;
     ch->_unused52[2] = 0;
-    ch->squelch      = 5;
+    ch->_unused52[3] = 0;
+    ch->squelch      = SQ_NORMAL;
 
     // Clear valid bit.
     b->bitmap[i % 128 / 8] &= ~(1 << (i & 7));
@@ -1092,7 +1095,7 @@ static void print_analog_channels(FILE *out, int verbose)
         //      CTCSS/DCS Dec
         //      CTCSS/DCS Enc
         //      Bandwidth
-        fprintf(out, "%-7d ", ch->squelch <= 9 ? ch->squelch : 5);
+        fprintf(out, "%-7s ", SQUELCH_NAME[ch->squelch]);
         print_tone(out, ch->ctcss_dcs_receive);
         fprintf(out, "  ");
         print_tone(out, ch->ctcss_dcs_transmit);
@@ -1704,9 +1707,12 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         }
     }
 
-    squelch = atoi(squelch_str);
-    if (squelch < 0 || squelch > 9) {
-        fprintf(stderr, "Bad squelch level.\n");
+    if (strcasecmp ("Normal", squelch_str) == 0) {
+        squelch = SQ_NORMAL;
+    } else if (strcasecmp ("Tight", squelch_str) == 0) {
+        squelch = SQ_TIGHT;
+    } else {
+        fprintf (stderr, "Bad squelch level.\n");
         return 0;
     }
 

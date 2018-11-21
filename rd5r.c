@@ -1068,7 +1068,7 @@ static void print_analog_channels(FILE *out, int verbose)
         fprintf(out, "# 7) Transmit timeout timer in seconds: 0, 15, 30, 45... 555\n");
         fprintf(out, "# 8) Receive only: -, +\n");
         fprintf(out, "# 9) Admit criteria: -, Free, Tone\n");
-        fprintf(out, "# 10) Squelch level: Normal, Tight\n");
+        fprintf(out, "# 10) Squelch level: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9\n");
         fprintf(out, "# 11) Guard tone for receive, or '-' to disable\n");
         fprintf(out, "# 12) Guard tone for transmit, or '-' to disable\n");
         fprintf(out, "# 13) Bandwidth in kHz: 12.5, 20, 25\n");
