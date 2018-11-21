@@ -6,6 +6,7 @@ Supported radios:
  * TYT MD-UV380
  * TYT MD-UV390, Retevis RT3S
  * TYT MD-9600
+ * Baofeng DM-1701, Retevis RT84
  * Baofeng RD-5R, TD-5R
  * Radioddity GD-77
  * Anytone AT-D868UV
