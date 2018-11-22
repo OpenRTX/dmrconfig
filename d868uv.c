@@ -43,6 +43,8 @@
 #define NGLISTS         250
 #define NSCANL          250
 #define NMESSAGES       100
+#define NCALLSIGNS      160000
+#define CALLSIGN_SIZE   (12*1024*1024)  // Size of callsign data
 
 //
 // Offsets in the image file.
@@ -2682,6 +2684,13 @@ static int d868uv_verify_config(radio_device_t *radio)
 //                ^^^^^^^^^^^ ^^^^^^^^^^^
 //                radio id<<1 offset
 //
+//     The map is stored in 128000-byte chunks with 256kbyte step:
+//      04000000-0401f3ff, 04040000-0405f3ff, 04080000-0409f3ff, 040c0000-040df3ff,
+//      04100000-0411f3ff, 04140000-0415f3ff, 04180000-0419f3ff, 041c0000-...
+//
+//     Up to 10 chunks in total. Last range is 04240000-0425f3ff.
+//     Max 160000 callsigns.
+//
 // (2) Sizes: count of records and last data address.
 //      044c0000: bf-b7-01-00-bd-f6-34-05-00-00-00-00-00-00-00-00 ......4.........
 //                ^^^^^^^^^^^ ^^^^^^^^^^^
@@ -2693,26 +2702,45 @@ static int d868uv_verify_config(radio_device_t *radio)
 //      04500020: 57-00-4f-6e-74-61-72-69-6f-00-43-61-6e-61-64-61 W.Ontario.Canada
 //      04500030: 00-44-4d-52-00-                                 .DMR.
 //
+//     The data are stored in 100000-byte chunks with 256kbyte step:
+//      04500000-0451869f, 04540000-0455869f, ... 05340000-0535869f and so on.
+//
 static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
 {
-    //TODO
-#if 0
-    uint8_t *mem;
-    char line[256], *callsign, *name;
-    int id, bno, nbytes, nrecords = 0;
-    unsigned finish;
-    callsign_t *cs;
+    struct {
+        uint32_t id;
+        uint32_t offset;
+    } map[NCALLSIGNS];
 
-    // Allocate memory.
-    nbytes = CALLSIGN_FINISH - CALLSIGN_START;
-    mem = malloc(nbytes);
-    if (!mem) {
+    struct {
+        uint32_t count;
+        uint32_t last;
+        uint32_t unused3;
+        uint32_t unused4;
+    } sz = {0};
+
+    // Allocate data.
+    char *data = malloc(CALLSIGN_SIZE);
+    if (!data) {
         fprintf(stderr, "Out of memory!\n");
         return;
     }
-    memset(mem, 0xff, nbytes);
+    memset(data, 0xff, CALLSIGN_SIZE);
+    memset(map, 0xff, sizeof(map));
 
+    //
     // Parse CSV file.
+    //
+    // The file has the following format:
+    // Radio ID,Callsign,Name,City,State,Country,Remarks
+    // 3114542,KK6ABQ,Sergey Vakulenko,Santa Clara,California,United States,DMR
+    //
+    // Need to rearrange the fields like:
+    // Radio ID, Name, City, Callsign, State, Country, Remarks
+    //
+    char line[256];
+    unsigned nbytes = 0;
+
     while (fgets(line, sizeof(line), csv)) {
         if (line[0] < '0' || line[0] > '9') {
             // Skip header.
@@ -2724,67 +2752,119 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
         while (e >= line && (*e=='\n' || *e=='\r' || *e==' ' || *e=='\t'))
             *e-- = 0;
 
-        id = strtoul(line, 0, 10);
+        char *callsign = strchr(line,     ','); if (! callsign) continue; *callsign++ = 0;
+        char *name     = strchr(callsign, ','); if (! name)     continue; *name++     = 0;
+        char *city     = strchr(name,     ','); if (! city)     continue; *city++     = 0;
+        char *state    = strchr(city,     ','); if (! state)    continue; *state++    = 0;
+        char *country  = strchr(state,    ','); if (! country)  continue; *country++  = 0;
+        char *remarks  = strchr(country,  ','); if (! remarks)  continue; *remarks++  = 0;
+        //printf("%s,%s,%s,%s,%s,%s,%s\n", line, callsign, name, city, state, country, remarks);
+
+        unsigned id = strtoul(line, 0, 10);
         if (id < 1 || id > 0xffffff) {
             fprintf(stderr, "Bad id: %d\n", id);
-            fprintf(stderr, "Line: '%s'\n", line);
+            fprintf(stderr, "Line: '%s,%s,%s,%s,%s,%s,%s'\n",
+                line, callsign, name, city, state, country, remarks);
             return;
         }
 
-        callsign = strchr(line, ',');
-        if (! callsign) {
-            fprintf(stderr, "Cannot find callsign!\n");
-            fprintf(stderr, "Line: '%s'\n", line);
+        // Add map record.
+        if (sz.count >= NCALLSIGNS) {
+            fprintf(stderr, "Too many contacts!\n");
             return;
         }
-        *callsign++ = 0;
+        map[sz.count].id     = id << 1;
+        map[sz.count].offset = nbytes;
+        sz.count++;
 
-        name = strchr(callsign, ',');
-        if (! name) {
-            fprintf(stderr, "Cannot find name!\n");
-            fprintf(stderr, "Line: '%s,%s'\n", line, callsign);
-            return;
-        }
-        *name++ = 0;
-        //printf("%-10d%-10s%s\n", id, callsign, name);
+        // Fill data.
+        char *p = &data[nbytes];
 
-        cs = GET_CALLSIGN(mem, nrecords);
-        nrecords++;
+        // Radio ID.
+        *p++ = 0;
+        *p++ = ((id / 10000000) << 4) | ((id / 1000000) % 10);
+        *p++ = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
+        *p++ = ((id / 1000 % 10) << 4) | ((id / 100) % 10);
+        *p++ = ((id / 10 % 10) << 4) | (id % 10);
+        *p++ = 0;
 
-        // Fill callsign structure.
-        cs->dmrid = id;
-        strncpy(cs->callsign, callsign, sizeof(cs->callsign));
-        strncpy(cs->name, name, sizeof(cs->name));
-    }
-    fprintf(stderr, "Total %d contacts.\n", nrecords);
+        // Name, city, callsign, state, country, remarks.
+        strcpy(p, name);     p += strlen(p) + 1;
+        strcpy(p, city);     p += strlen(p) + 1;
+        strcpy(p, callsign); p += strlen(p) + 1;
+        strcpy(p, state);    p += strlen(p) + 1;
+        strcpy(p, country);  p += strlen(p) + 1;
+        strcpy(p, remarks);  p += strlen(p) + 1;
 
-    build_callsign_index(mem, nrecords);
-    //print_hex(mem, 0x4003);
-    //exit(0);
-
-    // Align to 1kbyte.
-    finish = CALLSIGN_START + (CALLSIGN_OFFSET + nrecords*120 + 1023) / 1024 * 1024;
-    if (finish > CALLSIGN_FINISH) {
-        // Limit is 122197 contacts.
-        fprintf(stderr, "Too many contacts!\n");
-        return;
+        nbytes = p - data;
     }
 
-    // Write callsigns.
-    radio_progress = 0;
-    for (bno = CALLSIGN_START/1024; bno < finish/1024; bno++) {
-        dfu_write_block(bno, &mem[bno*1024 - CALLSIGN_START], 1024);
+    // Final delimiter.
+    data[nbytes++] = 0;
+    fprintf(stderr, "Total %d contacts, %d bytes.\n", sz.count, nbytes);
 
-        ++radio_progress;
-        if (radio_progress % 512 == 0) {
-            fprintf(stderr, "#");
-            fflush(stderr);
-        }
+    sz.last = ADDR_CALLDB_DATA + (nbytes / 100000) * 256*1024 + (nbytes % 100000);
+
+#if 0
+    printf("Map:\n");
+    print_hex((uint8_t*)map, sz.count * sizeof(map[0]));
+    printf("\n\nSizes:\n");
+    print_hex((uint8_t*)&sz, sizeof(sz));
+    printf("\n\nData:\n");
+    print_hex((uint8_t*)data, nbytes);
+    printf("\n");
+    return;
+#endif
+
+    if (! trace_flag) {
+        fprintf(stderr, "Write: ");
+        fflush(stderr);
     }
+
+    //
+    // Write callsign map.
+    //
+    unsigned addr = ADDR_CALLDB_LIST;
+    unsigned index;
+
+    for (index = 0; index < sz.count; index += 16000) {
+        unsigned n = (sz.count - index) * 8;
+        if (n > 128000)
+            n = 128000;
+
+        serial_write_region(addr, (uint8_t*) &map[index], n);
+        addr += 256*1024;
+
+        fprintf(stderr, "#");
+        fflush(stderr);
+    }
+
+    //
+    // Write sizes.
+    //
+    serial_write_region(ADDR_CALLDB_SIZE, (uint8_t*) &sz, 16);
+
+    //
+    // Write data.
+    //
+    addr = ADDR_CALLDB_DATA;
+    for (index = 0; index < nbytes; index += 100000) {
+        unsigned n = nbytes - index;
+        if (n > 100000)
+            n = 100000;
+        else
+            n = (n + 15) & ~15; // align
+
+        serial_write_region(addr, (uint8_t*) &data[index], n);
+        addr += 256*1024;
+
+        fprintf(stderr, "#");
+        fflush(stderr);
+    }
+
     if (! trace_flag)
         fprintf(stderr, "# done.\n");
-    free(mem);
-#endif
+    free(data);
 }
 
 //

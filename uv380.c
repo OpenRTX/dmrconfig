@@ -2497,7 +2497,7 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
 
     radio_progress = 0;
     if (! trace_flag) {
-        fprintf(stderr, "Erase contacts: ");
+        fprintf(stderr, "Erase: ");
         fflush(stderr);
     }
 
@@ -2506,7 +2506,7 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
     dfu_erase(CALLSIGN_START, (finish + 0xffff) / 0x10000 * 0x10000);
     if (! trace_flag) {
         fprintf(stderr, "# done.\n");
-        fprintf(stderr, "Write contacts: ");
+        fprintf(stderr, "Write: ");
         fflush(stderr);
     }
 
