@@ -2687,7 +2687,7 @@ static int d868uv_verify_config(radio_device_t *radio)
 //
 // Read and dump the callsign database.
 //
-static void read_csv(radio_device_t *radio)
+static void dump_csv(radio_device_t *radio)
 {
     callsign_sizes_t sz = {0};
 
@@ -2809,52 +2809,30 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
     // Need to rearrange the fields like:
     // Radio ID, Name, City, Callsign, State, Country, Remarks
     //
-    char line[256];
     unsigned nbytes = 0;
+    char *radioid, *callsign, *name, *city, *state, *country, *remarks;
 
-    while (fgets(line, sizeof(line), csv)) {
-        trim_spaces(line, 255);
-        if (line[0] < '0' || line[0] > '9') {
-            // Eastern egg: when file contains a line "dump",
-            // read the callsign database from the radio
-            // and save to a file.
-            if (strcmp(line, "dump") == 0) {
-                free(data);
-                read_csv(radio);
-                return;
-            }
-            // Skip header.
-            continue;
-        }
+    if (csv_init(csv) < 0) {
+        free(data);
+        return;
+    }
+    while (csv_read(csv, &radioid, &callsign, &name, &city, &state, &country, &remarks)) {
+        //printf("%s,%s,%s,%s,%s,%s,%s\n", radioid, callsign, name, city, state, country, remarks);
 
-        // Replace non-ASCII characters with '?'.
-        char *p;
-        for (p=line; *p; p++) {
-            if (*p < ' ' || *p > '~')
-                *p = '?';
-        }
-
-        char *callsign = strchr(line,     ','); if (! callsign) continue; *callsign++ = 0;
-        char *name     = strchr(callsign, ','); if (! name)     continue; *name++     = 0;
-        char *city     = strchr(name,     ','); if (! city)     continue; *city++     = 0;
-        char *state    = strchr(city,     ','); if (! state)    continue; *state++    = 0;
-        char *country  = strchr(state,    ','); if (! country)  continue; *country++  = 0;
-        char *remarks  = strchr(country,  ','); if (! remarks)  continue; *remarks++  = 0;
-        if ((p = strchr(remarks,  ',')) != 0)
-            *p = 0;
-        callsign = trim_spaces(callsign, 16);
-        name     = trim_spaces(name, 16);
-        city     = trim_spaces(city, 15);
-        state    = trim_spaces(state, 16);
-        country  = trim_spaces(country, 16);
-        remarks  = trim_spaces(remarks, 16);
-        //printf("%s,%s,%s,%s,%s,%s,%s\n", line, callsign, name, city, state, country, remarks);
-
-        unsigned id = strtoul(line, 0, 10);
+        unsigned id = strtoul(radioid, 0, 10);
         if (id < 1 || id > 0xffffff) {
             fprintf(stderr, "Bad id: %d\n", id);
             fprintf(stderr, "Line: '%s,%s,%s,%s,%s,%s,%s'\n",
-                line, callsign, name, city, state, country, remarks);
+                radioid, callsign, name, city, state, country, remarks);
+            return;
+        }
+
+        // Eastern egg: when file contains id 1 with callsign 'dump',
+        // read the callsign database from the radio
+        // and save to a file.
+        if (id == 1 && strcmp(callsign, "dump") == 0) {
+            free(data);
+            dump_csv(radio);
             return;
         }
 
@@ -2872,7 +2850,7 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
         m->offset = nbytes;
 
         // Fill data.
-        p = &data[nbytes];
+        char *p = &data[nbytes];
 
         // Radio ID.
         *p++ = 0;

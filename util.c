@@ -143,6 +143,22 @@ char *trim_spaces(char *line, int limit)
 }
 
 //
+// Strip optional quotes around the string.
+//
+char *trim_quotes(char *line)
+{
+    if (*line == '"') {
+        int last = strlen(line) - 1;
+
+        if (line[last] == '"') {
+            line[last] = 0;
+            return line+1;
+        }
+    }
+    return line;
+}
+
+//
 // Delay in milliseconds.
 //
 void mdelay(unsigned msec)
@@ -721,4 +737,99 @@ void print_tone(FILE *out, unsigned data)
         fprintf(out, "D%d%d%dI", b, c, d);
         break;
     }
+}
+
+//
+// Initialize CSV parser.
+// Check header for correctness.
+// Return negative on error.
+//
+static int csv_skip_field1;
+
+int csv_init(FILE *csv)
+{
+    char line[256];
+
+    if (!fgets(line, sizeof(line), csv))
+        return -1;
+
+    char *field1 = line;
+    char *field2 = strchr(field1,      ','); if (! field2) return -1; *field2++ = 0;
+    char *field3 = strchr(field2,      ','); if (! field3) return -1; *field3++ = 0;
+    char *field4 = strchr(field3,      ','); if (! field4) return -1; *field4++ = 0;
+
+    field1 = trim_quotes(field1);
+    field2 = trim_quotes(field2);
+    field3 = trim_quotes(field3);
+//printf("Line: %s,%s,%s\n", field1, field2, field3);
+
+    if (strcmp(field1, "Radio ID") == 0 &&
+        strcmp(field2, "Callsign") == 0) {
+        // Correct format:
+        // Radio ID,Callsign,Name,City,State,Country,Remarks
+        csv_skip_field1 = 0;
+        return 0;
+    }
+    if (strcmp(field2, "Radio ID") == 0 &&
+        strcmp(field3, "Callsign") == 0) {
+        // Correct format:
+        // "No.","Radio ID","Callsign","Name","City","State","Country","Remarks"
+        csv_skip_field1 = 1;
+        return 0;
+    }
+
+    //TODO
+    return -1;
+}
+
+//
+// Parse one line of CSV file.
+// Return 1 on success, 0 on EOF.
+//
+int csv_read(FILE *csv, char **radioid, char **callsign, char **name,
+    char **city, char **state, char **country, char **remarks)
+{
+    static char line[256];
+
+again:
+    if (!fgets(line, sizeof(line), csv))
+        return 0;
+//printf("Line: '%s'\n", line);
+
+    // Replace non-ASCII characters with '?'.
+    char *p;
+    for (p=line; *p; p++) {
+        if ((uint8_t)*p > '~')
+            *p = '?';
+    }
+
+    if (csv_skip_field1) {
+        *radioid = strchr(line, ',');
+        if (! *radioid)
+            return 0;
+        *(*radioid)++ = 0;
+    } else
+        *radioid = line;
+
+    *callsign = strchr(*radioid,  ','); if (! *callsign) return 0; *(*callsign)++ = 0;
+    *name     = strchr(*callsign, ','); if (! *name)     return 0; *(*name)++     = 0;
+    *city     = strchr(*name,     ','); if (! *city)     return 0; *(*city)++     = 0;
+    *state    = strchr(*city,     ','); if (! *state)    return 0; *(*state)++    = 0;
+    *country  = strchr(*state,    ','); if (! *country)  return 0; *(*country)++  = 0;
+    *remarks  = strchr(*country,  ','); if (! *remarks)  return 0; *(*remarks)++  = 0;
+    if ((p = strchr(*remarks,  ',')) != 0)
+        *p = 0;
+
+    *radioid  = trim_spaces(trim_quotes(*radioid),  16);
+    *callsign = trim_spaces(trim_quotes(*callsign), 16);
+    *name     = trim_spaces(trim_quotes(*name),     16);
+    *city     = trim_spaces(trim_quotes(*city),     15);
+    *state    = trim_spaces(trim_quotes(*state),    16);
+    *country  = trim_spaces(trim_quotes(*country),  16);
+    *remarks  = trim_spaces(trim_quotes(*remarks),  16);
+//printf("%s,%s,%s,%s,%s,%s,%s\n", *radioid, *callsign, *name, *city, *state, *country, *remarks);
+
+    if (**radioid < '1' || **radioid > '9')
+        goto again;
+    return 1;
 }

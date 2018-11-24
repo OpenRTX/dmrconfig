@@ -50,6 +50,25 @@ void print_hex_addr_data(unsigned addr, const unsigned char *data, int len);
 char *trim_spaces(char *line, int limit);
 
 //
+// Strip optional quotes around the string.
+//
+char *trim_quotes(char *line);
+
+//
+// Initialize CSV parser.
+// Check header for correctness.
+// Return -1 on error.
+//
+int csv_init(FILE *csv);
+
+//
+// Parse one line of CSV file.
+// Return 1 on success, 0 on EOF.
+//
+int csv_read(FILE *csv, char **radioid, char **callsign, char **name,
+    char **city, char **state, char **country, char **remarks);
+
+//
 // DFU functions.
 //
 const char *dfu_init(unsigned vid, unsigned pid);
