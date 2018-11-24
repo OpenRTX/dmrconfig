@@ -761,17 +761,17 @@ int csv_init(FILE *csv)
     field1 = trim_quotes(field1);
     field2 = trim_quotes(field2);
     field3 = trim_quotes(field3);
-//printf("Line: %s,%s,%s\n", field1, field2, field3);
+    //printf("Line: %s,%s,%s\n", field1, field2, field3);
 
-    if (strcmp(field1, "Radio ID") == 0 &&
-        strcmp(field2, "Callsign") == 0) {
+    if (strcasecmp(field1, "Radio ID") == 0 &&
+        strcasecmp(field2, "Callsign") == 0) {
         // Correct format:
         // Radio ID,Callsign,Name,City,State,Country,Remarks
         csv_skip_field1 = 0;
         return 0;
     }
-    if (strcmp(field2, "Radio ID") == 0 &&
-        strcmp(field3, "Callsign") == 0) {
+    if (strcasecmp(field2, "Radio ID") == 0 &&
+        strcasecmp(field3, "Callsign") == 0) {
         // Correct format:
         // "No.","Radio ID","Callsign","Name","City","State","Country","Remarks"
         csv_skip_field1 = 1;
@@ -794,7 +794,7 @@ int csv_read(FILE *csv, char **radioid, char **callsign, char **name,
 again:
     if (!fgets(line, sizeof(line), csv))
         return 0;
-//printf("Line: '%s'\n", line);
+    //printf("Line: '%s'\n", line);
 
     // Replace non-ASCII characters with '?'.
     char *p;
@@ -827,7 +827,7 @@ again:
     *state    = trim_spaces(trim_quotes(*state),    16);
     *country  = trim_spaces(trim_quotes(*country),  16);
     *remarks  = trim_spaces(trim_quotes(*remarks),  16);
-//printf("%s,%s,%s,%s,%s,%s,%s\n", *radioid, *callsign, *name, *city, *state, *country, *remarks);
+    //printf("%s,%s,%s,%s,%s,%s,%s\n", *radioid, *callsign, *name, *city, *state, *country, *remarks);
 
     if (**radioid < '1' || **radioid > '9')
         goto again;

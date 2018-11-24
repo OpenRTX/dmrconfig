@@ -2420,7 +2420,8 @@ static void build_callsign_index(uint8_t *mem, int nrecords)
 static void uv380_write_csv(radio_device_t *radio, FILE *csv)
 {
     uint8_t *mem;
-    char line[256], *callsign, *name;
+    char line[256];
+    char *radioid, *callsign, *name, *city, *state, *country, *remarks;
     int id, bno, nbytes, nrecords = 0;
     unsigned finish;
     callsign_t *cs;
@@ -2434,41 +2435,23 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
     }
     memset(mem, 0xff, nbytes);
 
+    //
     // Parse CSV file.
-    while (fgets(line, sizeof(line), csv)) {
-        if (line[0] < '0' || line[0] > '9') {
-            // Skip header.
-            continue;
-        }
+    //
+    if (csv_init(csv) < 0) {
+        free(mem);
+        return;
+    }
+    while (csv_read(csv, &radioid, &callsign, &name, &city, &state, &country, &remarks)) {
+        //printf("%s,%s,%s,%s,%s,%s,%s\n", radioid, callsign, name, city, state, country, remarks);
 
-        // Strip trailing spaces and newline.
-        char *e = line + strlen(line) - 1;
-        while (e >= line && (*e=='\n' || *e=='\r' || *e==' ' || *e=='\t'))
-            *e-- = 0;
-
-        id = strtoul(line, 0, 10);
+        id = strtoul(radioid, 0, 10);
         if (id < 1 || id > 0xffffff) {
             fprintf(stderr, "Bad id: %d\n", id);
-            fprintf(stderr, "Line: '%s'\n", line);
+            fprintf(stderr, "Line: '%s,%s,%s,%s,%s,%s,%s'\n",
+                radioid, callsign, name, city, state, country, remarks);
             return;
         }
-
-        callsign = strchr(line, ',');
-        if (! callsign) {
-            fprintf(stderr, "Cannot find callsign!\n");
-            fprintf(stderr, "Line: '%s'\n", line);
-            return;
-        }
-        *callsign++ = 0;
-
-        name = strchr(callsign, ',');
-        if (! name) {
-            fprintf(stderr, "Cannot find name!\n");
-            fprintf(stderr, "Line: '%s,%s'\n", line, callsign);
-            return;
-        }
-        *name++ = 0;
-        //printf("%-10d%-10s%s\n", id, callsign, name);
 
         cs = GET_CALLSIGN(mem, nrecords);
         nrecords++;
@@ -2476,7 +2459,9 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
         // Fill callsign structure.
         cs->dmrid = id;
         strncpy(cs->callsign, callsign, sizeof(cs->callsign));
-        strncpy(cs->name, name, sizeof(cs->name));
+        snprintf(line, sizeof(line), "%s,%s,%s,%s,%s",
+            name, city, state, country, remarks);
+        strncpy(cs->name, line, sizeof(cs->name));
     }
     fprintf(stderr, "Total %d contacts.\n", nrecords);
 
@@ -2488,21 +2473,21 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
 
     // Align to 1kbyte.
     finish = CALLSIGN_START + (CALLSIGN_OFFSET + nrecords*120 + 1023) / 1024 * 1024;
-
     if (finish > CALLSIGN_FINISH) {
         // Limit is 122197 contacts.
         fprintf(stderr, "Too many contacts!\n");
         return;
     }
 
+    //
+    // Erase whole region.
+    // Align finish to 64kbytes.
+    //
     radio_progress = 0;
     if (! trace_flag) {
         fprintf(stderr, "Erase: ");
         fflush(stderr);
     }
-
-    // Erase whole region.
-    // Align finish to 64kbytes.
     dfu_erase(CALLSIGN_START, (finish + 0xffff) / 0x10000 * 0x10000);
     if (! trace_flag) {
         fprintf(stderr, "# done.\n");
@@ -2510,7 +2495,9 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
         fflush(stderr);
     }
 
+    //
     // Write callsigns.
+    //
     for (bno = CALLSIGN_START/1024; bno < finish/1024; bno++) {
         dfu_write_block(bno, &mem[bno*1024 - CALLSIGN_START], 1024);
 
