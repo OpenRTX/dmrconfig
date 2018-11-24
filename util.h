@@ -41,6 +41,13 @@ int trace_flag;
 // Print data in hex format.
 //
 void print_hex(const unsigned char *data, int len);
+void print_hex_addr_data(unsigned addr, const unsigned char *data, int len);
+
+//
+// Strip trailing spaces and newline.
+// Shorten the string in place to a specified limit.
+//
+char *trim_spaces(char *line, int limit);
 
 //
 // DFU functions.

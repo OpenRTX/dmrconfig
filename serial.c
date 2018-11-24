@@ -605,9 +605,9 @@ static int send_recv(const unsigned char *cmd, int cmdlen,
     // Send command.
     //
     if (trace_flag > 0) {
-        fprintf(stderr, "----Send [%d] %x", cmdlen, cmd[0]);
+        fprintf(stderr, "----Send [%d] %02x", cmdlen, cmd[0]);
         for (i=1; i<cmdlen; ++i)
-            fprintf(stderr, "-%x", cmd[i]);
+            fprintf(stderr, "-%02x", cmd[i]);
         fprintf(stderr, "\n");
     }
 
@@ -631,9 +631,9 @@ static int send_recv(const unsigned char *cmd, int cmdlen,
     }
 
     if (trace_flag > 0) {
-        fprintf(stderr, "----Recv [%d] %x", reply_len, response[0]);
+        fprintf(stderr, "----Recv [%d] %02x", reply_len, response[0]);
         for (i=1; i<reply_len; ++i)
-            fprintf(stderr, "-%x", response[i]);
+            fprintf(stderr, "-%02x", response[i]);
         fprintf(stderr, "\n");
     }
     return 1;

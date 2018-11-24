@@ -103,6 +103,45 @@ void print_hex(const unsigned char *data, int len)
         printf("-%02x", (unsigned char) data[i]);
 }
 
+void print_hex_addr_data(unsigned addr, const unsigned char *data, int len)
+{
+    for (; len >= 16; len -= 16) {
+        printf("%08x: ", addr);
+        print_hex(data, 16);
+        printf("\n");
+        addr += 16;
+        data += 16;
+    }
+    if (len > 0) {
+        printf("%08x: ", addr);
+        print_hex(data, len);
+        printf("\n");
+    }
+}
+
+//
+// Strip trailing spaces and newline.
+// Shorten the string in place to a specified limit.
+//
+char *trim_spaces(char *line, int limit)
+{
+    // Strip leading spaces.
+    while (*line==' ' || *line=='\t')
+        line++;
+
+    // Shorten to the limit.
+    unsigned len = strlen(line);
+    if (len > limit)
+        line[limit] = 0;
+
+    // Strip trailing spaces and newlines.
+    char *e = line + strlen(line) - 1;
+    while (e >= line && (*e=='\n' || *e=='\r' || *e==' ' || *e=='\t'))
+        *e-- = 0;
+
+    return line;
+}
+
 //
 // Delay in milliseconds.
 //

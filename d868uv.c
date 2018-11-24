@@ -321,14 +321,6 @@ typedef struct {
 
     // Bytes 35-38
     uint8_t id[4];                      // Call ID: BCD coded 8 digits
-#define GET_ID(x) (((x)[0] >> 4) * 10000000 +\
-                   ((x)[0] & 15) * 1000000 +\
-                   ((x)[1] >> 4) * 100000 +\
-                   ((x)[1] & 15) * 10000 +\
-                   ((x)[2] >> 4) * 1000 +\
-                   ((x)[2] & 15) * 100 +\
-                   ((x)[3] >> 4) * 10 +\
-                   ((x)[3] & 15))
 #define CONTACT_ID(ct) GET_ID((ct)->id)
 
     // Byte 39
@@ -401,6 +393,24 @@ typedef struct {
     uint8_t _unused132[60];             // 0
 
 } scanlist_t;
+
+//
+// Entry of callsign map: 8 bytes.
+//
+typedef struct {
+    uint32_t    id;                     // DMR ID
+    uint32_t    offset;                 // Offset in the callsign data blob
+} callsign_map_t;
+
+//
+// Sizes of callsign database.
+//
+typedef struct {
+    uint32_t    count;                  // Number of records
+    uint32_t    last;                   // Last address of data blob
+    uint32_t    _unused3;
+    uint32_t    _unused4;
+} callsign_sizes_t;
 
 static const char *POWER_NAME[] = { "Low", "Mid", "High", "Turbo" };
 static const char *DIGITAL_ADMIT_NAME[] = { "-", "Free", "NColor", "Color" };
@@ -2675,6 +2685,76 @@ static int d868uv_verify_config(radio_device_t *radio)
 }
 
 //
+// Read and dump the callsign database.
+//
+static void read_csv(radio_device_t *radio)
+{
+    callsign_sizes_t sz = {0};
+
+    //
+    // Dump sizes.
+    //
+    serial_read_region(ADDR_CALLDB_SIZE, (uint8_t*) &sz, 16);
+    printf("Sizes:\n");
+    print_hex_addr_data(ADDR_CALLDB_SIZE, (uint8_t*)&sz, sizeof(sz));
+    printf("\n");
+
+    //
+    // Dump callsign map.
+    //
+    unsigned addr = ADDR_CALLDB_LIST;
+    unsigned index;
+
+    printf("Map:\n");
+    for (index = 0; index < sz.count; index += 16000) {
+        unsigned n = (sz.count - index) * 8;
+        if (n > 128000)
+            n = 128000;
+
+        uint8_t map[128000];
+        serial_read_region(addr, map, n);
+        print_hex_addr_data(addr, map, n);
+        addr += 256*1024;
+    }
+    printf("\n");
+
+    //
+    // Dump data.
+    //
+    printf("Data:\n");
+    addr = ADDR_CALLDB_DATA;
+    for (index = 0; index < 10000000; index += 100000) {
+        int n = sz.last - addr;
+        if (n < 0)
+            break;
+        else if (n > 100000)
+            n = 100000;
+        else
+            n = (n + 15) & ~15; // align
+
+        uint8_t data[100000];
+        serial_read_region(addr, data, n);
+        print_hex_addr_data(addr, data, n);
+        addr += 256*1024;
+    }
+}
+
+//
+// Sorting callback for callsign map.
+//
+static int compare_callsign_map(const void *ap, const void *bp)
+{
+    uint32_t a = *(uint32_t*) ap;
+    uint32_t b = *(uint32_t*) bp;
+
+    if (a < b)
+        return -1;
+    if (a > b)
+        return 1;
+    return 0;
+}
+
+//
 // Write CSV file to the callsign database.
 //
 // The callsign database consists of three parts:
@@ -2707,17 +2787,8 @@ static int d868uv_verify_config(radio_device_t *radio)
 //
 static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
 {
-    struct {
-        uint32_t id;
-        uint32_t offset;
-    } map[NCALLSIGNS];
-
-    struct {
-        uint32_t count;
-        uint32_t last;
-        uint32_t unused3;
-        uint32_t unused4;
-    } sz = {0};
+    callsign_map_t map[NCALLSIGNS];
+    callsign_sizes_t sz = {0};
 
     // Allocate data.
     char *data = malloc(CALLSIGN_SIZE);
@@ -2725,7 +2796,7 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
         fprintf(stderr, "Out of memory!\n");
         return;
     }
-    memset(data, 0xff, CALLSIGN_SIZE);
+    memset(data, 0, CALLSIGN_SIZE);
     memset(map, 0xff, sizeof(map));
 
     //
@@ -2742,15 +2813,26 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
     unsigned nbytes = 0;
 
     while (fgets(line, sizeof(line), csv)) {
+        trim_spaces(line, 255);
         if (line[0] < '0' || line[0] > '9') {
+            // Eastern egg: when file contains a line "dump",
+            // read the callsign database from the radio
+            // and save to a file.
+            if (strcmp(line, "dump") == 0) {
+                free(data);
+                read_csv(radio);
+                return;
+            }
             // Skip header.
             continue;
         }
 
-        // Strip trailing spaces and newline.
-        char *e = line + strlen(line) - 1;
-        while (e >= line && (*e=='\n' || *e=='\r' || *e==' ' || *e=='\t'))
-            *e-- = 0;
+        // Replace non-ASCII characters with '?'.
+        char *p;
+        for (p=line; *p; p++) {
+            if (*p < ' ' || *p > '~')
+                *p = '?';
+        }
 
         char *callsign = strchr(line,     ','); if (! callsign) continue; *callsign++ = 0;
         char *name     = strchr(callsign, ','); if (! name)     continue; *name++     = 0;
@@ -2758,6 +2840,14 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
         char *state    = strchr(city,     ','); if (! state)    continue; *state++    = 0;
         char *country  = strchr(state,    ','); if (! country)  continue; *country++  = 0;
         char *remarks  = strchr(country,  ','); if (! remarks)  continue; *remarks++  = 0;
+        if ((p = strchr(remarks,  ',')) != 0)
+            *p = 0;
+        callsign = trim_spaces(callsign, 16);
+        name     = trim_spaces(name, 16);
+        city     = trim_spaces(city, 15);
+        state    = trim_spaces(state, 16);
+        country  = trim_spaces(country, 16);
+        remarks  = trim_spaces(remarks, 16);
         //printf("%s,%s,%s,%s,%s,%s,%s\n", line, callsign, name, city, state, country, remarks);
 
         unsigned id = strtoul(line, 0, 10);
@@ -2773,12 +2863,16 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
             fprintf(stderr, "Too many contacts!\n");
             return;
         }
-        map[sz.count].id     = id << 1;
-        map[sz.count].offset = nbytes;
+        callsign_map_t *m = &map[sz.count];
         sz.count++;
+        m->id = ((id / 10     % 10) << 5)  |  (id            % 10) << 1 |
+                ((id / 1000   % 10) << 13) | ((id / 100)     % 10) << 9 |
+                ((id / 100000 % 10) << 21) | ((id / 10000)   % 10) << 17 |
+                ((id / 10000000)    << 29) | ((id / 1000000) % 10) << 25;
+        m->offset = nbytes;
 
         // Fill data.
-        char *p = &data[nbytes];
+        p = &data[nbytes];
 
         // Radio ID.
         *p++ = 0;
@@ -2798,23 +2892,15 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
 
         nbytes = p - data;
     }
-
-    // Final delimiter.
-    data[nbytes++] = 0;
     fprintf(stderr, "Total %d contacts, %d bytes.\n", sz.count, nbytes);
 
     sz.last = ADDR_CALLDB_DATA + (nbytes / 100000) * 256*1024 + (nbytes % 100000);
 
-#if 0
-    printf("Map:\n");
-    print_hex((uint8_t*)map, sz.count * sizeof(map[0]));
-    printf("\n\nSizes:\n");
-    print_hex((uint8_t*)&sz, sizeof(sz));
-    printf("\n\nData:\n");
-    print_hex((uint8_t*)data, nbytes);
-    printf("\n");
-    return;
-#endif
+    // Append extra zeroes and align.
+    nbytes = (nbytes + 63) & ~15;
+
+    // Sort the map by DMR ID.
+    qsort(map, sz.count, sizeof(map[0]), compare_callsign_map);
 
     if (! trace_flag) {
         fprintf(stderr, "Write: ");
@@ -2827,12 +2913,21 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
     unsigned addr = ADDR_CALLDB_LIST;
     unsigned index;
 
+//#define DUMP_NO_WRITE
+#ifdef DUMP_NO_WRITE
+    printf("Map:\n");
+#endif
     for (index = 0; index < sz.count; index += 16000) {
         unsigned n = (sz.count - index) * 8;
         if (n > 128000)
             n = 128000;
 
+#ifdef DUMP_NO_WRITE
+        // Dump the data, for debugging purposes.
+        print_hex_addr_data(addr, (uint8_t*) &map[index], n);
+#else
         serial_write_region(addr, (uint8_t*) &map[index], n);
+#endif
         addr += 256*1024;
 
         fprintf(stderr, "#");
@@ -2842,20 +2937,30 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
     //
     // Write sizes.
     //
+#ifdef DUMP_NO_WRITE
+    printf("\nSizes:\n");
+    print_hex_addr_data(ADDR_CALLDB_SIZE, (uint8_t*) &sz, 16);
+#else
     serial_write_region(ADDR_CALLDB_SIZE, (uint8_t*) &sz, 16);
+#endif
 
     //
     // Write data.
     //
     addr = ADDR_CALLDB_DATA;
+#ifdef DUMP_NO_WRITE
+    printf("\nData:\n");
+#endif
     for (index = 0; index < nbytes; index += 100000) {
         unsigned n = nbytes - index;
         if (n > 100000)
             n = 100000;
-        else
-            n = (n + 15) & ~15; // align
 
+#ifdef DUMP_NO_WRITE
+        print_hex_addr_data(addr, (uint8_t*) &data[index], n);
+#else
         serial_write_region(addr, (uint8_t*) &data[index], n);
+#endif
         addr += 256*1024;
 
         fprintf(stderr, "#");
