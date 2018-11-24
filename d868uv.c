@@ -2817,6 +2817,13 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
         return;
     }
     while (csv_read(csv, &radioid, &callsign, &name, &city, &state, &country, &remarks)) {
+        radioid  = trim_spaces(radioid,  16);
+        callsign = trim_spaces(callsign, 16);
+        name     = trim_spaces(name,     16);
+        city     = trim_spaces(city,     15);
+        state    = trim_spaces(state,    16);
+        country  = trim_spaces(country,  16);
+        remarks  = trim_spaces(remarks,  16);
         //printf("%s,%s,%s,%s,%s,%s,%s\n", radioid, callsign, name, city, state, country, remarks);
 
         unsigned id = strtoul(radioid, 0, 10);

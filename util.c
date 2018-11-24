@@ -820,13 +820,13 @@ again:
     if ((p = strchr(*remarks,  ',')) != 0)
         *p = 0;
 
-    *radioid  = trim_spaces(trim_quotes(*radioid),  16);
-    *callsign = trim_spaces(trim_quotes(*callsign), 16);
-    *name     = trim_spaces(trim_quotes(*name),     16);
-    *city     = trim_spaces(trim_quotes(*city),     15);
-    *state    = trim_spaces(trim_quotes(*state),    16);
-    *country  = trim_spaces(trim_quotes(*country),  16);
-    *remarks  = trim_spaces(trim_quotes(*remarks),  16);
+    *radioid  = trim_spaces(trim_quotes(*radioid),  100);
+    *callsign = trim_spaces(trim_quotes(*callsign), 100);
+    *name     = trim_spaces(trim_quotes(*name),     100);
+    *city     = trim_spaces(trim_quotes(*city),     100);
+    *state    = trim_spaces(trim_quotes(*state),    100);
+    *country  = trim_spaces(trim_quotes(*country),  100);
+    *remarks  = trim_spaces(trim_quotes(*remarks),  100);
     //printf("%s,%s,%s,%s,%s,%s,%s\n", *radioid, *callsign, *name, *city, *state, *country, *remarks);
 
     if (**radioid < '1' || **radioid > '9')
