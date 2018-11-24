@@ -2675,6 +2675,16 @@ static int d868uv_verify_config(radio_device_t *radio)
             ncontacts++;
     }
 
+    // Contacts have to be continuous for UV380.
+    for (i=0; i<ncontacts; i++) {
+        if (!get_contact(i)) {
+            fprintf(stderr, "Contact %d is missing.\n", i+1);
+            fprintf(stderr, "Contacts must be continuous for %s.\n", radio->name);
+            nerrors++;
+            break;
+        }
+    }
+
     if (nerrors > 0) {
         fprintf(stderr, "Total %d errors.\n", nerrors);
         return 0;
