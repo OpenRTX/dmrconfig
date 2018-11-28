@@ -40,6 +40,7 @@ static struct {
     radio_device_t *device;
 } radio_tab[] = {
     { "DR780",      &radio_md380 },     // TYT MD-380, Retevis RT3, RT8
+    { "MD390",      &radio_md390 },     // TYT MD-390
     { "MD-UV380",   &radio_uv380 },     // TYT MD-UV380
     { "MD-UV390",   &radio_uv390 },     // TYT MD-UV390, Retevis RT3S
     { "2017",       &radio_md2017 },    // TYT MD-2017, Retevis RT82

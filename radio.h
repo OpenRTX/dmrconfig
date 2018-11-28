@@ -115,6 +115,7 @@ struct _radio_device_t {
 };
 
 extern radio_device_t radio_md380;      // TYT MD-380
+extern radio_device_t radio_md390;      // TYT MD-390
 extern radio_device_t radio_md2017;     // TYT MD-2017
 extern radio_device_t radio_uv380;      // TYT MD-UV380
 extern radio_device_t radio_uv390;      // TYT MD-UV390

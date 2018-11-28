@@ -2253,6 +2253,26 @@ radio_device_t radio_md380 = {
 };
 
 //
+// TYT MD-390
+//
+radio_device_t radio_md390 = {
+    "TYT MD-390",
+    md380_download,
+    md380_upload,
+    md380_is_compatible,
+    md380_read_image,
+    md380_save_image,
+    md380_print_version,
+    md380_print_config,
+    md380_verify_config,
+    md380_parse_parameter,
+    md380_parse_header,
+    md380_parse_row,
+    md380_update_timestamp,
+    //TODO: md380_write_csv,
+};
+
+//
 // Zastone D900
 //
 radio_device_t radio_d900 = {
