@@ -2,6 +2,7 @@ DMRconfig is a utility for programming digital radios via USB programming cable.
 Supported radios:
 
  * TYT MD-380, Retevis RT3, RT8
+ * TYT MD-390
  * TYT MD-2017, Retevis RT82
  * TYT MD-UV380
  * TYT MD-UV390, Retevis RT3S
