@@ -9,6 +9,8 @@ LDFLAGS		= -g
 OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o serial.o d868uv.o
 LIBS            = -lusb-1.0
 
+prefix 		= /usr/local
+
 #
 # Linux
 #
@@ -42,7 +44,7 @@ clean:
 		rm -f *~ *.o core dmrconfig dmrconfig.exe
 
 install:	dmrconfig
-		install -c -s dmrconfig /usr/local/bin/dmrconfig
+		install -c -s -D dmrconfig $(DESTDIR)$(prefix)/bin/dmrconfig
 
 dmrconfig.linux: dmrconfig
 		cp -p $< $@
