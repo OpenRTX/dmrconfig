@@ -684,6 +684,8 @@ static int d868uv_is_compatible(radio_device_t *radio)
 {
     if (memcmp("D868UVE", (char*)&radio_mem[0], 7) == 0)
         return 1;
+    if (memcmp("D878UV", (char*)&radio_mem[0], 6) == 0)
+        return 1;
     if (memcmp("D6X2UV", (char*)&radio_mem[0], 6) == 0)
         return 1;
     return 0;
@@ -2972,6 +2974,26 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
 //
 radio_device_t radio_d868uv = {
     "Anytone AT-D868UV",
+    d868uv_download,
+    d868uv_upload,
+    d868uv_is_compatible,
+    d868uv_read_image,
+    d868uv_save_image,
+    d868uv_print_version,
+    d868uv_print_config,
+    d868uv_verify_config,
+    d868uv_parse_parameter,
+    d868uv_parse_header,
+    d868uv_parse_row,
+    d868uv_update_timestamp,
+    d868uv_write_csv,
+};
+
+//
+// Anytone AT-D878UV
+//
+radio_device_t radio_d878uv = {
+    "Anytone AT-D878UV",
     d868uv_download,
     d868uv_upload,
     d868uv_is_compatible,
