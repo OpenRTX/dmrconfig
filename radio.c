@@ -213,7 +213,7 @@ void radio_read_image(const char *filename)
         if (memcmp(ident, "D868UVE", 7) == 0) {
             device = &radio_d868uv;
         } else if (memcmp(ident, "D878UV", 6) == 0) {
-            device = &radio_d868uv;
+            device = &radio_d878uv;
         } else if (memcmp(ident, "D6X2UV", 6) == 0) {
             device = &radio_dmr6x2;
         } else {
