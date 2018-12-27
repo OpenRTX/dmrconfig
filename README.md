@@ -11,6 +11,7 @@ Supported radios:
  * Baofeng RD-5R, TD-5R
  * Radioddity GD-77
  * Anytone AT-D868UV
+ * Anytone AT-D878UV
  * BTECH DMR-6x2
  * Zastone D900
  * Zastone DP880
