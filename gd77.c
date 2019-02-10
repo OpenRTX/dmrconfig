@@ -1013,6 +1013,8 @@ static void print_digital_channels(FILE *out, int verbose)
             fprintf(out, "%-4d", ch->contact_name_index);
 
 #ifdef PRINT_RARE_PARAMS
+        fprintf(out, "      ");
+
         print_chan_ext(out, ch);
 
         // Extended digital parameters of the channel:
