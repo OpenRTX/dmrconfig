@@ -913,7 +913,7 @@ static void print_digital_channels(FILE *out, int verbose)
     }
     fprintf(out, "Digital Name             Receive   Transmit Power Scan TOT RO Admit  Color Slot RxGL TxContact");
 #ifdef PRINT_EXTENDED_PARAMS
-    fprintf(out, "AS InCall Sq Dly RxRef TxRef LW VOX EmSys Privacy  PN PCC EAA DCC DCDM");
+    fprintf(out, " AS InCall Sq Dly RxRef TxRef LW VOX EmSys Privacy  PN PCC EAA DCC DCDM");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
@@ -943,6 +943,8 @@ static void print_digital_channels(FILE *out, int verbose)
             fprintf(out, "%-5d", ch->contact_name_index);
 
 #ifdef PRINT_EXTENDED_PARAMS
+        fprintf(out, "     "):
+
         print_chan_ext(out, ch);
 
         // Extended digital parameters of the channel:
