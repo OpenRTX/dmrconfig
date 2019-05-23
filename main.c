@@ -46,6 +46,8 @@ void usage()
     fprintf(stderr, "                         Save configuration to a text file 'device.conf'.\n");
     fprintf(stderr, "    dmrconfig -w [-t] file.img\n");
     fprintf(stderr, "                         Write codeplug to the radio.\n");
+    fprintf(stderr, "    dmrconfig -v [-t] file.conf\n");
+    fprintf(stderr, "                         Verify configuration script for the radio.\n");
     fprintf(stderr, "    dmrconfig -c [-t] file.conf\n");
     fprintf(stderr, "                         Apply configuration script to the radio.\n");
     fprintf(stderr, "    dmrconfig -c file.img file.conf\n");
@@ -59,6 +61,7 @@ void usage()
     fprintf(stderr, "    -r           Read codeplug from the radio.\n");
     fprintf(stderr, "    -w           Write codeplug to the radio.\n");
     fprintf(stderr, "    -c           Configure the radio from a text script.\n");
+    fprintf(stderr, "    -v           Verify config file.\n");
     fprintf(stderr, "    -u           Update contacts database.\n");
     fprintf(stderr, "    -l           List all supported radios.\n");
     fprintf(stderr, "    -t           Trace USB protocol.\n");
@@ -68,18 +71,19 @@ void usage()
 int main(int argc, char **argv)
 {
     int read_flag = 0, write_flag = 0, config_flag = 0, csv_flag = 0;
-    int list_flag = 0;
+    int list_flag = 0, verify_flag = 0;
 
     copyright = "Copyright (C) 2018 Serge Vakulenko KK6ABQ";
     trace_flag = 0;
     for (;;) {
-        switch (getopt(argc, argv, "tcwrul")) {
+        switch (getopt(argc, argv, "tcwrulv")) {
         case 't': ++trace_flag;  continue;
         case 'r': ++read_flag;   continue;
         case 'w': ++write_flag;  continue;
         case 'c': ++config_flag; continue;
         case 'u': ++csv_flag;    continue;
         case 'l': ++list_flag;   continue;
+	case 'v': ++verify_flag; continue;
         default:
             usage();
         case EOF:
@@ -93,8 +97,8 @@ int main(int argc, char **argv)
         radio_list();
         exit(0);
     }
-    if (read_flag + write_flag + config_flag + csv_flag > 1) {
-        fprintf(stderr, "Only one of -r, -w, -c or -u options is allowed.\n");
+    if (read_flag + write_flag + config_flag + csv_flag + verify_flag > 1) {
+        fprintf(stderr, "Only one of -r, -w, -c, -v or -u options is allowed.\n");
         usage();
     }
     setvbuf(stdout, 0, _IOLBF, 0);
@@ -134,6 +138,16 @@ int main(int argc, char **argv)
             radio_upload(1);
             radio_disconnect();
         }
+
+    } else if (verify_flag) {
+        if (argc != 1)
+	    usage();
+
+	// Verify text config file.
+	radio_connect();
+	radio_parse_config(argv[0]);
+	radio_verify_config();
+	radio_disconnect();
 
     } else if (read_flag) {
         if (argc != 0)
