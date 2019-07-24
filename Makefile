@@ -1,14 +1,13 @@
-CC		= gcc
+CC              = gcc
 
 VERSION         = $(shell git describe --tags --abbrev=0)
 GITCOUNT        = $(shell git rev-list HEAD --count)
 UNAME           = $(shell uname)
-CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"' \
-			$(shell pkg-config --cflags libusb-1.0)
-LDFLAGS		= -g
+CFLAGS          = -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
+LDFLAGS         = -g
 
-OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o serial.o d868uv.o
-LIBS		= $(shell pkg-config --libs --static libusb-1.0)
+OBJS            = main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o serial.o d868uv.o
+LIBS            =
 
 #
 # Linux
@@ -18,6 +17,9 @@ LIBS		= $(shell pkg-config --libs --static libusb-1.0)
 #
 ifeq ($(UNAME),Linux)
     OBJS        += hid-libusb.o
+    CFLAGS      += $(shell pkg-config --cflags libusb-1.0)
+    LIBS        += $(shell pkg-config --libs --static libusb-1.0)
+
     LIBUSB      = /usr/lib/x86_64-linux-gnu/libusb-1.0.a
     ifeq ($(wildcard $(LIBUSB)),$(LIBUSB))
         # Link libusb statically, when possible
