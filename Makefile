@@ -5,10 +5,17 @@ GITCOUNT        = $(shell git rev-list HEAD --count)
 UNAME           = $(shell uname)
 
 OBJS            = main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o serial.o d868uv.o
-LIBS            = $(shell pkg-config --libs --static libusb-1.0)
 LDFLAGS         = -g
+LIBS            = $(shell pkg-config --libs --static libusb-1.0)
 CFLAGS          = -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"' \
                   $(shell pkg-config --cflags libusb-1.0)
+
+#
+# Make sure pkg-config is installed.
+#
+ifeq ($(shell pkg-config --version),)
+    $(error Fatal error: pkg-config is not installed)
+endif
 
 #
 # Linux
@@ -47,10 +54,6 @@ clean:
 
 install:	dmrconfig
 		install -c -s dmrconfig /usr/local/bin/dmrconfig
-
-dmrconfig.linux: dmrconfig
-		cp -p $< $@
-		strip $@
 
 ###
 d868uv.o: d868uv.c radio.h util.h d868uv-map.h
