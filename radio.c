@@ -48,6 +48,7 @@ static struct {
     { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R, TD-5R
     { "DM-1701",    &radio_rt84 },      // Baofeng DM-1701, Retevis RT84
     { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
+    { "DM-1801",    &radio_dm1801 },    // Baofeng DM-1801
     { "D868UVE",    &radio_d868uv },    // Anytone AT-D868UV
     { "D878UV",     &radio_d878uv },    // Anytone AT-D878UV
     { "D6X2UV",     &radio_dmr6x2 },    // BTECH DMR-6x2
@@ -230,6 +231,8 @@ void radio_read_image(const char *filename)
         fseek(img, 0, SEEK_SET);
         if (memcmp(ident, "BF-5R", 5) == 0) {
             device = &radio_rd5r;
+        } else if (memcmp(ident, "1801", 4) == 0) {
+            device = &radio_dm1801;
         } else if (memcmp(ident, "MD-760P", 7) == 0) {
             device = &radio_gd77;
         } else if (memcmp(ident, "MD-760", 6) == 0) {

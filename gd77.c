@@ -2342,3 +2342,23 @@ radio_device_t radio_gd77 = {
     gd77_update_timestamp,
     //TODO: gd77_write_csv,
 };
+
+//
+// Baofeng DM-1801
+//
+radio_device_t radio_dm1801 = {
+    "Baofeng DM-1801",
+    gd77_download,
+    gd77_upload,
+    gd77_is_compatible,
+    gd77_read_image,
+    gd77_save_image,
+    gd77_print_version,
+    gd77_print_config,
+    gd77_verify_config,
+    gd77_parse_parameter,
+    gd77_parse_header,
+    gd77_parse_row,
+    gd77_update_timestamp,
+    //TODO: gd77_write_csv,
+};
