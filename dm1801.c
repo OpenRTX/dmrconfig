@@ -1,7 +1,7 @@
 /*
- * Interface to Radioddity GD-77, firmware version 3.1.1 and later.
+ * Interface to Baofeng DM-1801.
  *
- * Copyright (C) 2018 Serge Vakulenko, KK6ABQ
+ * Copyright (C) 2019 Serge Vakulenko, KK6ABQ
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -329,7 +329,7 @@ static const char *SIGNALING_SYSTEM[] = { "-", "DTMF" };
 //
 // Print a generic information about the device.
 //
-static void gd77_print_version(radio_device_t *radio, FILE *out)
+static void dm1801_print_version(radio_device_t *radio, FILE *out)
 {
     unsigned char *timestamp = GET_TIMESTAMP();
 
@@ -372,9 +372,10 @@ static void download(radio_device_t *radio)
 }
 
 //
-// Radioddity GD-77 new firmware: read memory image.
+// Read memory image.
+// Same as Radioddity GD-77 new firmware.
 //
-static void gd77_download(radio_device_t *radio)
+static void dm1801_download(radio_device_t *radio)
 {
     download(radio);
 
@@ -385,7 +386,7 @@ static void gd77_download(radio_device_t *radio)
 //
 // Write memory image to the device.
 //
-static void gd77_upload(radio_device_t *radio, int cont_flag)
+static void dm1801_upload(radio_device_t *radio, int cont_flag)
 {
     int bno;
 
@@ -409,7 +410,7 @@ static void gd77_upload(radio_device_t *radio, int cont_flag)
 //
 // Check whether the memory image is compatible with this device.
 //
-static int gd77_is_compatible(radio_device_t *radio)
+static int dm1801_is_compatible(radio_device_t *radio)
 {
     return strncmp("MD-760P", (char*)&radio_mem[0], 7) == 0;
 }
@@ -1173,13 +1174,13 @@ static int have_messages()
 //
 // Print full information about the device configuration.
 //
-static void gd77_print_config(radio_device_t *radio, FILE *out, int verbose)
+static void dm1801_print_config(radio_device_t *radio, FILE *out, int verbose)
 {
     int i;
 
     fprintf(out, "Radio: %s\n", radio->name);
     if (verbose)
-        gd77_print_version(radio, out);
+        dm1801_print_version(radio, out);
 
     //
     // Channels.
@@ -1384,7 +1385,7 @@ static void gd77_print_config(radio_device_t *radio, FILE *out, int verbose)
 //
 // Read memory image from the binary file.
 //
-static void gd77_read_image(radio_device_t *radio, FILE *img)
+static void dm1801_read_image(radio_device_t *radio, FILE *img)
 {
     struct stat st;
 
@@ -1410,7 +1411,7 @@ static void gd77_read_image(radio_device_t *radio, FILE *img)
 //
 // Save memory image to the binary file.
 //
-static void gd77_save_image(radio_device_t *radio, FILE *img)
+static void dm1801_save_image(radio_device_t *radio, FILE *img)
 {
     fwrite(&radio_mem[0], 1, MEMSZ, img);
 }
@@ -1466,7 +1467,7 @@ static void erase_contacts()
 //
 // Parse the scalar parameter.
 //
-static void gd77_parse_parameter(radio_device_t *radio, char *param, char *value)
+static void dm1801_parse_parameter(radio_device_t *radio, char *param, char *value)
 {
     if (strcasecmp("Radio", param) == 0) {
         if (!radio_is_compatible(value)) {
@@ -2138,7 +2139,7 @@ static int parse_messages(int first_row, char *line)
 // Parse table header.
 // Return table id, or 0 in case of error.
 //
-static int gd77_parse_header(radio_device_t *radio, char *line)
+static int dm1801_parse_header(radio_device_t *radio, char *line)
 {
     if (strncasecmp(line, "Digital", 7) == 0)
         return 'D';
@@ -2161,7 +2162,7 @@ static int gd77_parse_header(radio_device_t *radio, char *line)
 // Parse one line of table data.
 // Return 0 on failure.
 //
-static int gd77_parse_row(radio_device_t *radio, int table_id, int first_row, char *line)
+static int dm1801_parse_row(radio_device_t *radio, int table_id, int first_row, char *line)
 {
     switch (table_id) {
     case 'D': return parse_digital_channel(radio, first_row, line);
@@ -2178,7 +2179,7 @@ static int gd77_parse_row(radio_device_t *radio, int table_id, int first_row, ch
 //
 // Update timestamp.
 //
-static void gd77_update_timestamp(radio_device_t *radio)
+static void dm1801_update_timestamp(radio_device_t *radio)
 {
     unsigned char *timestamp = GET_TIMESTAMP();
     char p[16];
@@ -2197,7 +2198,7 @@ static void gd77_update_timestamp(radio_device_t *radio)
 // Check that configuration is correct.
 // Return 0 on error.
 //
-static int gd77_verify_config(radio_device_t *radio)
+static int dm1801_verify_config(radio_device_t *radio)
 {
     int i, k, nchannels = 0, nzones = 0, nscanlists = 0, ngrouplists = 0;
     int ncontacts = 0, nerrors = 0;
@@ -2324,21 +2325,21 @@ static int gd77_verify_config(radio_device_t *radio)
 }
 
 //
-// Radioddity GD-77, version 3.1.1 and later
+// Baofeng DM-1801
 //
-radio_device_t radio_gd77 = {
-    "Radioddity GD-77",
-    gd77_download,
-    gd77_upload,
-    gd77_is_compatible,
-    gd77_read_image,
-    gd77_save_image,
-    gd77_print_version,
-    gd77_print_config,
-    gd77_verify_config,
-    gd77_parse_parameter,
-    gd77_parse_header,
-    gd77_parse_row,
-    gd77_update_timestamp,
-    //TODO: gd77_write_csv,
+radio_device_t radio_dm1801 = {
+    "Baofeng DM-1801",
+    dm1801_download,
+    dm1801_upload,
+    dm1801_is_compatible,
+    dm1801_read_image,
+    dm1801_save_image,
+    dm1801_print_version,
+    dm1801_print_config,
+    dm1801_verify_config,
+    dm1801_parse_parameter,
+    dm1801_parse_header,
+    dm1801_parse_row,
+    dm1801_update_timestamp,
+    //TODO: dm1801_write_csv,
 };

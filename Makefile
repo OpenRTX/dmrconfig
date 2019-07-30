@@ -4,7 +4,8 @@ VERSION         = $(shell git describe --tags --abbrev=0)
 GITCOUNT        = $(shell git rev-list HEAD --count)
 UNAME           = $(shell uname)
 
-OBJS            = main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o serial.o d868uv.o
+OBJS            = main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o \
+                  gd77.o hid.o serial.o d868uv.o dm1801.o
 LDFLAGS         = -g
 LIBS            = $(shell pkg-config --libs --static libusb-1.0)
 CFLAGS          = -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"' \
