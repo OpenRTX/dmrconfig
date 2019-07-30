@@ -36,8 +36,8 @@
 
 #define NCHAN               1024
 #define NCONTACTS           1024
-#define NZONES              250
-#define NGLISTS             76
+#define NZONES              150
+#define NGLISTS             40
 #define NSCANL              64
 #define NMESSAGES           32
 
@@ -210,8 +210,8 @@ typedef struct {
     // Bytes 0-15
     uint8_t name[16];                   // Zone Name
 
-    // Bytes 16-47
-    uint16_t member[16];                // Member: channels 1...16
+    // Bytes 16-79
+    uint16_t member[32];                // Member: channels 1...32
 } zone_t;
 
 //
@@ -454,7 +454,7 @@ static int zone_append(int index, int cnum)
     zone_t *z = &zt->zone[index];
     int i;
 
-    for (i=0; i<16; i++) {
+    for (i=0; i<32; i++) {
         if (z->member[i] == cnum)
             return 1;
         if (z->member[i] == 0) {
@@ -1218,7 +1218,7 @@ static void dm1801_print_config(radio_device_t *radio, FILE *out, int verbose)
             print_ascii(out, z->name, 16, 1);
             fprintf(out, " ");
             if (z->member[0]) {
-                print_chanlist(out, z->member, 16, 0);
+                print_chanlist(out, z->member, 32, 0);
             } else {
                 fprintf(out, "-");
             }
