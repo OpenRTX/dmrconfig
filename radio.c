@@ -48,7 +48,7 @@ static struct {
     { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R, TD-5R
     { "DM-1701",    &radio_rt84 },      // Baofeng DM-1701, Retevis RT84
     { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
-    { "DM-1801",    &radio_dm1801 },    // Baofeng DM-1801
+    { "1801",       &radio_dm1801 },    // Baofeng DM-1801
     { "D868UVE",    &radio_d868uv },    // Anytone AT-D868UV
     { "D878UV",     &radio_d878uv },    // Anytone AT-D878UV
     { "D6X2UV",     &radio_dmr6x2 },    // BTECH DMR-6x2
@@ -96,7 +96,7 @@ void radio_connect()
     // Try TYT MD family.
     ident = dfu_init(0x0483, 0xdf11);
     if (! ident) {
-        // Try RD-5R and GD-77.
+        // Try RD-5R, DM-1801 and GD-77.
         if (hid_init(0x15a2, 0x0073) >= 0)
             ident = hid_identify();
     }
