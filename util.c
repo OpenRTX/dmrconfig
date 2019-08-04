@@ -745,6 +745,7 @@ void print_tone(FILE *out, unsigned data)
 // Return negative on error.
 //
 static int csv_skip_field1;
+static int csv_join_fields34;
 
 int csv_init(FILE *csv)
 {
@@ -768,6 +769,16 @@ int csv_init(FILE *csv)
         // Correct format:
         // Radio ID,Callsign,Name,City,State,Country,Remarks
         csv_skip_field1 = 0;
+        csv_join_fields34 = 0;
+        return 0;
+    }
+    if (strcasecmp(field1, "RADIO_ID") == 0 &&
+        strcasecmp(field2, "CALLSIGN") == 0 &&
+        strcasecmp(field3, "FIRST_NAME") == 0) {
+        // Correct format:
+        // RADIO_ID,CALLSIGN,FIRST_NAME,LAST_NAME,CITY,STATE,COUNTRY,REMARKS
+        csv_skip_field1 = 0;
+        csv_join_fields34 = 1;
         return 0;
     }
     if (strcasecmp(field2, "Radio ID") == 0 &&
@@ -775,10 +786,11 @@ int csv_init(FILE *csv)
         // Correct format:
         // "No.","Radio ID","Callsign","Name","City","State","Country","Remarks"
         csv_skip_field1 = 1;
+        csv_join_fields34 = 0;
         return 0;
     }
 
-    //TODO
+    fprintf(stderr, "Unexpected CSV file format!\n");
     return -1;
 }
 
@@ -817,9 +829,27 @@ again:
     *state    = strchr(*city,     ','); if (! *state)    return 0; *(*state)++    = 0;
     *country  = strchr(*state,    ','); if (! *country)  return 0; *(*country)++  = 0;
     *remarks  = strchr(*country,  ','); if (! *remarks)  return 0; *(*remarks)++  = 0;
-    if ((p = strchr(*remarks,  ',')) != 0)
-        *p = 0;
+    if ((p = strchr(*remarks, ',')) != 0)
+        *p++ = 0;
 
+    if (csv_join_fields34) {
+        char *name2 = *city;
+        *city     = *state;
+        *state    = *country;
+        *country  = *remarks;
+        *remarks  = p;
+
+        if ((p = strchr(*remarks, ',')) != 0)
+            *p = 0;
+
+        if (*name2) {
+            static char fullname[256];
+            strcpy(fullname, *name);
+            strcat(fullname, " ");
+            strcat(fullname, name2);
+            *name = fullname;
+        }
+    }
     *radioid  = trim_spaces(trim_quotes(*radioid),  100);
     *callsign = trim_spaces(trim_quotes(*callsign), 100);
     *name     = trim_spaces(trim_quotes(*name),     100);
