@@ -231,17 +231,9 @@ void radio_read_image(const char *filename)
         if (memcmp(ident, "BF-5R", 5) == 0) {
             device = &radio_rd5r;
         } else if (memcmp(ident, "MD-760P", 7) == 0) {
-            // Both GD-77 and DM-1801 have the same header.
-            fseek(img, 0x90, SEEK_SET);
-            if (fread(ident, 1, 8, img) != 8) {
-                fprintf(stderr, "%s: Cannot read radio ID.\n", filename);
-                exit(-1);
-            }
-            if (memcmp(ident, "BF-1801", 7) == 0) {
-                device = &radio_dm1801;
-            } else {
-                device = &radio_gd77;
-            }
+            device = &radio_gd77;
+        } else if (memcmp(ident, "1801", 4) == 0) {
+            device = &radio_dm1801;
         } else if (memcmp(ident, "MD-760", 6) == 0) {
             fprintf(stderr, "Old Radioddity GD-77 v2.6 image not supported!\n");
             exit(-1);

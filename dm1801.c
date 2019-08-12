@@ -380,7 +380,7 @@ static void dm1801_download(radio_device_t *radio)
     download(radio);
 
     // Add header.
-    memcpy(&radio_mem[0], "MD-760P", 7);
+    memcpy(&radio_mem[0], "1801", 4);
 }
 
 //
@@ -412,7 +412,7 @@ static void dm1801_upload(radio_device_t *radio, int cont_flag)
 //
 static int dm1801_is_compatible(radio_device_t *radio)
 {
-    return strncmp("MD-760P", (char*)&radio_mem[0], 7) == 0;
+    return strncmp("1801", (char*)&radio_mem[0], 4) == 0;
 }
 
 //
