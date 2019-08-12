@@ -37,7 +37,7 @@
 #define NCHAN               1024
 #define NCONTACTS           1024
 #define NZONES              150
-#define NGLISTS             40
+#define NGLISTS             76
 #define NSCANL              64
 #define NMESSAGES           32
 
@@ -349,8 +349,9 @@ static void download(radio_device_t *radio)
 {
     int bno;
 
-    // Read range 0x80...0x1e29f.
-    for (bno=1; bno<966; bno++) {
+    // Read range 0x80...0x1ee5f.
+#define NBLK 989
+    for (bno = 1; bno < NBLK; bno++) {
         if (bno >= 248 && bno < 256) {
             // Skip range 0x7c00...0x8000.
             continue;
@@ -367,7 +368,7 @@ static void download(radio_device_t *radio)
 
     // Clear header and footer.
     memset(&radio_mem[0], 0xff, 128);
-    memset(&radio_mem[966*128], 0xff, MEMSZ - 966*128);
+    memset(&radio_mem[0x1ee60], 0xff, MEMSZ - 0x1ee60);
     memset(&radio_mem[248*128], 0xff, 8*128);
 }
 
@@ -390,8 +391,8 @@ static void dm1801_upload(radio_device_t *radio, int cont_flag)
 {
     int bno;
 
-    // Write range 0x80...0x1e29f.
-    for (bno=1; bno<966; bno++) {
+    // Write range 0x80...0x1ee5f.
+    for (bno = 1; bno < NBLK; bno++) {
         if (bno >= 248 && bno < 256) {
             // Skip range 0x7c00...0x8000.
             continue;
