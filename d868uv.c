@@ -2863,8 +2863,9 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
 
         // Add map record.
         if (sz.count >= NCALLSIGNS) {
-            fprintf(stderr, "Too many contacts!\n");
-            return;
+            fprintf(stderr, "WARNING: Too many callsigns!\n");
+            fprintf(stderr, "Skipping the rest.\n");
+            break;
         }
         callsign_map_t *m = &map[sz.count];
         sz.count++;

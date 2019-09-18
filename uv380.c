@@ -2454,6 +2454,11 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
         }
 
         cs = GET_CALLSIGN(mem, nrecords);
+        if ((uint8_t*) (cs + 1) > &mem[nbytes]) {
+            fprintf(stderr, "WARNING: Too many callsigns!\n");
+            fprintf(stderr, "Skipping the rest.\n");
+            break;
+        }
         nrecords++;
 
         // Fill callsign structure.
