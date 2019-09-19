@@ -945,10 +945,8 @@ static void print_chan_base(FILE *out, channel_t *ch, int cnum)
 //
 // Print extended parameters of the channel:
 //      TOT Rekey Delay
-//      RX Ref Frequency
-//      RX Ref Frequency
-//      Lone Worker
 //      VOX
+//      Talkaround
 //
 static void print_chan_ext(FILE *out, channel_t *ch)
 {
@@ -1014,6 +1012,8 @@ static void print_digital_channels(FILE *out, int verbose)
             fprintf(out, "%-4d", ch->contact_name_index);
 
 #ifdef PRINT_RARE_PARAMS
+        fprintf(out, "      ");
+
         print_chan_ext(out, ch);
 
         // Extended digital parameters of the channel:
@@ -1076,7 +1076,7 @@ static void print_analog_channels(FILE *out, int verbose)
     }
     fprintf(out, "Analog  Name             Receive   Transmit Power Scan TOT RO Admit  Squelch RxTone TxTone Width");
 #ifdef PRINT_RARE_PARAMS
-    fprintf(out, " Dly RxRef TxRef LW VOX TA RxSign TxSign");
+    fprintf(out, " Dly VOX TA RxSign TxSign");
 #endif
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
