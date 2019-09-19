@@ -35,7 +35,7 @@
 #include <stdint.h>
 #include "util.h"
 
-HANDLE dev = INVALID_HANDLE_VALUE;;         // HID device
+HANDLE dev = INVALID_HANDLE_VALUE;          // HID device
 static unsigned char receive_buf[42];       // receive buffer
 
 //

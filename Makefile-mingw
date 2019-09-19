@@ -1,11 +1,12 @@
-CC		= gcc
+CC              = gcc
 
 VERSION         = $(shell git describe --tags --abbrev=0)
 GITCOUNT        = $(shell git rev-list HEAD --count)
-CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
-LDFLAGS		= -g -s
+CFLAGS          = -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
+LDFLAGS         = -g -s
 
-OBJS		= main.o util.o radio.o dfu-windows.o uv380.o md380.o rd5r.o gd77.o hid.o hid-windows.o serial.o d868uv.o
+OBJS            = main.o util.o radio.o dfu-windows.o uv380.o md380.o rd5r.o \
+                  gd77.o hid.o hid-windows.o serial.o d868uv.o dm1801.o
 LIBS            = -lhid -lsetupapi
 
 # Compiling Windows binary from Linux
@@ -21,15 +22,15 @@ ifeq (/usr/local/bin/i686-w64-mingw32-gcc,$(wildcard /usr/local/bin/i686-w64-min
     CC          = i686-w64-mingw32-gcc
 endif
 
-all:		dmrconfig.exe
+all:            dmrconfig.exe
 
-dmrconfig.exe:	$(OBJS)
+dmrconfig.exe:  $(OBJS)
 		$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
 clean:
 		rm -f *~ *.o core dmrconfig
 
-install:	dmrconfig
+install:        dmrconfig
 		install -c -s dmrconfig /usr/local/bin/dmrconfig
 
 ###

@@ -9,6 +9,7 @@ Supported radios:
  * TYT MD-9600
  * Baofeng DM-1701, Retevis RT84
  * Baofeng RD-5R, TD-5R
+ * Baofeng DM-1801
  * Radioddity GD-77
  * Anytone AT-D868UV
  * Anytone AT-D878UV
@@ -59,7 +60,7 @@ Create a file /etc/udev/rules.d/99-dmr.rules with the following contents:
     # TYT MD-UV380
     SUBSYSTEM=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="df11", MODE="666"
 
-    # Baofeng RD-5R, TD-5R
+    # Baofeng RD-5R, TD-5R, DM-1801
     SUBSYSTEM=="usb", ATTRS{idVendor}=="15a2", ATTRS{idProduct}=="0073", MODE="666"
 
     # Anytone AT-D868UV: ignore this device in Modem Manager

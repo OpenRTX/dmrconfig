@@ -1595,6 +1595,12 @@ static void setup_channel(radio_device_t *radio, int i, int mode, char *name,
         }
     }
 
+    if (ch->rx_ctcss == 0 && ch->rx_dcs == 0) {
+        ch->squelch_mode = SQ_CARRIER;
+    } else {
+        ch->squelch_mode = SQ_TONE;
+    }
+
     if (txtone > 0) {                   // Transmit DCS
         ch->tx_dcs = 1;
         ch->dcs_transmit = txtone - 1;
@@ -2857,8 +2863,9 @@ static void d868uv_write_csv(radio_device_t *radio, FILE *csv)
 
         // Add map record.
         if (sz.count >= NCALLSIGNS) {
-            fprintf(stderr, "Too many contacts!\n");
-            return;
+            fprintf(stderr, "WARNING: Too many callsigns!\n");
+            fprintf(stderr, "Skipping the rest.\n");
+            break;
         }
         callsign_map_t *m = &map[sz.count];
         sz.count++;

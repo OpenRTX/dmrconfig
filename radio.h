@@ -125,6 +125,7 @@ extern radio_device_t radio_dp880;      // Zastone DP880
 extern radio_device_t radio_rt27d;      // Radtel RT-27D
 extern radio_device_t radio_rd5r;       // Baofeng RD-5R
 extern radio_device_t radio_gd77;       // Radioddity GD-77, version 3.1.1 and later
+extern radio_device_t radio_dm1801;     // Baofeng DM-1801
 extern radio_device_t radio_d868uv;     // Anytone AT-D868UV
 extern radio_device_t radio_d878uv;     // Anytone AT-D878UV
 extern radio_device_t radio_dmr6x2;     // BTECH DMR-6x2

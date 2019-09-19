@@ -46,6 +46,7 @@ static struct {
     { "2017",       &radio_md2017 },    // TYT MD-2017, Retevis RT82
     { "MD9600",     &radio_md9600 },    // TYT MD-9600
     { "BF-5R",      &radio_rd5r },      // Baofeng RD-5R, TD-5R
+    { "1801",       &radio_dm1801 },    // Baofeng DM-1801
     { "DM-1701",    &radio_rt84 },      // Baofeng DM-1701, Retevis RT84
     { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
     { "D868UVE",    &radio_d868uv },    // Anytone AT-D868UV
@@ -95,7 +96,7 @@ void radio_connect()
     // Try TYT MD family.
     ident = dfu_init(0x0483, 0xdf11);
     if (! ident) {
-        // Try RD-5R and GD-77.
+        // Try RD-5R, DM-1801 and GD-77.
         if (hid_init(0x15a2, 0x0073) >= 0)
             ident = hid_identify();
     }
@@ -227,11 +228,12 @@ void radio_read_image(const char *filename)
             fprintf(stderr, "%s: Cannot read header.\n", filename);
             exit(-1);
         }
-        fseek(img, 0, SEEK_SET);
         if (memcmp(ident, "BF-5R", 5) == 0) {
             device = &radio_rd5r;
         } else if (memcmp(ident, "MD-760P", 7) == 0) {
             device = &radio_gd77;
+        } else if (memcmp(ident, "1801", 4) == 0) {
+            device = &radio_dm1801;
         } else if (memcmp(ident, "MD-760", 6) == 0) {
             fprintf(stderr, "Old Radioddity GD-77 v2.6 image not supported!\n");
             exit(-1);
@@ -240,6 +242,7 @@ void radio_read_image(const char *filename)
                 filename, ident);
             exit(-1);
         }
+        fseek(img, 0, SEEK_SET);
         break;
     default:
         fprintf(stderr, "%s: Unrecognized file size %u bytes.\n",

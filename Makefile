@@ -1,33 +1,45 @@
-CC		?= gcc
+CC             ?= gcc
 
 VERSION         = $(shell git describe --tags --abbrev=0)
 GITCOUNT        = $(shell git rev-list HEAD --count)
 UNAME           = $(shell uname)
-CFLAGS		?= -g -O -Wall -Werror
-CFLAGS		+= -DVERSION='"$(VERSION).$(GITCOUNT)"'
-LDFLAGS		?= -g
 
-OBJS		= main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o gd77.o hid.o serial.o d868uv.o
-LIBS            = -lusb-1.0
+OBJS            = main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o \
+                  gd77.o hid.o serial.o d868uv.o dm1801.o
+CFLAGS         ?= -g -O -Wall -Werror 
+CFLAGS         += -DVERSION='"$(VERSION).$(GITCOUNT)"' \
+                  $(shell pkg-config --cflags libusb-1.0)
+LDFLAGS        ?= -g
+LIBS            = $(shell pkg-config --libs --static libusb-1.0)
+
+#
+# Make sure pkg-config is installed.
+#
+ifeq ($(shell pkg-config --version),)
+    $(error Fatal error: pkg-config is not installed)
+endif
 
 #
 # Linux
 #
 # To install required libraries, use:
-#   sudo apt install libusb-1.0-0-dev libudev-dev
+#   sudo apt-get install pkg-config libusb-1.0-0-dev libudev-dev
 #
 ifeq ($(UNAME),Linux)
     OBJS        += hid-libusb.o
-    LIBS        += -ludev
+
+    # Link libusb statically, when possible
     LIBUSB      = /usr/lib/x86_64-linux-gnu/libusb-1.0.a
     ifeq ($(wildcard $(LIBUSB)),$(LIBUSB))
-        # Link libusb statically, when possible
         LIBS    = $(LIBUSB) -lpthread -ludev
     endif
 endif
 
 #
 # Mac OS X
+#
+# To install required libraries, use:
+#   brew install pkg-config libusb
 #
 ifeq ($(UNAME),Darwin)
     OBJS        += hid-macos.o
@@ -44,10 +56,6 @@ clean:
 
 install:	dmrconfig
 		install -c -s dmrconfig /usr/local/bin/dmrconfig
-
-dmrconfig.linux: dmrconfig
-		cp -p $< $@
-		strip $@
 
 ###
 d868uv.o: d868uv.c radio.h util.h d868uv-map.h
