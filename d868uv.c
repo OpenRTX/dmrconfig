@@ -77,7 +77,7 @@
 #define ADDR_CALLDB_DATA    0x04500000  // Data of callsign database
 
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
-#define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
+#define GET_RADIOID(i)      ((radioid_t*) &radio_mem[OFFSET_RADIOID + (i)*32])
 #define GET_ZONEMAP()       (&radio_mem[OFFSET_ZONE_MAP])
 #define GET_CONTACT_MAP()   (&radio_mem[OFFSET_CONTACT_MAP])
 #define GET_CONTACT_LIST()  ((uint32_t*) &radio_mem[OFFSET_CONTACT_LIST])
@@ -694,21 +694,6 @@ static int d868uv_is_compatible(radio_device_t *radio)
     return 0;
 }
 
-static void print_id(FILE *out, int verbose)
-{
-    radioid_t *ri = GET_RADIOID();
-    unsigned id = GET_ID(ri->id);
-
-    if (verbose)
-        fprintf(out, "\n# Unique DMR ID and name of this radio.");
-    fprintf(out, "\nID: %u\nName: ", id);
-    if (VALID_TEXT(ri->name)) {
-        print_ascii(out, ri->name, 16, 0);
-    } else {
-        fprintf(out, "-");
-    }
-    fprintf(out, "\n");
-}
 
 static void print_intro(FILE *out, int verbose)
 {
@@ -1448,8 +1433,32 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
     }
 
+    //
+    // Radio IDs.
+    //
+        fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of RadioIDs.\n");
+            fprintf(out, "# 1) RadioID Index number (upto %d)\n", NRADIOIDS);
+            fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
+            fprintf(out, "# 3) Call ID: 1...16777215\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "RadioId Name             ID       \n");
+        for (i=0; i<NRADIOIDS; i++) {
+            radioid_t *ri = GET_RADIOID(i);
+
+            if (ri->name[0] == 0xff) {
+                // RadioID is disabled
+                continue;
+            }
+
+            fprintf(out, "%3d     ", i);
+            print_ascii(out, ri->name, 16, 1);
+            fprintf(out, " %-8d\n", GET_ID(ri->id));
+        }
+
     // General settings.
-    print_id(out, verbose);
     print_intro(out, verbose);
 }
 
@@ -1497,20 +1506,6 @@ static void d868uv_parse_parameter(radio_device_t *radio, char *param, char *val
             fprintf(stderr, "Incompatible model: %s\n", value);
             exit(-1);
         }
-        return;
-    }
-
-    radioid_t *ri = GET_RADIOID();
-    if (strcasecmp ("Name", param) == 0) {
-        ascii_decode(ri->name, value, 16, 0);
-        return;
-    }
-    if (strcasecmp ("ID", param) == 0) {
-        uint32_t id = strtoul(value, 0, 0);
-        ri->id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
-        ri->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
-        ri->id[2] = ((id / 1000 % 10) << 4) | ((id / 100) % 10);
-        ri->id[3] = ((id / 10 % 10) << 4) | (id % 10);
         return;
     }
 
@@ -2304,6 +2299,57 @@ static int parse_scanlist(int first_row, char *line)
 }
 
 //
+// Erase all radioids.
+//
+static void erase_radioids()
+{
+    memset(&radio_mem[OFFSET_RADIOID], 0xff, NRADIOIDS*32);
+}
+
+static void setup_radioid(int index, const char *name, const char *dmrid)
+{
+    radioid_t *ri = GET_RADIOID(index);
+    memset(ri, 0, 32);
+
+    ascii_decode(ri->name, name, 16, 0);
+    uint32_t id = strtoul(dmrid, 0, 0);
+    ri->id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
+    ri->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
+    ri->id[2] = ((id / 1000 % 10) << 4) | ((id / 100) % 10);
+    ri->id[3] = ((id / 10 % 10) << 4) | (id % 10);
+
+}
+
+static int parse_radioid(int first_row, char *line)
+{
+    char num_str[256], name_str[256], dmrid_str[256];
+    int cnum, id;
+
+    if (sscanf(line, "%s %s %s", num_str, name_str, dmrid_str) != 3)
+        return 0;
+
+    cnum = atoi(num_str);
+    if (cnum < 0 || cnum > NRADIOIDS) {
+        fprintf(stderr, "Bad RadioID number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Contacts table.
+        erase_radioids();
+    }
+
+    id = atoi(dmrid_str);
+    if (id < 1 || id > 0xffffffff) {
+        fprintf(stderr, "Bad radio ID.\n");
+        return 0;
+    }
+
+    setup_radioid(cnum, name_str, dmrid_str);
+    return 1;
+}
+
+//
 // Erase all contacts.
 //
 static void erase_contacts()
@@ -2516,6 +2562,8 @@ static int parse_grouplist(int first_row, char *line)
     return 1;
 }
 
+
+
 //
 // Set text for a given message.
 //
@@ -2573,6 +2621,8 @@ static int d868uv_parse_header(radio_device_t *radio, char *line)
         return 'G';
     if (strncasecmp(line, "Message", 7) == 0)
         return 'M';
+    if (strncasecmp(line, "RadioID", 7) == 0)
+        return 'R';
     return 0;
 }
 
@@ -2590,6 +2640,7 @@ static int d868uv_parse_row(radio_device_t *radio, int table_id, int first_row, 
     case 'C': return parse_contact(first_row, line);
     case 'G': return parse_grouplist(first_row, line);
     case 'M': return parse_messages(first_row, line);
+    case 'R': return parse_radioid(first_row, line);
     }
     return 0;
 }
