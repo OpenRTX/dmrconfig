@@ -63,6 +63,7 @@
 #define OFFSET_ZCHAN_B      0x071900    // Zone B channel
 #define OFFSET_ZONENAMES    0x071dc0    // Names of zones
 #define OFFSET_RADIOID      0x073d00    // Table of radio IDs
+#define OFFSET_RADIOID_MAP  0x070960    // Bitmap of enabled radio IDs
 #define OFFSET_CONTACT_LIST 0x076500    // List of valid contact indices
 #define OFFSET_CONTACT_MAP  0x080140    // Bitmap of invalid contacts
 #define OFFSET_CONTACTS     0x080640    // Contacts
@@ -80,6 +81,7 @@
 #define GET_RADIOID(i)      ((radioid_t*) &radio_mem[OFFSET_RADIOID + (i)*32])
 #define GET_ZONEMAP()       (&radio_mem[OFFSET_ZONE_MAP])
 #define GET_CONTACT_MAP()   (&radio_mem[OFFSET_CONTACT_MAP])
+#define GET_RADIOID_MAP()   (&radio_mem[OFFSET_RADIOID_MAP])
 #define GET_CONTACT_LIST()  ((uint32_t*) &radio_mem[OFFSET_CONTACT_LIST])
 #define GET_SCANL_MAP()     (&radio_mem[OFFSET_SCANL_MAP])
 #define GET_ZONENAME(i)     (&radio_mem[OFFSET_ZONENAMES + (i)*32])
@@ -1445,10 +1447,12 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
             fprintf(out, "#\n");
         }
         fprintf(out, "RadioId Name             ID       \n");
+
+        uint8_t *rmap = GET_RADIOID_MAP();
         for (i=0; i<NRADIOIDS; i++) {
             radioid_t *ri = GET_RADIOID(i);
 
-            if (ri->name[0] == 0xff) {
+            if (!((rmap[i / 8] >> (i & 7)) & 1)) {
                 // RadioID is disabled
                 continue;
             }
@@ -2304,6 +2308,7 @@ static int parse_scanlist(int first_row, char *line)
 static void erase_radioids()
 {
     memset(&radio_mem[OFFSET_RADIOID], 0xff, NRADIOIDS*32);
+    memset(GET_RADIOID_MAP(), 0x00, 32);
 }
 
 static void setup_radioid(int index, const char *name, const char *dmrid)
@@ -2317,6 +2322,10 @@ static void setup_radioid(int index, const char *name, const char *dmrid)
     ri->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
     ri->id[2] = ((id / 1000 % 10) << 4) | ((id / 100) % 10);
     ri->id[3] = ((id / 10 % 10) << 4) | (id % 10);
+
+    // Update radioid map.
+    uint8_t *rmap = GET_RADIOID_MAP();
+    rmap[index / 8] |= (1UL << (index & 7));
 
 }
 
