@@ -2601,31 +2601,31 @@ static int d868uv_verify_config(radio_device_t *radio)
         }
     }
 
-    // Zones: check references to channels.
-    for (i=0; i<NZONES; i++) {
-        uint8_t *zname;
-        uint16_t *zlist;
+        // Zones: check references to channels.
+        for (i=0; i<NZONES; i++) {
+            uint8_t *zname;
+            uint16_t *zlist;
 
-        if (!get_zone(i, &zname, &zlist))
-            continue;
+            if (!get_zone(i, &zname, &zlist))
+                continue;
 
-        nzones++;
+            nzones++;
 
-        for (k=0; k<250; k++) {
-            int cnum = zlist[k] + 1;
+            for (k=0; k<250; k++) {
+                int cnum = zlist[k];
 
-            if (cnum != 0xffff) {
-                channel_t *ch = get_channel(cnum - 1);
+                if (cnum != 0xffff) {
+                    channel_t *ch = get_channel(cnum);
 
-                if (!ch) {
-                    fprintf(stderr, "Zone %da '", i+1);
-                    print_ascii(stderr, zname, 16, 0);
-                    fprintf(stderr, "': channel %d not found.\n", cnum);
-                    nerrors++;
+                    if (!ch) {
+                        fprintf(stderr, "Zone %da '", i+1);
+                        print_ascii(stderr, zname, 16, 0);
+                        fprintf(stderr, "': channel %d not found.\n", cnum + 1); // Add +1 to display actual channel number
+                        nerrors++;
+                    }
                 }
             }
         }
-    }
 
     // Scanlists: check references to channels.
     for (i=0; i<NSCANL; i++) {
