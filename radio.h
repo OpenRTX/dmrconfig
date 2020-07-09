@@ -137,11 +137,11 @@ extern radio_device_t radio_rt84;       // Baofeng DM-1701, Retevis RT84
 extern unsigned char radio_mem[];
 
 //
-// File descriptor of serial port with programming cable attached.
+// File descriptor of serial port with programming cable attached, currently unused.
 //
-int radio_port;
+extern int radio_port;
 
 //
 // Read/write progress counter.
 //
-int radio_progress;
+extern int radio_progress;

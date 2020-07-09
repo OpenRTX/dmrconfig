@@ -44,6 +44,8 @@
 //
 #define NCTCSS  50
 
+int trace_flag = 0;
+
 static const int CTCSS_TONES [NCTCSS] = {
      670,  693,  719,  744,  770,  797,  825,  854,  885,  915,
      948,  974, 1000, 1035, 1072, 1109, 1148, 1188, 1230, 1273,
