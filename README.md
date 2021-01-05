@@ -1,5 +1,8 @@
+# DMRconfig
+
 DMRconfig is a utility for programming digital radios via USB programming cable.
-Supported radios:
+
+## Supported radios:
 
  * TYT MD-380, Retevis RT3, RT8
  * TYT MD-390
@@ -85,7 +88,7 @@ To build on Linux or Mac OS X, run:
     make
     make install
 
+## Credits
+DMRconfig was created by Serge Vakulenko KK6ABQ
 
-Regards,
-Serge Vakulenko
-KK6ABQ
+It is currently maintained by the OpenRTX developers
