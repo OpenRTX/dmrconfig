@@ -95,7 +95,8 @@ Then re-attach the USB cable to the radio.
 
 ## License
 
-Sources are distributed freely under the terms of Apache 2.0 license.
+Sources are distributed freely under the terms of BSD 3 license. \
+For more information see the [LICENSE file](https://github.com/OpenRTX/dmrconfig/blob/master/LICENSE)
 
 ## Credits
 DMRconfig was created by Serge Vakulenko KK6ABQ.
