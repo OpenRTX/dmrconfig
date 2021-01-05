@@ -53,6 +53,24 @@ Update database of contacts from CSV file:
 
 Option -t enables tracing of USB protocol.
 
+## Compilation
+Whenever possible use the `dmrconfig` package provided from your Linux distribution
+
+If you want to compile `dmrconfig`, follow these instructions:
+* Install dependencies
+    * On Ubuntu `sudo apt install git build-essential pkg-config libusb-1.0-0-dev libudev-dev`
+    * On Arch Linux `sudo pacman -S git base-devel libusb`
+    * On Mac OS `brew install pkg-config libusb`
+* Clone this repository
+``` 
+git clone https://github.com/sergev/dmrconfig
+```
+* Compile and install
+```
+make
+sudo make install
+```
+
 ## Permissions
 
 On Linux, a permission to access USB device is required.
@@ -75,20 +93,11 @@ To activate it, run:
 
 Then re-attach the USB cable to the radio.
 
-## Sources
+## License
 
 Sources are distributed freely under the terms of Apache 2.0 license.
-You can download sources via GIT:
-
-    git clone https://github.com/sergev/dmrconfig
-
-
-To build on Linux or Mac OS X, run:
-
-    make
-    make install
 
 ## Credits
-DMRconfig was created by Serge Vakulenko KK6ABQ
+DMRconfig was created by Serge Vakulenko KK6ABQ.
 
-It is currently maintained by the OpenRTX developers
+It is currently maintained by the OpenRTX developers.
