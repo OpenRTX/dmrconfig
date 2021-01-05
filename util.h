@@ -35,7 +35,7 @@ extern const char *copyright;
 //
 // Trace data i/o via the serial port.
 //
-int trace_flag;
+extern int trace_flag;
 
 //
 // Print data in hex format.

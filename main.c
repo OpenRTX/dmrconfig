@@ -37,6 +37,8 @@ const char *copyright;
 extern char *optarg;
 extern int optind;
 
+int trace_flag = 0;
+
 void usage()
 {
     fprintf(stderr, "DMR Config, Version %s, %s\n", version, copyright);
