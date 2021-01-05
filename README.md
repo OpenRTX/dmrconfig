@@ -54,7 +54,7 @@ Update database of contacts from CSV file:
 Option -t enables tracing of USB protocol.
 
 ## Compilation
-Whenever possible use the `dmrconfig` package provided from your Linux distribution
+Whenever possible use the `dmrconfig` package provided from by Linux distribution
 
 If you want to compile `dmrconfig`, follow these instructions:
 * Install dependencies
