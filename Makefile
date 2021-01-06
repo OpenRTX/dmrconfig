@@ -5,7 +5,7 @@ GITCOUNT        = $(shell git rev-list HEAD --count)
 UNAME           = $(shell uname)
 
 OBJS            = main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o \
-                  gd77.o hid.o serial.o d868uv.o dm1801.o
+                  gd77.o hid.o serial.o d868uv.o dm1801.o md9600.o
 CFLAGS         ?= -g -O -Wall -Werror 
 CFLAGS         += -DVERSION='"$(VERSION).$(GITCOUNT)"' \
                   $(shell pkg-config --cflags libusb-1.0)
@@ -73,3 +73,4 @@ rd5r.o: rd5r.c radio.h util.h
 serial.o: serial.c util.h
 util.o: util.c util.h
 uv380.o: uv380.c radio.h util.h
+md9600.o: md9600.c radio.h util.h

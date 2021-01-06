@@ -1,5 +1,5 @@
 /*
- * Interface to TYT MD-UV380.
+ * Interface to TYT MD-MD9600 and MD-2017.
  *
  * Copyright (C) 2018 Serge Vakulenko, KK6ABQ
  *
@@ -376,7 +376,7 @@ static const char *TURNOFF_FREQ[] = { "259.2", "55.2", "-", "-" };
 //
 // Print a generic information about the device.
 //
-static void uv380_print_version(radio_device_t *radio, FILE *out)
+static void md9600_print_version(radio_device_t *radio, FILE *out)
 {
     unsigned char *timestamp = GET_TIMESTAMP();
     static const char charmap[16] = "0123456789:;<=>?";
@@ -397,7 +397,7 @@ static void uv380_print_version(radio_device_t *radio, FILE *out)
 //
 // Read memory image from the device.
 //
-static void uv380_download(radio_device_t *radio)
+static void md9600_download(radio_device_t *radio)
 {
     int bno;
 
@@ -415,7 +415,7 @@ static void uv380_download(radio_device_t *radio)
 //
 // Write memory image to the device.
 //
-static void uv380_upload(radio_device_t *radio, int cont_flag)
+static void md9600_upload(radio_device_t *radio, int cont_flag)
 {
     int bno;
 
@@ -435,7 +435,7 @@ static void uv380_upload(radio_device_t *radio, int cont_flag)
 //
 // Check whether the memory image is compatible with this device.
 //
-static int uv380_is_compatible(radio_device_t *radio)
+static int md9600_is_compatible(radio_device_t *radio)
 {
     return 1;
 }
@@ -1134,13 +1134,13 @@ static int have_messages()
 //
 // Print full information about the device configuration.
 //
-static void uv380_print_config(radio_device_t *radio, FILE *out, int verbose)
+static void md9600_print_config(radio_device_t *radio, FILE *out, int verbose)
 {
     int i;
 
     fprintf(out, "Radio: %s\n", radio->name);
     if (verbose)
-        uv380_print_version(radio, out);
+        md9600_print_version(radio, out);
 
     //
     // Channels.
@@ -1361,7 +1361,7 @@ static void uv380_print_config(radio_device_t *radio, FILE *out, int verbose)
 //
 // Read memory image from the binary file.
 //
-static void uv380_read_image(radio_device_t *radio, FILE *img)
+static void md9600_read_image(radio_device_t *radio, FILE *img)
 {
     struct stat st;
 
@@ -1401,7 +1401,7 @@ static void uv380_read_image(radio_device_t *radio, FILE *img)
 //
 // Save memory image to the binary file.
 //
-static void uv380_save_image(radio_device_t *radio, FILE *img)
+static void md9600_save_image(radio_device_t *radio, FILE *img)
 {
     fwrite(&radio_mem[0], 1, MEMSZ, img);
 }
@@ -1457,7 +1457,7 @@ static void erase_contacts()
 //
 // Parse the scalar parameter.
 //
-static void uv380_parse_parameter(radio_device_t *radio, char *param, char *value)
+static void md9600_parse_parameter(radio_device_t *radio, char *param, char *value)
 {
     general_settings_t *gs = GET_SETTINGS();
 
@@ -2123,7 +2123,7 @@ static int parse_messages(int first_row, char *line)
 // Parse table header.
 // Return table id, or 0 in case of error.
 //
-static int uv380_parse_header(radio_device_t *radio, char *line)
+static int md9600_parse_header(radio_device_t *radio, char *line)
 {
     if (strncasecmp(line, "Digital", 7) == 0)
         return 'D';
@@ -2146,7 +2146,7 @@ static int uv380_parse_header(radio_device_t *radio, char *line)
 // Parse one line of table data.
 // Return 0 on failure.
 //
-static int uv380_parse_row(radio_device_t *radio, int table_id, int first_row, char *line)
+static int md9600_parse_row(radio_device_t *radio, int table_id, int first_row, char *line)
 {
     switch (table_id) {
     case 'D': return parse_digital_channel(radio, first_row, line);
@@ -2163,7 +2163,7 @@ static int uv380_parse_row(radio_device_t *radio, int table_id, int first_row, c
 //
 // Update timestamp.
 //
-static void uv380_update_timestamp(radio_device_t *radio)
+static void md9600_update_timestamp(radio_device_t *radio)
 {
     unsigned char *timestamp = GET_TIMESTAMP();
     char p[16];
@@ -2197,7 +2197,7 @@ static void uv380_update_timestamp(radio_device_t *radio)
 // Check that configuration is correct.
 // Return 0 on error.
 //
-static int uv380_verify_config(radio_device_t *radio)
+static int md9600_verify_config(radio_device_t *radio)
 {
     int i, k, nchannels = 0, nzones = 0, nscanlists = 0, ngrouplists = 0;
     int ncontacts = 0, nerrors = 0;
@@ -2419,7 +2419,7 @@ static void build_callsign_index(uint8_t *mem, int nrecords)
 //
 // Write CSV file to contacts database.
 //
-static void uv380_write_csv(radio_device_t *radio, FILE *csv)
+static void md9600_write_csv(radio_device_t *radio, FILE *csv)
 {
     uint8_t *mem;
     char line[256];
@@ -2520,41 +2520,61 @@ static void uv380_write_csv(radio_device_t *radio, FILE *csv)
 }
 
 //
-// TYT MD-UV380
+// TYT MD-2017
 //
-radio_device_t radio_uv380 = {
-    "TYT MD-UV380",
-    uv380_download,
-    uv380_upload,
-    uv380_is_compatible,
-    uv380_read_image,
-    uv380_save_image,
-    uv380_print_version,
-    uv380_print_config,
-    uv380_verify_config,
-    uv380_parse_parameter,
-    uv380_parse_header,
-    uv380_parse_row,
-    uv380_update_timestamp,
-    uv380_write_csv,
+radio_device_t radio_md2017 = {
+    "TYT MD-2017",
+    md9600_download,
+    md9600_upload,
+    md9600_is_compatible,
+    md9600_read_image,
+    md9600_save_image,
+    md9600_print_version,
+    md9600_print_config,
+    md9600_verify_config,
+    md9600_parse_parameter,
+    md9600_parse_header,
+    md9600_parse_row,
+    md9600_update_timestamp,
+    md9600_write_csv,
 };
 
 //
-// TYT MD-UV390
+// TYT MD-9600
 //
-radio_device_t radio_uv390 = {
-    "TYT MD-UV390",
-    uv380_download,
-    uv380_upload,
-    uv380_is_compatible,
-    uv380_read_image,
-    uv380_save_image,
-    uv380_print_version,
-    uv380_print_config,
-    uv380_verify_config,
-    uv380_parse_parameter,
-    uv380_parse_header,
-    uv380_parse_row,
-    uv380_update_timestamp,
-    uv380_write_csv,
+radio_device_t radio_md9600 = {
+    "TYT MD-9600",
+    md9600_download,
+    md9600_upload,
+    md9600_is_compatible,
+    md9600_read_image,
+    md9600_save_image,
+    md9600_print_version,
+    md9600_print_config,
+    md9600_verify_config,
+    md9600_parse_parameter,
+    md9600_parse_header,
+    md9600_parse_row,
+    md9600_update_timestamp,
+    md9600_write_csv,
+};
+
+//
+// Baofeng DM-1701, Retevis RT84
+//
+radio_device_t radio_rt84 = {
+    "Retevis RT84",
+    md9600_download,
+    md9600_upload,
+    md9600_is_compatible,
+    md9600_read_image,
+    md9600_save_image,
+    md9600_print_version,
+    md9600_print_config,
+    md9600_verify_config,
+    md9600_parse_parameter,
+    md9600_parse_header,
+    md9600_parse_row,
+    md9600_update_timestamp,
+    md9600_write_csv,
 };
