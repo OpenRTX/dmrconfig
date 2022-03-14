@@ -440,7 +440,7 @@ static char *find_path(int vid, int pid)
     }
 
     io_iterator_t devices = IO_OBJECT_NULL;
-    kern_return_t ret = IOServiceGetMatchingServices(kIOMasterPortDefault,
+    kern_return_t ret = IOServiceGetMatchingServices(kIOMainPortDefault,
         dict, &devices);
     if (ret != KERN_SUCCESS) {
         printf("Cannot find matching IO services.\n");
