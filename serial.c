@@ -440,8 +440,27 @@ static char *find_path(int vid, int pid)
     }
 
     io_iterator_t devices = IO_OBJECT_NULL;
-    kern_return_t ret = IOServiceGetMatchingServices(kIOMainPortDefault,
-        dict, &devices);
+
+    kern_return_t ret;
+
+    /* MacOS 12.0 deprecates kIOMasterPortDefault for kIOMainPortDefault
+     * and build breaks on a deprecation warning.
+     * Use the clang __builtin_available thing to guard the new version 
+     * and change that warning to non-error to prevent breakage.
+     */
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+    if (__builtin_available(macOS 12.0, *)) {
+        ret = IOServiceGetMatchingServices(kIOMainPortDefault,
+            dict, &devices);
+    } else {
+        ret = IOServiceGetMatchingServices(kIOMasterPortDefault,
+            dict, &devices);
+    }
+
+    #pragma clang diagnostic pop
+
     if (ret != KERN_SUCCESS) {
         printf("Cannot find matching IO services.\n");
         return 0;
