@@ -50,6 +50,7 @@
 #endif
 
 #ifdef __APPLE__
+#   include <Availability.h>
 #   include <CoreFoundation/CoreFoundation.h>
 #   include <IOKit/usb/IOUSBLib.h>
 #   include <IOKit/serial/IOSerialKeys.h>
@@ -440,7 +441,20 @@ static char *find_path(int vid, int pid)
     }
 
     io_iterator_t devices = IO_OBJECT_NULL;
-    kern_return_t ret = IOServiceGetMatchingServices(kIOMasterPortDefault,
+
+    #ifdef __MAC_OS_X_VERSION_MIN_REQUIRED
+        // code only compiled when targeting Mac OS X and not iPhone
+        // note: we use of 101200 instead of __MAC_10_12
+        #if __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
+            // code in here might run on pre-Monterey OS
+            mach_port_t defaultPort = kIOMasterPortDefault;
+        #else
+            // code here can assume Monterey or later
+            mach_port_t defaultPort = kIOMainPortDefault;
+        #endif
+    #endif
+
+    kern_return_t ret = IOServiceGetMatchingServices(defaultPort,
         dict, &devices);
     if (ret != KERN_SUCCESS) {
         printf("Cannot find matching IO services.\n");
