@@ -977,7 +977,7 @@ static void print_analog_channels(FILE *out, int verbose)
 
 #ifdef PRINT_RARE_PARAMS
         print_chan_ext(out, ch);
-
+        fprintf(out, "  ");
         // Extended analog parameters of the channel:
         //      Rx Signaling System
         //      Tx Signaling System
@@ -1162,15 +1162,15 @@ static void md380_print_config(radio_device_t *radio, FILE *out, int verbose)
             } else {
                 fprintf(out, "%-4d ", sl->tx_designated_ch);
             }
-#ifdef PRINT_RARE_PARAMS
-            fprintf(out, "%-4d %-4d ",
-                sl->sign_hold_time * 25, sl->prio_sample_time * 250);
-#endif
             if (sl->member[0]) {
                 print_chanlist(out, sl->member, 31);
             } else {
                 fprintf(out, "-");
             }
+#ifdef PRINT_RARE_PARAMS
+            fprintf(out, "%-4d %-4d ",
+                sl->sign_hold_time * 25, sl->prio_sample_time * 250);
+#endif
             fprintf(out, "\n");
         }
     }
