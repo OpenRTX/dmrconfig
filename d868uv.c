@@ -44,7 +44,7 @@
 #define NRADIOIDS       250
 #define NSCANL          250
 #define NMESSAGES       100
-#define NCALLSIGNS      160000
+#define NCALLSIGNS      200000
 #define CALLSIGN_SIZE   (12*1024*1024)  // Size of callsign data
 
 //
