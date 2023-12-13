@@ -1365,6 +1365,14 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
                 // Contact is disabled
                 continue;
             }
+            if ((ct->type & 3) > CALL_ALL) {
+                // Contact type unknown
+                continue;
+            }
+            if (CONTACT_ID(ct) == 0) {
+                // Empty contact
+                continue;
+            }
 
             fprintf(out, "%5d   ", i+1);
             print_ascii(out, ct->name, 16, 1);
