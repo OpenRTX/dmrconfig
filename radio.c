@@ -271,6 +271,42 @@ void radio_save_image(const char *filename)
     fclose(img);
 }
 
+
+//
+// Loop over all known radios and see if the config file can be parsed.
+//
+void radio_validate_config(const char *filename) {
+  int i = 0;
+  FILE *conf;
+  char line[256];
+
+  conf = fopen(filename, "r");
+  if (! conf) {
+    perror(filename);
+    exit(-1);
+  }
+
+  // First, find out which radio it is.
+  while (fgets(line, sizeof(line), conf)) {
+    if (strnstr(line, "Radio:", strlen(line))) {
+      for (i = 0; radio_tab[i].ident; i++) {
+        if (strnstr(line, radio_tab[i].ident, strlen(line))) goto found;
+      }
+    }
+  }
+  fprintf(stderr, "Couldn't idenfity radio type from config file\n");
+  exit(-1);
+
+ found:
+
+  fprintf(stderr, "Identified radio from config file as: %s\n", radio_tab[i].ident);
+  fclose(conf);
+  device = radio_tab[i].device;
+  radio_parse_config(filename);
+  fprintf(stderr, "Configuration validated successfully for %s\n", radio_tab[i].ident);
+  exit(0);
+}
+
 //
 // Read the configuration from text file, and modify the firmware.
 //

@@ -73,6 +73,11 @@ void radio_save_image(const char *filename);
 void radio_parse_config(const char *filename);
 
 //
+// Attempt to read the configuration file, see if it can be parsed successfully for any radio.
+//
+void radio_validate_config(const char *filename);
+
+//
 // Check the configuration.
 //
 void radio_verify_config(void);
