@@ -329,7 +329,7 @@ void radio_parse_config(const char *filename)
 
         // Strip comments.
         v = strchr(line, '#');
-        if (v)
+        if (v == line)
             *v = 0;
 
         // Strip trailing spaces and newline.
