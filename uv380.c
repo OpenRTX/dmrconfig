@@ -305,7 +305,9 @@ typedef struct {
     uint8_t  _unused66_0                : 2,
              keypad_tones               : 1,
              intro_picture              : 1,
-             _unused66_4                : 4;
+             _unused66_4                : 2,
+             contacts_csv               : 1,
+             _unused66_7                : 1;
 
     // Byte 67
     uint8_t  _unused67;
@@ -779,6 +781,13 @@ static void print_chanlist(FILE *out, uint16_t *unsorted, int nchan)
     }
     if (range)
         fprintf(out, "-%d", last);
+}
+
+static void print_contactscsv(FILE *out, int verbose) {
+    general_settings_t *gs = GET_SETTINGS();
+    if(verbose)
+      fprintf(out, "\n# Whether to show contact details from CSV.\n");
+    fprintf(out, "ContactsCSV: %i\n", gs->contacts_csv == 0 ? 1 : 0);
 }
 
 static void print_id(FILE *out, int verbose)
@@ -1356,6 +1365,7 @@ static void uv380_print_config(radio_device_t *radio, FILE *out, int verbose)
     // General settings.
     print_id(out, verbose);
     print_intro(out, verbose);
+    print_contactscsv(out, verbose);
 }
 
 //
@@ -1493,6 +1503,10 @@ static void uv380_parse_parameter(radio_device_t *radio, char *param, char *valu
     }
     if (strcasecmp ("Intro Line 2", param) == 0) {
         utf8_decode(gs->intro_line2, value, 10);
+        return;
+    }
+    if (strcasecmp ("ContactsCSV", param) == 0) {
+        gs->contacts_csv = !(*value == '1');
         return;
     }
     fprintf(stderr, "Unknown parameter: %s = %s\n", param, value);
