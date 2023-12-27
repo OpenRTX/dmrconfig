@@ -1796,7 +1796,6 @@ static int parse_zones(int first_row, char *line)
 
     if (*chan_str != '-') {
         char *str   = chan_str;
-        int   nchan = 0;
         int   range = 0;
         int   last  = 0;
 
@@ -1822,7 +1821,6 @@ static int parse_zones(int first_row, char *line)
                         fprintf(stderr, "Zone %d: too many channels.\n", znum);
                         return 0;
                     }
-                    nchan++;
                 }
             } else {
                 // Add single channel.
@@ -1830,7 +1828,6 @@ static int parse_zones(int first_row, char *line)
                     fprintf(stderr, "Zone %d: too many channels.\n", znum);
                     return 0;
                 }
-                nchan++;
             }
 
             if (*eptr == 0)
@@ -1913,7 +1910,6 @@ static int parse_scanlist(int first_row, char *line)
 
     if (*chan_str != '-') {
         char *str   = chan_str;
-        int   nchan = 0;
         int   range = 0;
         int   last  = 0;
 
@@ -1939,7 +1935,6 @@ static int parse_scanlist(int first_row, char *line)
                         fprintf(stderr, "Scan list %d: too many channels.\n", snum);
                         return 0;
                     }
-                    nchan++;
                 }
             } else {
                 // Add single channel.
@@ -1947,7 +1942,6 @@ static int parse_scanlist(int first_row, char *line)
                     fprintf(stderr, "Scan list %d: too many channels.\n", snum);
                     return 0;
                 }
-                nchan++;
             }
 
             if (*eptr == 0)
