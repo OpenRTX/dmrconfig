@@ -41,6 +41,7 @@
 #define NCONTACTS       10000
 #define NZONES          250
 #define NGLISTS         250
+#define NRADIOIDS       250
 #define NSCANL          250
 #define NMESSAGES       100
 #define NCALLSIGNS      200000
@@ -53,6 +54,7 @@
 #define OFFSET_ZONELISTS    0x03e8c0    // Channel lists of zones
 #define OFFSET_SCANLISTS    0x05dcc0    // Scanlists
 #define OFFSET_MESSAGES     0x069f40    // Messages
+#define OFFSET_ENCRYPT_KEY  0x070c40	// Encryption keys
 #define OFFSET_ZONE_MAP     0x070940    // Bitmap of valid zones
 #define OFFSET_SCANL_MAP    0x070980    // Bitmap of valid scanlists
 #define OFFSET_CHAN_MAP     0x070a40    // Bitmap of valid channels
@@ -61,6 +63,7 @@
 #define OFFSET_ZCHAN_B      0x071900    // Zone B channel
 #define OFFSET_ZONENAMES    0x071dc0    // Names of zones
 #define OFFSET_RADIOID      0x073d00    // Table of radio IDs
+#define OFFSET_RADIOID_MAP  0x070960    // Bitmap of enabled radio IDs
 #define OFFSET_CONTACT_LIST 0x076500    // List of valid contact indices
 #define OFFSET_CONTACT_MAP  0x080140    // Bitmap of invalid contacts
 #define OFFSET_CONTACTS     0x080640    // Contacts
@@ -75,9 +78,10 @@
 #define ADDR_CALLDB_DATA    0x04500000  // Data of callsign database
 
 #define GET_SETTINGS()      ((general_settings_t*) &radio_mem[OFFSET_SETTINGS])
-#define GET_RADIOID()       ((radioid_t*) &radio_mem[OFFSET_RADIOID])
+#define GET_RADIOID(i)      ((radioid_t*) &radio_mem[OFFSET_RADIOID + (i)*32])
 #define GET_ZONEMAP()       (&radio_mem[OFFSET_ZONE_MAP])
 #define GET_CONTACT_MAP()   (&radio_mem[OFFSET_CONTACT_MAP])
+#define GET_RADIOID_MAP()   (&radio_mem[OFFSET_RADIOID_MAP])
 #define GET_CONTACT_LIST()  ((uint32_t*) &radio_mem[OFFSET_CONTACT_LIST])
 #define GET_SCANL_MAP()     (&radio_mem[OFFSET_SCANL_MAP])
 #define GET_ZONENAME(i)     (&radio_mem[OFFSET_ZONENAMES + (i)*32])
@@ -88,6 +92,7 @@
 #define GET_GROUPLIST(i)    ((grouplist_t*) &radio_mem[OFFSET_GLISTS + (i)*320])
 #define GET_SCANLIST(i)     ((scanlist_t*) &radio_mem[OFFSET_SCANLISTS + (i)*192])
 #define GET_MESSAGE(i)      ((uint8_t*) &radio_mem[OFFSET_MESSAGES + (i)*256])
+#define GET_ENC_KEY(i)      ((uint8_t*) &radio_mem[OFFSET_ENCRYPT_KEY + (i)*2])
 
 #define VALID_TEXT(txt)     (*(txt) != 0 && *(txt) != 0xff)
 #define VALID_GROUPLIST(gl) ((gl)->member[0] != 0xffffffff && VALID_TEXT((gl)->name))
@@ -691,21 +696,6 @@ static int d868uv_is_compatible(radio_device_t *radio)
     return 0;
 }
 
-static void print_id(FILE *out, int verbose)
-{
-    radioid_t *ri = GET_RADIOID();
-    unsigned id = GET_ID(ri->id);
-
-    if (verbose)
-        fprintf(out, "\n# Unique DMR ID and name of this radio.");
-    fprintf(out, "\nID: %u\nName: ", id);
-    if (VALID_TEXT(ri->name)) {
-        print_ascii(out, ri->name, 16, 0);
-    } else {
-        fprintf(out, "-");
-    }
-    fprintf(out, "\n");
-}
 
 static void print_intro(FILE *out, int verbose)
 {
@@ -921,13 +911,16 @@ static void print_digital_channels(FILE *out, radio_device_t *radio, int verbose
         fprintf(out, "# 7) Transmit timeout timer: (unused)\n");
         fprintf(out, "# 8) Receive only: -, +\n");
         fprintf(out, "# 9) Admit criteria: -, Free, Color, NColor\n");
-        fprintf(out, "# 10) Color code: 0, 1, 2, 3... 15\n");
-        fprintf(out, "# 11) Time slot: 1 or 2\n");
-        fprintf(out, "# 12) Receive group list: - or index in Grouplist table\n");
-        fprintf(out, "# 13) Contact for transmit: - or index in Contacts table\n");
+        fprintf(out, "# 10) Encryption Type (- (Off) or Norm or Enh.)\n");
+        fprintf(out, "# 11) Encryption Key (- (Off) or 1-32)\n");
+        fprintf(out, "# 12) Color code: 0, 1, 2, 3... 15\n");
+        fprintf(out, "# 13) Time slot: 1 or 2\n");
+        fprintf(out, "# 14) Receive group list: - or index in Grouplist table\n");
+        fprintf(out, "# 15) Radio ID\n");
+        fprintf(out, "# 16) Contact for transmit: - or index in Contacts table\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Digital Name             Receive   Transmit Power Scan TOT RO Admit  Color Slot RxGL TxContact");
+    fprintf(out, "Digital Name             Receive   Transmit Power Scan TOT RO Admit EncType EncKey  Color Slot RxGL RadioID TxContact");
     fprintf(out, "\n");
     for (i=0; i<NCHAN; i++) {
         channel_t *ch = get_channel(i);
@@ -942,17 +935,30 @@ static void print_digital_channels(FILE *out, radio_device_t *radio, int verbose
 
         // Print digital parameters of the channel:
         //      Admit Criteria
+        //      Encryption Type
+        //      Encryption Key
         //      Color Code
         //      Repeater Slot
         //      Group List
+	//      Radio ID
         //      Contact Name
-        fprintf(out, "%-6s ", DIGITAL_ADMIT_NAME[ch->tx_permit]);
-        fprintf(out, "%-5d %-3d  ", ch->color_code, 1 + ch->slot2);
+        fprintf(out, "%-5s ", DIGITAL_ADMIT_NAME[ch->tx_permit]);
+
+	if (ch->encryption == 0) {
+	    fprintf(out, "-       -       ");
+	} else {
+            fprintf(out, "%-6s  ", ch->enh_encryption == 1 ? "Enh." : "Norm");
+	    fprintf(out, "%-6d  ", ch->encryption);
+	}
+
+	fprintf(out, "%-5d %-3d  ", ch->color_code, 1 + ch->slot2);
 
         if (ch->group_list_index == 0xff)
             fprintf(out, "-    ");
         else
             fprintf(out, "%-4d ", ch->group_list_index + 1);
+	
+	fprintf(out, "%-7d ", ch->id_index);
 
         if (ch->contact_index == 0xffff)
             fprintf(out, "-");
@@ -968,6 +974,7 @@ static void print_digital_channels(FILE *out, radio_device_t *radio, int verbose
                 print_ascii(out, ct->name, 16, 0);
             }
         }
+
         fprintf(out, "\n");
     }
 }
@@ -1436,8 +1443,34 @@ static void d868uv_print_config(radio_device_t *radio, FILE *out, int verbose)
         }
     }
 
+    //
+    // Radio IDs.
+    //
+        fprintf(out, "\n");
+        if (verbose) {
+            fprintf(out, "# Table of RadioIDs.\n");
+            fprintf(out, "# 1) RadioID Index number (upto %d)\n", NRADIOIDS);
+            fprintf(out, "# 2) Name: up to 16 characters, use '_' instead of space\n");
+            fprintf(out, "# 3) Call ID: 1...16777215\n");
+            fprintf(out, "#\n");
+        }
+        fprintf(out, "RadioId Name             ID       \n");
+
+        uint8_t *rmap = GET_RADIOID_MAP();
+        for (i=0; i<NRADIOIDS; i++) {
+            radioid_t *ri = GET_RADIOID(i);
+
+            if (!((rmap[i / 8] >> (i & 7)) & 1)) {
+                // RadioID is disabled
+                continue;
+            }
+
+            fprintf(out, "%3d     ", i);
+            print_ascii(out, ri->name, 16, 1);
+            fprintf(out, " %-8d\n", GET_ID(ri->id));
+        }
+
     // General settings.
-    print_id(out, verbose);
     print_intro(out, verbose);
 }
 
@@ -1488,20 +1521,6 @@ static void d868uv_parse_parameter(radio_device_t *radio, char *param, char *val
         return;
     }
 
-    radioid_t *ri = GET_RADIOID();
-    if (strcasecmp ("Name", param) == 0) {
-        ascii_decode(ri->name, value, 16, 0);
-        return;
-    }
-    if (strcasecmp ("ID", param) == 0) {
-        uint32_t id = strtoul(value, 0, 0);
-        ri->id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
-        ri->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
-        ri->id[2] = ((id / 1000 % 10) << 4) | ((id / 100) % 10);
-        ri->id[3] = ((id / 10 % 10) << 4) | (id % 10);
-        return;
-    }
-
     general_settings_t *gs = GET_SETTINGS();
     if (strcasecmp ("Intro Line 1", param) == 0) {
         ascii_decode_uppercase(gs->intro_line1, value, 14, 0);
@@ -1548,7 +1567,7 @@ static int ctcss_index(unsigned value)
 //
 static void setup_channel(radio_device_t *radio, int i, int mode, char *name,
     double rx_mhz, double tx_mhz, int power, int scanlist, int rxonly,
-    int admit, int colorcode, int timeslot, int grouplist, int contact,
+    int admit, int enc_type, int enc_key, int colorcode, int timeslot, int grouplist, int radioid, int contact,
     int rxtone, int txtone, int width)
 {
     channel_t *ch     = get_bank(i >> 7) + (i % 128);
@@ -1578,6 +1597,9 @@ static void setup_channel(radio_device_t *radio, int i, int mode, char *name,
     ch->slot2               = (timeslot == 2);
     ch->color_code          = colorcode;
     ch->tx_permit           = admit;
+    ch->enh_encryption      = enc_type;
+    ch->id_index	    = radioid;
+    ch->encryption          = enc_key;
     ch->contact_index       = contact - 1;
     ch->group_list_index    = grouplist - 1;
     ch->custom_ctcss        = 251.1 * 10;
@@ -1666,17 +1688,19 @@ static int parse_digital_channel(radio_device_t *radio, int first_row, char *lin
 {
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
     char power_str[256], scanlist_str[256];
+    char enc_type_str[256], enc_key_str[256];
     char tot_str[256], rxonly_str[256], admit_str[256], colorcode_str[256];
-    char slot_str[256], grouplist_str[256], contact_str[256];
+    char slot_str[256], grouplist_str[256], radioid_str[256], contact_str[256];
     int num, power, scanlist, rxonly, admit;
-    int colorcode, timeslot, grouplist, contact;
+    int enc_type, enc_key;
+    int colorcode, timeslot, grouplist, radioid, contact;
     double rx_mhz, tx_mhz;
 
-    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
+    if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
         num_str, name_str, rxfreq_str, offset_str,
         power_str, scanlist_str,
-        tot_str, rxonly_str, admit_str, colorcode_str,
-        slot_str, grouplist_str, contact_str) != 13)
+        tot_str, rxonly_str, admit_str, enc_type_str, enc_key_str, colorcode_str,
+        slot_str, grouplist_str, radioid_str, contact_str) != 16)
         return 0;
 
     num = atoi(num_str);
@@ -1746,6 +1770,22 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         return 0;
     }
 
+    if (*enc_key_str == '-' || *enc_key_str == '0') {
+	    enc_key = 0;
+    } else {
+	    enc_key = atoi(enc_key_str);
+	    if (enc_key < 0 || enc_key > 32) {
+ 		fprintf(stderr, "Bad encryption Key.\n");
+		return 0;
+	    }
+    }
+
+    if (*enc_type_str == 'E' || *enc_type_str == 'e') {
+	    enc_type = 1;
+    } else {
+	    enc_type = 0;
+    }
+
     colorcode = atoi(colorcode_str);
     if (colorcode < 0 || colorcode > 15) {
         fprintf(stderr, "Bad color code.\n");
@@ -1768,6 +1808,16 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
         }
     }
 
+    if (*radioid_str == '-') {
+        radioid = 0;
+    } else {
+        radioid = atoi(radioid_str);
+        if (radioid < 0 || radioid > NRADIOIDS) {
+            fprintf(stderr, "Bad RadioID.\n");
+            return 0;
+        }
+    }
+
     if (*contact_str == '-') {
         contact = 0;
     } else {
@@ -1786,8 +1836,8 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     setup_channel(radio, num-1, MODE_DIGITAL, name_str, rx_mhz, tx_mhz,
-        power, scanlist, rxonly, admit, colorcode, timeslot,
-        grouplist, contact, 0, 0, BW_12_5_KHZ);
+        power, scanlist, rxonly, admit, enc_type, enc_key, colorcode, timeslot,
+        grouplist, radioid, contact, 0, 0, BW_12_5_KHZ);
 
     radio->channel_count++;
     return 1;
@@ -1960,8 +2010,8 @@ badtx:  fprintf(stderr, "Bad transmit frequency.\n");
     }
 
     setup_channel(radio, num-1, MODE_ANALOG, name_str, rx_mhz, tx_mhz,
-        power, scanlist, rxonly, admit, 0, 1,
-        0, 0, rxtone, txtone, width);
+        power, scanlist, rxonly, admit, 0, 0, 0, 1,
+        0, 0, 0, rxtone, txtone, width);
 
     radio->channel_count++;
     return 1;
@@ -2255,6 +2305,62 @@ static int parse_scanlist(int first_row, char *line)
 }
 
 //
+// Erase all radioids.
+//
+static void erase_radioids()
+{
+    memset(&radio_mem[OFFSET_RADIOID], 0xff, NRADIOIDS*32);
+    memset(GET_RADIOID_MAP(), 0x00, 32);
+}
+
+static void setup_radioid(int index, const char *name, const char *dmrid)
+{
+    radioid_t *ri = GET_RADIOID(index);
+    memset(ri, 0, 32);
+
+    ascii_decode(ri->name, name, 16, 0);
+    uint32_t id = strtoul(dmrid, 0, 0);
+    ri->id[0] = ((id / 10000000) << 4) | ((id / 1000000) % 10);
+    ri->id[1] = ((id / 100000 % 10) << 4) | ((id / 10000) % 10);
+    ri->id[2] = ((id / 1000 % 10) << 4) | ((id / 100) % 10);
+    ri->id[3] = ((id / 10 % 10) << 4) | (id % 10);
+
+    // Update radioid map.
+    uint8_t *rmap = GET_RADIOID_MAP();
+    rmap[index / 8] |= (1UL << (index & 7));
+
+}
+
+static int parse_radioid(int first_row, char *line)
+{
+    char num_str[256], name_str[256], dmrid_str[256];
+    int cnum, id;
+
+    if (sscanf(line, "%s %s %s", num_str, name_str, dmrid_str) != 3)
+        return 0;
+
+    cnum = atoi(num_str);
+    if (cnum < 0 || cnum > NRADIOIDS) {
+        fprintf(stderr, "Bad RadioID number.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the Contacts table.
+        erase_radioids();
+    }
+
+    id = atoi(dmrid_str);
+    if (id < 1 || id > 0xffffffff) {
+        fprintf(stderr, "Bad radio ID.\n");
+        return 0;
+    }
+
+    setup_radioid(cnum, name_str, dmrid_str);
+    return 1;
+}
+
+//
 // Erase all contacts.
 //
 static void erase_contacts()
@@ -2467,6 +2573,8 @@ static int parse_grouplist(int first_row, char *line)
     return 1;
 }
 
+
+
 //
 // Set text for a given message.
 //
@@ -2524,6 +2632,8 @@ static int d868uv_parse_header(radio_device_t *radio, char *line)
         return 'G';
     if (strncasecmp(line, "Message", 7) == 0)
         return 'M';
+    if (strncasecmp(line, "RadioID", 7) == 0)
+        return 'R';
     return 0;
 }
 
@@ -2541,6 +2651,7 @@ static int d868uv_parse_row(radio_device_t *radio, int table_id, int first_row, 
     case 'C': return parse_contact(first_row, line);
     case 'G': return parse_grouplist(first_row, line);
     case 'M': return parse_messages(first_row, line);
+    case 'R': return parse_radioid(first_row, line);
     }
     return 0;
 }
