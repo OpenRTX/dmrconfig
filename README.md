@@ -16,6 +16,7 @@ DMRconfig is a utility for programming digital radios via USB programming cable.
  * Radioddity GD-77
  * Anytone AT-D868UV
  * Anytone AT-D878UV
+ * Anytone AT-D878UVII
  * BTECH DMR-6x2
  * Zastone D900
  * Zastone DP880
@@ -84,7 +85,7 @@ Create a file /etc/udev/rules.d/99-dmr.rules with the following contents:
     # Baofeng RD-5R, TD-5R, DM-1801
     SUBSYSTEM=="usb", ATTRS{idVendor}=="15a2", ATTRS{idProduct}=="0073", MODE="666"
 
-    # Anytone AT-D868UV: ignore this device in Modem Manager
+    # Anytone D868UV/D878UV/D878UV2: ignore this device in Modem Manager
     ATTRS{idVendor}=="28e9" ATTRS{idProduct}=="018a", ENV{ID_MM_DEVICE_IGNORE}="1"
 
 To activate it, run:

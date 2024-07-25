@@ -50,6 +50,7 @@ static struct {
     { "DM-1701",    &radio_rt84 },      // Baofeng DM-1701, Retevis RT84
     { "MD-760P",    &radio_gd77 },      // Radioddity GD-77, version 3.1.1 and later
     { "D868UVE",    &radio_d868uv },    // Anytone AT-D868UV
+    { "D878UV2",    &radio_d878uv2 },   // Anytone AT-D878UV2
     { "D878UV",     &radio_d878uv },    // Anytone AT-D878UV
     { "D6X2UV",     &radio_dmr6x2 },    // BTECH DMR-6x2
     { "ZD3688",     &radio_d900 },      // Zastone D900
@@ -101,7 +102,7 @@ void radio_connect()
             ident = hid_identify();
     }
     if (! ident) {
-        // Try AT-D868UV.
+        // Try Anytone family.
         if (serial_init(0x28e9, 0x018a) >= 0)
             ident = serial_identify();
     }
@@ -213,6 +214,8 @@ void radio_read_image(const char *filename)
         fseek(img, 0, SEEK_SET);
         if (memcmp(ident, "D868UVE", 7) == 0) {
             device = &radio_d868uv;
+        } else if (memcmp(ident, "D878UV2", 7) == 0) {
+            device = &radio_d878uv2;
         } else if (memcmp(ident, "D878UV", 6) == 0) {
             device = &radio_d878uv;
         } else if (memcmp(ident, "D6X2UV", 6) == 0) {

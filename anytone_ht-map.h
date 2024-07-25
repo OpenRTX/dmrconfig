@@ -1,5 +1,5 @@
 /*
- * Address map of D868UV memory space.
+ * Address map of Anytone D868UV/D878UV/D878UV2 memory space.
  */
 { 0x02fa0010, 0x40 },               // 000000 - Radio name and timestamp
 { 0x00800000, 0x2000 },             // 000040 - Channels 1-128
