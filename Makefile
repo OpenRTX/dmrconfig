@@ -6,7 +6,7 @@ GITCOUNT        = $(shell git rev-list HEAD --count)
 UNAME           = $(shell uname)
 
 OBJS            = main.o util.o radio.o dfu-libusb.o uv380.o md380.o rd5r.o \
-                  gd77.o hid.o serial.o d868uv.o dm1801.o
+                  gd77.o hid.o serial.o anytone_ht.o dm1801.o
 CFLAGS         ?= -g -O -Wall -Werror 
 CFLAGS         += -DVERSION='"$(VERSION).$(GITCOUNT)"' \
                   $(shell $(PKG_CONFIG) --cflags libusb-1.0)
@@ -59,7 +59,7 @@ install:	dmrconfig
 		install -c -s dmrconfig /usr/local/bin/dmrconfig
 
 ###
-d868uv.o: d868uv.c radio.h util.h d868uv-map.h
+anytone_ht.o: anytone_ht.c radio.h util.h anytone_ht-map.h
 dfu-libusb.o: dfu-libusb.c util.h
 dfu-windows.o: dfu-windows.c util.h
 gd77.o: gd77.c radio.h util.h
