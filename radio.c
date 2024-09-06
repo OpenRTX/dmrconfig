@@ -291,9 +291,9 @@ void radio_validate_config(const char *filename) {
 
   // First, find out which radio it is.
   while (fgets(line, sizeof(line), conf)) {
-    if (strnstr(line, "Radio:", strlen(line))) {
+    if (strstr(line, "Radio:")) {
       for (i = 0; radio_tab[i].ident; i++) {
-        if (strnstr(line, radio_tab[i].ident, strlen(line))) goto found;
+        if (strstr(line, radio_tab[i].ident)) goto found;
       }
     }
   }
