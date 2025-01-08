@@ -263,8 +263,15 @@ typedef struct {
 
     uint8_t  _unused7;
 
-    // Bytes 8-0x5ff.
-    uint8_t  _unused8[0x5f8];
+    // Bytes 8-0x33.
+    uint8_t  _unused8[0x2c];
+
+    uint8_t working_mode;       // Working mode
+#define WMODE_AMATEUR   0       // Amateur
+#define WMODE_PRO       1       // Professional (some menu and key functions locked)
+
+    // Bytes 0x35-0x5ff.
+    uint8_t  _unused35[0x5cb];
 
     // Bytes 0x600-0x61f
     uint8_t intro_line1[16];    // Up to 14 characters
@@ -724,6 +731,23 @@ static void print_intro(FILE *out, int verbose)
     fprintf(out, "\nIntro Line 2: ");
     if (VALID_TEXT(gs->intro_line2)) {
         print_ascii(out, gs->intro_line2, 14, 0);
+    } else {
+        fprintf(out, "-");
+    }
+    fprintf(out, "\n");
+}
+
+static void print_working_mode(FILE *out, int verbose)
+{
+    general_settings_t *gs = GET_SETTINGS();
+
+    if (verbose)
+        fprintf(out, "\n# Working Mode: Amateur or Professional\n");
+    fprintf(out, "Working Mode: ");
+    if (gs->working_mode == WMODE_AMATEUR) {
+        fprintf(out, "Amateur");
+    } else if (gs->working_mode == WMODE_PRO) {
+            fprintf(out, "Professional");
     } else {
         fprintf(out, "-");
     }
@@ -1441,6 +1465,7 @@ static void anytone_ht_print_config(radio_device_t *radio, FILE *out, int verbos
     // General settings.
     print_id(out, verbose);
     print_intro(out, verbose);
+    print_working_mode(out, verbose);
 }
 
 //
@@ -1513,6 +1538,16 @@ static void anytone_ht_parse_parameter(radio_device_t *radio, char *param, char 
     if (strcasecmp ("Intro Line 2", param) == 0) {
         ascii_decode_uppercase(gs->intro_line2, value, 14, 0);
         gs->power_on = PWON_CUST_CHAR;
+        return;
+    }
+    if (strcasecmp ("Working Mode", param) == 0) {
+        if (strcasecmp ("Professional", value) == 0) {
+            gs->working_mode = WMODE_PRO;
+        } else if (strcasecmp ("Amateur", value) == 0) {
+            gs->working_mode = WMODE_AMATEUR;
+        } else {
+            fprintf(stderr, "Ignoring unknown working mode %s\n", value);
+        }
         return;
     }
     fprintf(stderr, "Unknown parameter: %s = %s\n", param, value);
