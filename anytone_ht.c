@@ -686,6 +686,8 @@ static int anytone_ht_is_compatible(radio_device_t *radio)
         return 1;
     if (memcmp("D878UV2", (char*)&radio_mem[0], 7) == 0)
         return 1;
+    if (memcmp("D6X2UV2", (char*)&radio_mem[0], 7) == 0)
+        return 1;
     if (memcmp("D878UV", (char*)&radio_mem[0], 6) == 0)
         return 1;
     if (memcmp("D6X2UV", (char*)&radio_mem[0], 6) == 0)
@@ -866,8 +868,8 @@ static void print_tx_offset(FILE *out, unsigned tx_offset_bcd, unsigned mode)
 //
 static int get_scanlist_index(radio_device_t *radio, channel_t *ch)
 {
-    if (radio == &radio_dmr6x2) {
-        // Radio DMR-6x2 has eight scan lists per channel.
+    if (radio == &radio_dmr6x2 || radio == &radio_dmr6x2pro) {
+        // Radio DMR-6x2 / Pro has eight scan lists per channel.
         return ch->aprs_channel;
     } else {
         return ch->scan_list_index;
@@ -1584,8 +1586,8 @@ static void setup_channel(radio_device_t *radio, int i, int mode, char *name,
     ch->group_list_index    = grouplist - 1;
     ch->custom_ctcss        = 251.1 * 10;
 
-    if (radio == &radio_dmr6x2) {
-        // Radio DMR-6x2 has eight scan lists per channel.
+    if (radio == &radio_dmr6x2 || radio == &radio_dmr6x2pro) {
+        // Radio DMR-6x2 / Pro has eight scan lists per channel.
         ch->scan_list_index = 0;            // Channel Measure Mode = Off
         ch->aprs_channel    = scanlist - 1; // Scan list 1
         memset(ch->_unused55, 0xff, 7);     // Scan lists 2-8 = Disable
@@ -3045,6 +3047,26 @@ radio_device_t radio_d878uv2 = {
 //
 radio_device_t radio_dmr6x2 = {
     "BTECH DMR-6x2",
+    anytone_ht_download,
+    anytone_ht_upload,
+    anytone_ht_is_compatible,
+    anytone_ht_read_image,
+    anytone_ht_save_image,
+    anytone_ht_print_version,
+    anytone_ht_print_config,
+    anytone_ht_verify_config,
+    anytone_ht_parse_parameter,
+    anytone_ht_parse_header,
+    anytone_ht_parse_row,
+    anytone_ht_update_timestamp,
+    anytone_ht_write_csv,
+};
+
+//
+// BTECH DMR-6x2Pro
+//
+radio_device_t radio_dmr6x2pro = {
+    "BTECH DMR-6x2Pro",
     anytone_ht_download,
     anytone_ht_upload,
     anytone_ht_is_compatible,

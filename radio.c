@@ -53,6 +53,7 @@ static struct {
     { "D878UV2",    &radio_d878uv2 },   // Anytone AT-D878UV2
     { "D878UV",     &radio_d878uv },    // Anytone AT-D878UV
     { "D6X2UV",     &radio_dmr6x2 },    // BTECH DMR-6x2
+    { "D6X2UV2",    &radio_dmr6x2pro }, // BTECH DMR-6x2Pro
     { "ZD3688",     &radio_d900 },      // Zastone D900
     { "TP660",      &radio_dp880 },     // Zastone DP880
     { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
@@ -216,6 +217,8 @@ void radio_read_image(const char *filename)
             device = &radio_d868uv;
         } else if (memcmp(ident, "D878UV2", 7) == 0) {
             device = &radio_d878uv2;
+        } else if (memcmp(ident, "D6X2UV2", 7) == 0) {
+            device = &radio_dmr6x2pro;
         } else if (memcmp(ident, "D878UV", 6) == 0) {
             device = &radio_d878uv;
         } else if (memcmp(ident, "D6X2UV", 6) == 0) {
