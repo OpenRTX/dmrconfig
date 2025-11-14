@@ -30,10 +30,13 @@ ifeq ($(UNAME),Linux)
     OBJS        += hid-libusb.o
 
     # Link libusb statically, when possible
-    LIBUSB      = /usr/lib/x86_64-linux-gnu/libusb-1.0.a
+    # derive the location from the results of the pkg-config command
+    LIBUSB	:= $(patsubst -L%,%,$(word 1,$(LIBS)))/libusb-1.0.a
     ifeq ($(wildcard $(LIBUSB)),$(LIBUSB))
-        LIBS    = $(LIBUSB) -lpthread -ludev
+        LIBS    = $(LIBUSB)
     endif
+    # these libs are always required on Linux
+    LIBS	+= -lpthread -ludev
 endif
 
 #
