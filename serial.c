@@ -32,6 +32,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "util.h"
+#include <sys/ioctl.h>
 
 #if defined(__WIN32__) || defined(WIN32)
     #include <windows.h>
@@ -43,6 +44,8 @@
     #include <termios.h>
     static int fd = -1;
     static struct termios saved_mode;
+    // Optional: pulse RTS/DTR on open. Disabled by default to avoid rebooting sensitive radios.
+    static int pulse_on_open = 0;
 #endif
 
 #ifdef __linux__
@@ -56,6 +59,8 @@
 #endif
 
 static char *dev_path;
+static int last_vid = 0;
+static int last_pid = 0;
 
 static const unsigned char CMD_PRG[]   = "PROGRAM";
 static const unsigned char CMD_PRG2[]  = "\2";
@@ -64,6 +69,10 @@ static const unsigned char CMD_ACK[]   = "\6";
 static const unsigned char CMD_READ[]  = "Raaaan";
 static const unsigned char CMD_WRITE[] = "Waaaan...";
 static const unsigned char CMD_END[]   = "END";
+
+// DM32-specific prelim handshake tokens observed in captures
+static const unsigned char CMD_PSEARCH[] = "PSEARCH";
+static const unsigned char CMD_PASSSTA[] = "PASSSTA";
 
 #if defined(__WIN32__) || defined(WIN32)
     // No need for this function.
@@ -350,8 +359,61 @@ int serial_open(const char *devname, int baud_rate)
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags >= 0)
         fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+
+    // Always ensure RTS/DTR are asserted after open; optionally pulse first.
+    int mcs = 0;
+    if (ioctl(fd, TIOCMGET, &mcs) == 0) {
+        if (pulse_on_open) {
+            mcs &= ~(TIOCM_DTR | TIOCM_RTS);
+            ioctl(fd, TIOCMSET, &mcs);
+            usleep(100000);
+        }
+        mcs |= (TIOCM_DTR | TIOCM_RTS);
+        ioctl(fd, TIOCMSET, &mcs);
+    }
 #endif
     return 0;
+}
+
+// Convenience: open the device found by the most recent serial_init() call.
+// Returns 0 on success, -1 on error.
+int serial_open_found(int baud_rate)
+{
+    if (!dev_path) return -1;
+    return serial_open(dev_path, baud_rate);
+}
+
+//
+// Briefly toggle RTS/DTR to nudge devices into programming mode.
+// Return 0 on success (or not supported), -1 on failure.
+//
+int serial_pulse_rts_dtr(void)
+{
+#if defined(__WIN32__) || defined(WIN32)
+    // Not implemented on Windows here; return success.
+    return 0;
+#else
+    if (fd < 0)
+        return -1;
+    int flags;
+    if (ioctl(fd, TIOCMGET, &flags) < 0)
+        return -1;
+    // Set RTS & DTR
+    flags |= TIOCM_RTS;
+    flags |= TIOCM_DTR;
+    ioctl(fd, TIOCMSET, &flags);
+    usleep(100000);
+    // Clear RTS & DTR
+    flags &= ~TIOCM_RTS;
+    flags &= ~TIOCM_DTR;
+    ioctl(fd, TIOCMSET, &flags);
+    usleep(100000);
+    // Restore: enable again
+    flags |= TIOCM_RTS;
+    flags |= TIOCM_DTR;
+    ioctl(fd, TIOCMSET, &flags);
+    return 0;
+#endif
 }
 
 //
@@ -410,9 +472,11 @@ static char *find_path(int vid, int pid)
 
         unsigned vendor_id = strtoul(idVendor, 0, 16);
         unsigned product_id = strtoul(idProduct, 0, 16);
-        if (vendor_id != vid || product_id != pid) {
-            // Wrong ID.
-            continue;
+        if (!(vid == 0 && pid == 0)) {
+            if (vendor_id != vid || product_id != pid) {
+                // Wrong ID.
+                continue;
+            }
         }
 
         // Print names of vendor and product.
@@ -517,6 +581,14 @@ static char *find_path(int vid, int pid)
             continue;
         }
 
+        // If vid/pid are not specified (0), prefer usb* serial devices
+        if (vid == 0 && pid == 0) {
+            if (strstr(devname, "usb") == NULL) {
+                // Skip non-usb serials when scanning generically
+                continue;
+            }
+        }
+
         result = strdup(devname);
         break;
     }
@@ -597,6 +669,8 @@ static char *find_path(int vid, int pid)
 //
 int serial_init(int vid, int pid)
 {
+    last_vid = vid;
+    last_pid = pid;
     dev_path = find_path(vid, pid);
     if (!dev_path) {
         if (trace_flag) {
@@ -695,9 +769,90 @@ const char *serial_identify()
     static unsigned char reply[16];
     unsigned char ack[3];
     int retry = 0;
-
+    // DM-32 uses 115200; open once at that baud.
     if (serial_open(dev_path, 115200) < 0) {
         return 0;
+    }
+
+    // Small settle time after opening the port
+    usleep(250000);
+
+    // DM-32 prefers PSEARCH then PASSSTA; try that first.
+    {
+        if (trace_flag > 0) fprintf(stderr, "----Send [7] 50-53-45-41-52-43-48\n");
+        serial_write(CMD_PSEARCH, 7);
+        unsigned char buf[256];
+        int total = 0;
+        memset(buf, 0, sizeof(buf));
+        for (int t = 0; t < 20 && total < (int)sizeof(buf); ++t) {
+            int got = serial_read(buf + total, (int)sizeof(buf) - total, 100);
+            if (got > 0) total += got;
+        }
+        if (total > 0) {
+            int start = -1;
+            for (int i = 0; i < total; ++i) {
+                if (buf[i] == 'D') { start = i; break; }
+            }
+            if (start >= 0) {
+                int j = 0;
+                while (start + j < total && j < 8) {
+                    unsigned char c = buf[start + j];
+                    if (c < 0x20 || c > 0x7e) break;
+                    reply[1 + j] = c;
+                    ++j;
+                }
+                if (j > 0) {
+                    reply[1 + j] = 0;
+                    return (char*)&reply[1];
+                }
+            }
+        }
+    }
+
+    // Do not enter program mode during identify. Some units reboot or hang if probed.
+
+    // First try DM-32 style handshake with PASSSTA emphasis.
+    {
+        unsigned char idbuf[128];
+        int total = 0;
+        memset(idbuf, 0, sizeof(idbuf));
+
+        // Try PASSSTA a few times with short waits and read windows
+    for (int attempt = 0; attempt < 3; ++attempt) {
+            if (trace_flag > 0) fprintf(stderr, "----Send [7] 50-41-53-53-53-54-41\n");
+            unsigned char one;
+            send_recv(CMD_PASSSTA, 7, &one, 1);
+            // Read for up to ~500ms per attempt
+            for (int t = 0; t < 5; ++t) {
+                int got = serial_read(idbuf + total, (int)sizeof(idbuf) - total, 100);
+                if (got > 0) total += got;
+            }
+            if (total >= 8) break;
+            usleep(100000);
+        }
+
+    // If still nothing, we already tried PSEARCH; proceed with PASSSTA only loop.
+
+        if (total > 0) {
+            int start = -1;
+            for (int i = 0; i < total; ++i) {
+                if (idbuf[i] == 'D') { start = i; break; }
+            }
+            if (start >= 0) {
+                int j = 0;
+                while (start + j < total && j < 8) {
+                    unsigned char c = idbuf[start + j];
+                    if (c < 0x20 || c > 0x7e) break;
+                    reply[1 + j] = c;
+                    ++j;
+                }
+                if (j > 0) {
+                    reply[1 + j] = 0;
+
+                    return (char*)&reply[1];
+                }
+            }
+        }
     }
 
 again:
@@ -706,11 +861,16 @@ again:
 #else
     tcflush(fd, TCIOFLUSH);
 #endif
+    // Only attempt PROGRAM fallback for Anytone VID/PID. Skip for others (e.g., DM-32 on CH340/CP210x).
+    if (!(last_vid == 0x28e9 && last_pid == 0x018a)) {
+        // Do not send bare PROGRAM on non-Anytone bridges; this can reboot DM-32.
+        return 0;
+    }
     send_recv(CMD_PRG, 7, ack, 3);
     if (memcmp(ack, CMD_QX, 3) != 0) {
         if (++retry >= 10) {
-            fprintf(stderr, "%s: Wrong PRG acknowledge %02x-%02x-%02x, expected %02x-%02x-%02x\n",
-                __func__, ack[0], ack[1], ack[2], CMD_QX[0], CMD_QX[1], CMD_QX[2]);
+            fprintf(stderr, "%s: Wrong PRG acknowledge %02x-%02x-%02x and fallback failed\n",
+                __func__, ack[0], ack[1], ack[2]);
             return 0;
         }
         usleep(500000);
@@ -734,11 +894,13 @@ again:
     // Terminate the string.
     reply[8] = 0;
     return (char*)&reply[1];
+
+    return 0;
 }
 
 void serial_read_region(int addr, unsigned char *data, int nbytes)
 {
-    static const int DATASZ = 64;
+    enum { DATASZ = 64 };
     unsigned char cmd[6], reply[8 + DATASZ];
     int n, i, retry = 0;
 
@@ -774,10 +936,57 @@ again:
     }
 }
 
+// Variant with adjustable chunk size for radios that require 16-byte reads (e.g., DM-32)
+void serial_read_region_n(int addr, unsigned char *data, int nbytes, int chunk)
+{
+    const int DATASZ = (chunk > 0 && chunk <= 256) ? chunk : 64;
+    unsigned char cmd[6];
+    // reply buffer needs 8 + DATASZ bytes (header+sum+ack)
+    unsigned char reply[8 + 256];
+    int n, i, retry = 0;
+
+    for (n = 0; n < nbytes; n += DATASZ) {
+        int this_sz = (nbytes - n) < DATASZ ? (nbytes - n) : DATASZ;
+        // Read command: 52 aa aa aa aa nn
+        cmd[0] = CMD_READ[0];
+        cmd[1] = (addr + n) >> 24;
+        cmd[2] = (addr + n) >> 16;
+        cmd[3] = (addr + n) >> 8;
+        cmd[4] = addr + n;
+        cmd[5] = this_sz;
+again_n:
+        // Expect reply: 57 aa aa aa aa nn [data...] ss 06
+        if (!send_recv(cmd, 6, reply, 8 + this_sz)) {
+            if (retry++ < 3) goto again_n;
+            fprintf(stderr, "%s: timeout waiting for reply\n", __func__);
+            exit(-1);
+        }
+        if (reply[0] != CMD_WRITE[0] || reply[7 + this_sz] != CMD_ACK[0]) {
+            fprintf(stderr, "%s: Wrong read reply %02x-...-%02x, expected %02x-...-%02x\n",
+                __func__, reply[0], reply[7 + this_sz], CMD_WRITE[0], CMD_ACK[0]);
+            exit(-1);
+        }
+
+        // Compute checksum.
+        unsigned char sum = reply[1];
+        for (i = 2; i < 6 + this_sz; i++)
+            sum += reply[i];
+        if (reply[6 + this_sz] != sum) {
+            fprintf(stderr, "%s: Wrong read checksum %02x, expected %02x\n",
+                __func__, sum, reply[6 + this_sz]);
+            if (retry++ < 3)
+                goto again_n;
+            exit(-1);
+        }
+
+        memcpy(data + n, reply + 6, this_sz);
+    }
+}
+
 void serial_write_region(int addr, unsigned char *data, int nbytes)
 {
     //static const int DATASZ = 64;
-    static const int DATASZ = 16;
+    enum { DATASZ = 16 };
     unsigned char ack, cmd[8 + DATASZ];
     int n, i;
 
@@ -806,4 +1015,17 @@ void serial_write_region(int addr, unsigned char *data, int nbytes)
             exit(-1);
         }
     }
+}
+
+// Intentionally no generic program-mode entry for DM-32 here; the DM-32 driver
+// performs the CPS-style entry sequence safely within its download routine.
+
+// Allow radios to enable or disable RTS/DTR pulsing on open.
+void serial_set_pulse_on_open(int enable)
+{
+#if !defined(__WIN32__) && !defined(WIN32)
+    pulse_on_open = enable ? 1 : 0;
+#else
+    (void)enable;
+#endif
 }

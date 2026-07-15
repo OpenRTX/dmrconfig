@@ -131,6 +131,7 @@ extern radio_device_t radio_rt27d;      // Radtel RT-27D
 extern radio_device_t radio_rd5r;       // Baofeng RD-5R
 extern radio_device_t radio_gd77;       // Radioddity GD-77, version 3.1.1 and later
 extern radio_device_t radio_dm1801;     // Baofeng DM-1801
+extern radio_device_t radio_dm32;       // Baofeng DM-32 (experimental)
 extern radio_device_t radio_d868uv;     // Anytone AT-D868UV
 extern radio_device_t radio_d878uv;     // Anytone AT-D878UV
 extern radio_device_t radio_d878uv2;    // Anytone AT-D878UV2
@@ -151,3 +152,5 @@ extern int radio_port;
 // Read/write progress counter.
 //
 extern int radio_progress;
+
+// DM-32 enters program mode via its driver (no generic serial helper).

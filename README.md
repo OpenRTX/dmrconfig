@@ -1,5 +1,8 @@
 # DMRconfig
 
+## This work has been superceded by analysis performed by @infamy: https://github.com/infamy/DM32-Protocol-Spec
+
+
 DMRconfig is a utility for programming digital radios via USB programming cable.
 
 ## Supported radios:

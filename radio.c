@@ -56,6 +56,7 @@ static struct {
     { "ZD3688",     &radio_d900 },      // Zastone D900
     { "TP660",      &radio_dp880 },     // Zastone DP880
     { "ZN><:",      &radio_rt27d },     // Radtel RT-27D
+    { "DP570UV",    &radio_dm32 },      // Baofeng DM-32 (ident from capture)
     { 0, 0 }
 };
 
@@ -102,8 +103,27 @@ void radio_connect()
             ident = hid_identify();
     }
     if (! ident) {
-        // Try Anytone family.
+        // Try Anytone/HT serial protocol over common USB-serial bridges.
+        // Primary known VID:PID for Anytone cables.
         if (serial_init(0x28e9, 0x018a) >= 0)
+            ident = serial_identify();
+        // Silicon Labs CP210x (many Baofeng cables): treat as DM-32 directly.
+        if (!ident && serial_init(0x10c4, 0xea60) >= 0) {
+            ident = "DP570UV";
+        }
+        // QinHeng/CH340: DM-32 path — skip generic identify that might send bare PROGRAM.
+        if (!ident && serial_init(0x1a86, 0x7523) >= 0) {
+            // Commit to DM-32 directly to avoid Anytone-style probes on CH340.
+            ident = "DP570UV";
+        }
+        // Prolific PL2303
+        if (!ident && serial_init(0x067b, 0x2303) >= 0)
+            ident = serial_identify();
+        // FTDI
+        if (!ident && serial_init(0x0403, 0x6001) >= 0)
+            ident = serial_identify();
+        // Final generic fallback: any USB serial
+        if (!ident && serial_init(0x0000, 0x0000) >= 0)
             ident = serial_identify();
     }
     if (! ident) {
@@ -113,7 +133,8 @@ void radio_connect()
     }
 
     for (i=0; radio_tab[i].ident; i++) {
-        if (strcasecmp(ident, radio_tab[i].ident) == 0) {
+        // Accept exact match or prefix match to tolerate suffixes like 'DP570UVH'.
+        if (strncasecmp(ident, radio_tab[i].ident, strlen(radio_tab[i].ident)) == 0) {
             device = radio_tab[i].device;
             break;
         }
@@ -246,6 +267,10 @@ void radio_read_image(const char *filename)
             exit(-1);
         }
         fseek(img, 0, SEEK_SET);
+        break;
+    case 659456:        // Baofeng DM-32UV OEM codeplug (0x0A1000)
+    case 2097152:       // Baofeng DM-32UV full image (dmrconfig -r)
+        device = &radio_dm32;
         break;
     default:
         fprintf(stderr, "%s: Unrecognized file size %u bytes.\n",
