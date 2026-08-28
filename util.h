@@ -96,8 +96,15 @@ void hid_write_finish(void);
 int serial_init(int vid, int pid);
 const char *serial_identify(void);
 void serial_close(void);
+int serial_write(const unsigned char *data, int len);
+int serial_read(unsigned char *data, int len, int timeout_msec);
+// Open the last-found serial device (from serial_init) at the given baud without identifying.
+int serial_open_found(int baud_rate);
+void serial_set_pulse_on_open(int enable);
 void serial_read_region(int addr, unsigned char *data, int nbytes);
 void serial_write_region(int addr, unsigned char *data, int nbytes);
+// Briefly toggle RTS/DTR to nudge devices into programming mode.
+int serial_pulse_rts_dtr(void);
 
 //
 // Delay in milliseconds.
