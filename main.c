@@ -78,6 +78,10 @@ int main(int argc, char **argv)
     int read_flag = 0, write_flag = 0, config_flag = 0, csv_flag = 0;
     int list_flag = 0, verify_flag = 0, validate_flag = 0;
 
+    /* Make stderr unbuffered so progress messages appear in real time,
+     * even when redirected to a file or pipe (especially on Windows). */
+    setvbuf(stderr, NULL, _IONBF, 0);
+
     copyright = "Copyright (C) 2018 Serge Vakulenko KK6ABQ";
     trace_flag = 0;
     for (;;) {

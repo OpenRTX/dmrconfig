@@ -2,3 +2,4 @@
 *.hd
 dmrconfig
 dmrconfig.exe
+win32/
