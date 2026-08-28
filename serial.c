@@ -28,11 +28,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "util.h"
-#include <sys/ioctl.h>
 
 #if defined(__WIN32__) || defined(WIN32)
     #include <windows.h>
@@ -40,8 +38,16 @@
     #include <malloc.h>
     static void *fd = INVALID_HANDLE_VALUE;
     static DCB saved_mode;
+
+    /* usleep() is POSIX-only; provide a minimal shim for Windows. */
+    static inline int usleep(unsigned long usec) {
+        Sleep((usec + 999) / 1000);
+        return 0;
+    }
 #else
+    #include <unistd.h>
     #include <termios.h>
+    #include <sys/ioctl.h>
     static int fd = -1;
     static struct termios saved_mode;
     // Optional: pulse RTS/DTR on open. Disabled by default to avoid rebooting sensitive radios.
@@ -209,9 +215,19 @@ int serial_read(unsigned char *data, int len, int timeout_msec)
     // value, as it may have changed since the last read.
     //
     memset(&ctmo, 0, sizeof(ctmo));
-    ctmo.ReadIntervalTimeout = 0;
-    ctmo.ReadTotalTimeoutMultiplier = 0;
-    ctmo.ReadTotalTimeoutConstant = timeout_msec;
+    if (timeout_msec == 0) {
+        // timeout_msec=0 means "return immediately with whatever is
+        // available" (used by dm32_drain_input).  On Windows this
+        // requires MAXDWORD for ReadIntervalTimeout, not 0 (which
+        // would block forever with no total timeout set).
+        ctmo.ReadIntervalTimeout = MAXDWORD;
+        ctmo.ReadTotalTimeoutMultiplier = 0;
+        ctmo.ReadTotalTimeoutConstant = 0;
+    } else {
+        ctmo.ReadIntervalTimeout = 0;
+        ctmo.ReadTotalTimeoutMultiplier = 0;
+        ctmo.ReadTotalTimeoutConstant = timeout_msec;
+    }
     if (! SetCommTimeouts(fd, &ctmo)) {
         fprintf(stderr, "Cannot set timeouts in serial_read()\n");
         return -1;
@@ -290,9 +306,9 @@ int serial_open(const char *devname, int baud_rate)
 
     // Open port
     fd = CreateFile(devname, GENERIC_READ | GENERIC_WRITE,
-        0, 0, OPEN_EXISTING, 0, 0);
+        FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
     if (fd == INVALID_HANDLE_VALUE) {
-        fprintf(stderr, "%s: Cannot open\n", devname);
+        fprintf(stderr, "%s: Cannot open (error %lu)\n", devname, GetLastError());
         return -1;
     }
 
