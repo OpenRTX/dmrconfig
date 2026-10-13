@@ -2,3 +2,6 @@
 *.hd
 dmrconfig
 dmrconfig.exe
+
+device.conf
+device.img

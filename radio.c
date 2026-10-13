@@ -52,6 +52,10 @@ static struct {
     { "D868UVE",    &radio_d868uv },    // Anytone AT-D868UV
     { "D878UV2",    &radio_d878uv2 },   // Anytone AT-D878UV2
     { "D878UV",     &radio_d878uv },    // Anytone AT-D878UV
+    { "D578UV2",    &radio_d578uv2 },   // Anytone AT-D578UV2 / PLUS
+    { "578UV2A",    &radio_d578uv2 },   // Anytone AT-D578UV2 / PLUS
+    { "D578UV",     &radio_d578uv },    // Anytone AT-D578UV
+    { "D578UVE",    &radio_d578uv },    // Anytone AT-D578UV
     { "D6X2UV",     &radio_dmr6x2 },    // BTECH DMR-6x2
     { "ZD3688",     &radio_d900 },      // Zastone D900
     { "TP660",      &radio_dp880 },     // Zastone DP880
@@ -103,7 +107,8 @@ void radio_connect()
     }
     if (! ident) {
         // Try Anytone family.
-        if (serial_init(0x28e9, 0x018a) >= 0)
+        if (serial_init(0x28e9, 0x018a) >= 0 ||
+            serial_init(0x2e3c, 0x5740) >= 0)
             ident = serial_identify();
     }
     if (! ident) {
@@ -130,11 +135,20 @@ void radio_connect()
 //
 void radio_list()
 {
-    int i;
+    int i, j, duplicate;
 
     printf("Supported radios:\n");
     for (i=0; radio_tab[i].ident; i++) {
-        printf("    %s\n", radio_tab[i].device->name);
+        duplicate = 0;
+        for (j=0; j<i; j++) {
+            if (radio_tab[i].device == radio_tab[j].device) {
+                duplicate = 1;
+                break;
+            }
+        }
+        if (!duplicate) {
+            printf("    %s\n", radio_tab[i].device->name);
+        }
     }
 }
 
@@ -218,6 +232,12 @@ void radio_read_image(const char *filename)
             device = &radio_d878uv2;
         } else if (memcmp(ident, "D878UV", 6) == 0) {
             device = &radio_d878uv;
+        } else if (memcmp(ident, "D578UV2", 7) == 0 ||
+                   memcmp(ident, "578UV2A", 7) == 0) {
+            device = &radio_d578uv2;
+        } else if (memcmp(ident, "D578UVE", 7) == 0 ||
+                   memcmp(ident, "D578UV", 6) == 0) {
+            device = &radio_d578uv;
         } else if (memcmp(ident, "D6X2UV", 6) == 0) {
             device = &radio_dmr6x2;
         } else {
@@ -293,7 +313,8 @@ void radio_validate_config(const char *filename) {
   while (fgets(line, sizeof(line), conf)) {
     if (strstr(line, "Radio:")) {
       for (i = 0; radio_tab[i].ident; i++) {
-        if (strstr(line, radio_tab[i].ident)) goto found;
+        if (strstr(line, radio_tab[i].ident) ||
+            strstr(line, radio_tab[i].device->name)) goto found;
       }
     }
   }
@@ -302,11 +323,11 @@ void radio_validate_config(const char *filename) {
 
  found:
 
-  fprintf(stderr, "Identified radio from config file as: %s\n", radio_tab[i].ident);
+  fprintf(stderr, "Identified radio from config file as: %s\n", radio_tab[i].device->name);
   fclose(conf);
   device = radio_tab[i].device;
   radio_parse_config(filename);
-  fprintf(stderr, "Configuration validated successfully for %s\n", radio_tab[i].ident);
+  fprintf(stderr, "Configuration validated successfully for %s\n", radio_tab[i].device->name);
   exit(0);
 }
 

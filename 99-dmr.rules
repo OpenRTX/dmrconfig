@@ -11,6 +11,7 @@ SUBSYSTEM=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="df11", MODE="666"
 # Baofeng RD-5R, TD-5R
 SUBSYSTEM=="usb", ATTRS{idVendor}=="15a2", ATTRS{idProduct}=="0073", MODE="666"
 
-# Anytone D868UV/D878UV/D878UV2
+# Anytone D868UV/D878UV/D878UV2/D578UV
 # Ignore this device in Modem Manager
 ATTRS{idVendor}=="28e9" ATTRS{idProduct}=="018a", ENV{ID_MM_DEVICE_IGNORE}="1"
+ATTRS{idVendor}=="2e3c" ATTRS{idProduct}=="5740", ENV{ID_MM_DEVICE_IGNORE}="1"
